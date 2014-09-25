@@ -1,0 +1,6 @@
+*.cmi 
+*.cmo 
+*.mli
+*.native
+example.*
+_build*
