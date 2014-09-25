@@ -13,7 +13,7 @@
 
 (* Requires Module system, MiniML Ast, MiniML Typechecker, MiniML scoping and Compiler *)
 open Modules
-open MiniML
+open Mini
 open Typechecker
 open Scoping
 open Compiler
@@ -83,7 +83,8 @@ let main() =
     MLPrint.print_modtype mty; *)
 
     let prog = Parser.adriaan Lexer.token lexbuf in
-    (print_string (ByteCompiler.compile !init_env prog));
+    (print_string "Parsed\n");
+    (print_string (CCompiler.compile !init_env prog));
     Format.print_newline();
     exit 0
   with

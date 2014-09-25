@@ -12,7 +12,7 @@
  *)
 
 (* Requires the MiniML specification and Leroy Modular Modules *)
-open Ml
+open Mini
 open Modules
 
 

@@ -12,7 +12,7 @@
  *)
 
  (* Requires MiniML  and Leroy Modular Modules *)
-open MiniML
+open Mini
 open Modules
 
 
@@ -42,8 +42,6 @@ struct
             Let(id, scope_term sc t1, scope_term (Scope.enter_value id sc) t2)
         | If (t1,t2,t3) -> If(scope_term sc t1,scope_term sc t2,scope_term sc t3)
         | Prim (c,ls) -> Prim(c,(List.map  (fun x -> (scope_term sc x)) ls))
-        | SI(ty,t1) -> SI (ty,(scope_term sc t1))
-        | IS(ty,t1) -> IS (ty,(scope_term sc t1))
 
     let rec scope_simple_type sc = function
         Var v -> Var v

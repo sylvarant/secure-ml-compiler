@@ -31,3 +31,7 @@ struct
 
 end
 
+(*  - SAC
+    - ML secure compilation -> build a compiler
+    - set up pen test labs for comp sec course: configure vpn's and iso's -> other guy is useless
+*)

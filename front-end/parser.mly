@@ -13,10 +13,10 @@
 
 %{
 open Modules
-open ML
+open Mini
 open Typechecker
 
-let variables = ref ([] : (string * Ml.type_variable) list)
+let variables = ref ([] : (string * MiniML.type_variable) list)
 
 let reset_type_variables () =
   variables := []
@@ -42,8 +42,6 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 
 %token TRUE
 %token FALSE
-%token IS
-%token SI
 %token ARROW
 %token COLON
 %token COMMA
@@ -89,18 +87,18 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 
 /* Adriaan */
 %start adriaan 
-%type <ML.MiniML.term list> adriaan 
+%type <Mini.MiniML.term list> adriaan 
 
 /*% IGNORED
 %start implementation
-%type <ML.MiniMLMod.mod_term> implementation
+%type <Mini.MiniMLMod.mod_term> implementation
 */
 
 /*% IGNORED
 start phrase
-%type <ML.MiniMLMod.definition> phrase
+%type <Mini.MiniMLMod.definition> phrase
 %start code
-%type <ML.MiniMLMod.Core.term> code */
+%type <Mini.MiniMLMod.Core.term> code */
 %%
 
 /* Paths */
@@ -115,32 +113,30 @@ path:
 valexpr:
     valexpr1                          { $1 }
 /* %TODO what is this ?  | valexpr COMMA valexpr             { binop "," $1 $3 }*/
-  | valexpr PLUS valexpr              { ML.Prim( "+",(prim_ls $1 $3)) }
-  | valexpr MINUS valexpr             { ML.Prim( "-",(prim_ls $1 $3)) }
-  | valexpr STAR valexpr              { ML.Prim( "*",(prim_ls $1 $3)) }
-  | valexpr EQUALEQUAL valexpr        { ML.Prim( "=",(prim_ls $1 $3)) }
+  | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
+  | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
+  | valexpr STAR valexpr              { MiniML.Prim( "*",(prim_ls $1 $3)) }
+  | valexpr EQUALEQUAL valexpr        { MiniML.Prim( "=",(prim_ls $1 $3)) }
 /* TODO add  | valexpr SLASH valexpr             { binop "/" $1 $3 }
   | valexpr LESSGREATER valexpr       { binop "<>" $1 $3 }
   | valexpr LESS valexpr              { binop "<" $1 $3 }
   | valexpr LESSEQUAL valexpr         { binop "<=" $1 $3 }
   | valexpr GREATER valexpr           { binop ">" $1 $3 }
   | valexpr GREATEREQUAL valexpr      { binop ">=" $1 $3 } */
-/*  | FUNCTION IDENT COLON simpletype ARROW valexpr {ML.Function(Ident.create $2,$3 $5) } */
-  | FUNCTION IDENT ARROW valexpr {ML.Function(Ident.create $2, $4) } 
-  | LET IDENT valbind IN valexpr      { ML.Let(Ident.create $2, $3, $5) }
-  | IF valexpr THEN valexpr ELSE valexpr { ML.If( $2, $4, $6) }
-  | IS simpletype COLON valexpr      { ML.IS($2,$4)}
-  | SI simpletype COLON valexpr      { ML.SI($2,$4)}
+/*  | FUNCTION IDENT COLON simpletype ARROW valexpr {MiniML.Function(Ident.create $2,$3 $5) } */
+  | FUNCTION IDENT ARROW valexpr {MiniML.Function(Ident.create $2, $4) } 
+  | LET IDENT valbind IN valexpr      { MiniML.Let(Ident.create $2, $3, $5) }
+  | IF valexpr THEN valexpr ELSE valexpr { MiniML.If( $2, $4, $6) }
 ;
 valexpr1:
     valexpr0 { $1 }
-  | valexpr1 valexpr0 { ML.Apply($1, $2) }
+  | valexpr1 valexpr0 { MiniML.Apply($1, $2) }
 ;
 valexpr0:
-    path { ML.Longident($1) }
-  | INT  { ML.Constant $1 }
-  | TRUE { ML.Boolean true }
-  | FALSE { ML.Boolean false }
+    path { MiniML.Longident($1) }
+  | INT  { MiniML.Constant $1 }
+  | TRUE { MiniML.Boolean true }
+  | FALSE { MiniML.Boolean false }
   | LPAREN valexpr RPAREN { $2 }
 ;
 
