@@ -26,6 +26,3 @@ struct
 
 end
 
-
-let x = 5 in x;;
-let y = 6 in y

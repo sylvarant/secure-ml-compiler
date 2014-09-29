@@ -31,13 +31,12 @@ end
 module MiniML =
 struct
 
-    (* language AST *)
+    (* language AST *) (* TODO add lists and pairs *)
     type term =
         Constant of int                        
       | Boolean of bool                      
       | Longident of path                     
-(*      | Function of Ident.t * simple_type * term *)        
-      | Function of Ident.t * term
+      | Function of Ident.t * term (* TODO type annotate function var's ? *)
       | Apply of term * term               
       | If of term * term * term
       | Let of Ident.t * term * term      

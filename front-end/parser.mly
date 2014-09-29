@@ -6,7 +6,7 @@
  *    Description:  Parser for MiniML ML based on Leroy's parser for miniML
  *
  *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Distrinet, Kuleuven
+ *        Company:  uppsala
  *
  * =====================================================================================
  */
@@ -85,20 +85,21 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %right PLUS MINUS
 %right STAR SLASH
 
-/* Adriaan */
+/* Adriaan TODO is writing lose ml terms really needed ?
 %start adriaan 
 %type <Mini.MiniML.term list> adriaan 
 
-/*% IGNORED
-%start implementation
-%type <Mini.MiniMLMod.mod_term> implementation
+%start code
+%type <Mini.MiniMLMod.Core.term> code 
+
 */
 
-/*% IGNORED
-start phrase
+%start implementation
+%type <Mini.MiniMLMod.mod_term> implementation
+
+%start phrase
 %type <Mini.MiniMLMod.definition> phrase
-%start code
-%type <Mini.MiniMLMod.Core.term> code */
+
 %%
 
 /* Paths */
@@ -112,17 +113,17 @@ path:
 
 valexpr:
     valexpr1                          { $1 }
-/* %TODO what is this ?  | valexpr COMMA valexpr             { binop "," $1 $3 }*/
+/*  | valexpr COMMA valexpr             { binop "," $1 $3 } Fuck floating point */
   | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
   | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
   | valexpr STAR valexpr              { MiniML.Prim( "*",(prim_ls $1 $3)) }
   | valexpr EQUALEQUAL valexpr        { MiniML.Prim( "=",(prim_ls $1 $3)) }
-/* TODO add  | valexpr SLASH valexpr             { binop "/" $1 $3 }
-  | valexpr LESSGREATER valexpr       { binop "<>" $1 $3 }
-  | valexpr LESS valexpr              { binop "<" $1 $3 }
-  | valexpr LESSEQUAL valexpr         { binop "<=" $1 $3 }
-  | valexpr GREATER valexpr           { binop ">" $1 $3 }
-  | valexpr GREATEREQUAL valexpr      { binop ">=" $1 $3 } */
+  | valexpr SLASH valexpr             { MiniML.Prim( "/",(prim_ls $1 $3)) } /* TODO do we support integer operands? */
+  | valexpr LESSGREATER valexpr       { MiniML.Prim( "<>",(prim_ls $1 $3)) }
+  | valexpr LESS valexpr              { MiniML.Prim( "<",(prim_ls $1 $3)) }
+  | valexpr LESSEQUAL valexpr         { MiniML.Prim( "<=",(prim_ls $1 $3)) }
+  | valexpr GREATER valexpr           { MiniML.Prim( ">",(prim_ls $1 $3)) }
+  | valexpr GREATEREQUAL valexpr      { MiniML.Prim( ">=",(prim_ls $1 $3)) } 
 /*  | FUNCTION IDENT COLON simpletype ARROW valexpr {MiniML.Function(Ident.create $2,$3 $5) } */
   | FUNCTION IDENT ARROW valexpr {MiniML.Function(Ident.create $2, $4) } 
   | LET IDENT valbind IN valexpr      { MiniML.Let(Ident.create $2, $3, $5) }
@@ -249,12 +250,18 @@ signature_item:
 
 /* Toplevel entry point */
 
+phrase:
+    structure_item SEMISEMI           { $1 }
+  | EOF                               { raise End_of_file }
+;
+
 implementation:
    | modulexpr EOF                     { $1 }
+;
 
-adriaan:
+/*adriaan:
     | valexpr EOF { [$1] }
     | valexpr SEMISEMI adriaan { $1 :: $3 } 
-    | EOF { [] }
+    | EOF { [] }*/
 
 

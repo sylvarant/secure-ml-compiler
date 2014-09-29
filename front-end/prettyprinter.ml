@@ -11,7 +11,7 @@
  * =====================================================================================
  *)
 
-open MiniML
+open Mini
 open Typechecker
 
 module PrettyPrinter : sig
@@ -27,11 +27,8 @@ struct
     exception Cannot_print of string
     
     (* print a type *)
-    let print_type ty = raise Cannot_print "Function not implemented"
+    let print_type ty = raise (Cannot_print "Function not implemented")
 
 end
 
-(*  - SAC
-    - ML secure compilation -> build a compiler
-    - set up pen test labs for comp sec course: configure vpn's and iso's -> other guy is useless
-*)
+

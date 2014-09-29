@@ -17,6 +17,7 @@ open Mini
 open Typechecker
 open Scoping
 open Compiler
+open Prettyprinter
 
 
 let init_scope = ref Scope.empty
@@ -72,19 +73,20 @@ let _ =
  *          TODO    compile modules
  * =====================================================================================
  *)
+
+    (* let prog = Parser.adriaan Lexer.token lexbuf in
+    (print_string "Parsed\n");
+    (print_string (CCompiler.compile !init_env prog));
+    Format.print_newline(); *)
+
 let main() =
   let lexbuf = Lexing.from_channel stdin in
   try
-
-(*  Modular modules TODO
-    let prog = MiniMLparser.implementation MiniMLlexer.token lexbuf in
+    let prog = Parser.implementation Lexer.token lexbuf in
     let scoped_prog = MiniMLModScoping.scope_module !init_scope prog in
     let mty = MiniMLModTyping.type_module !init_env scoped_prog in
-    MLPrint.print_modtype mty; *)
-
-    let prog = Parser.adriaan Lexer.token lexbuf in
-    (print_string "Parsed\n");
-    (print_string (CCompiler.compile !init_env prog));
+    (print_string "I think it worked");
+    (* PrettyPrinter.print_type mty; TODO add pretty printing *)
     Format.print_newline();
     exit 0
   with

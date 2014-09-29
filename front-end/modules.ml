@@ -109,7 +109,6 @@ module type MOD_SYNTAX =
                                                   (* functor (X: mty) mod *)
       | Apply of mod_term * mod_term              (* mod1(mod2) *)
       | Constraint of mod_term * mod_type         (* (mod : mty) *)
-  (*    | Expression of Core.term  (* Adriaan *) *)
     and structure = definition list
     and definition =
         Value_str of Ident.t * Core.term          (* let x = expr *)
@@ -143,7 +142,6 @@ module Mod_syntax(Core_syntax: CORE_SYNTAX) =
                                                   (* functor (X: mty) mod *)
       | Apply of mod_term * mod_term              (* mod1(mod2) *)
       | Constraint of mod_term * mod_type         (* (mod : mty) *)
-     (* | Expression of Core.term  (* Adriaan *) *)
 
     and structure = definition list
     and definition =
@@ -531,7 +529,6 @@ module ModScoping
       | Module_sig(id, mty) :: rem ->
           Module_sig(id, scope_modtype sc mty) ::
           scope_signature (Scope.enter_module id sc) rem
-   (*   | Expression( e ):: es -> (raise (Failure "Adriaan"))  *)
     let rec scope_module sc = function
         Longident path -> Longident(Scope.module_path path sc)
       | Structure str -> Structure(scope_structure sc str)
@@ -541,7 +538,6 @@ module ModScoping
       | Apply(m1, m2) -> Apply(scope_module sc m1, scope_module sc m2)
       | Constraint(m, mty) ->
           Constraint(scope_module sc m, scope_modtype sc mty)
-   (*   | Expression( e ) -> (raise (Failure "Adriaan")) *)
     and scope_structure sc = function
         [] -> []
       | Value_str(id, v) :: rem ->
