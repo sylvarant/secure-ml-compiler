@@ -23,7 +23,7 @@ module MiniMLScoping =
 struct
 
     module Core = MiniML
-    open MiniML (* TODO *)
+    open MiniML 
 
     (* 
      * ===  FUNCTION  ======================================================================
