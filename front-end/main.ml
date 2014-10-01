@@ -85,9 +85,8 @@ let main() =
     let prog = Parser.implementation Lexer.token lexbuf in
     let scoped_prog = MiniMLModScoping.scope_module !init_scope prog in
     let mty = MiniMLModTyping.type_module !init_env scoped_prog in
-    (print_string "I think it worked");
+    (MiniMLDebug.debug "I think it worked\n");
     (* PrettyPrinter.print_type mty; TODO add pretty printing *)
-    Format.print_newline();
     exit 0
   with
     Error s ->

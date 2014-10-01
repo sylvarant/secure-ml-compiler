@@ -143,9 +143,7 @@ struct
         | Boolean  _ -> MiniML.bool_type
         | Longident path ->
             let (Pident id) = path in
-            MiniMLDebug.debug ("Variable -- " ^ (Ident.name id)  ^ "\n");
             let x = instance (Env.find_value path env) in
-            MiniMLDebug.debug "Variable\n";
             x
         | Function(param,body) ->
             let type_param = unknown() in
@@ -162,11 +160,8 @@ struct
             begin_def();
             let type_arg = infer_type env arg in
             end_def();
-            MiniMLDebug.debug "Shiiit\n"; 
             let nn = (Env.add_value ident (generalize type_arg) env) in
-            MiniMLDebug.debug ("Shiiit -- " ^ (Ident.name ident)^"\n"); 
             let tt = infer_type (Env.add_value ident (generalize type_arg) env) body in
-            MiniMLDebug.debug "Shiiit\n"; 
             tt
         | If (t1,t2,t3) ->
             let t1_type = infer_type env t1 
@@ -179,11 +174,11 @@ struct
             let t1_type = infer_type env (List.hd ls) 
             and t2_type = infer_type env (List.hd (List.tl ls))  in
             match str with
-            | "+" | "*" | "-" -> 
+            | "+" | "*" | "-" | "/" -> 
                 unify env t2_type MiniML.int_type;
                 unify env t1_type MiniML.int_type;
                 MiniML.int_type
-            | "=" -> 
+            | "==" | "<>" | "<=" | ">=" | ">" | "<" -> 
                 unify env t2_type MiniML.int_type;
                 unify env t1_type MiniML.int_type;
                 MiniML.bool_type

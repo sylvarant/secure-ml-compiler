@@ -117,8 +117,8 @@ valexpr:
   | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
   | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
   | valexpr STAR valexpr              { MiniML.Prim( "*",(prim_ls $1 $3)) }
-  | valexpr EQUALEQUAL valexpr        { MiniML.Prim( "=",(prim_ls $1 $3)) }
   | valexpr SLASH valexpr             { MiniML.Prim( "/",(prim_ls $1 $3)) } /* TODO do we support integer operands? */
+  | valexpr EQUALEQUAL valexpr        { MiniML.Prim( "==",(prim_ls $1 $3)) }
   | valexpr LESSGREATER valexpr       { MiniML.Prim( "<>",(prim_ls $1 $3)) }
   | valexpr LESS valexpr              { MiniML.Prim( "<",(prim_ls $1 $3)) }
   | valexpr LESSEQUAL valexpr         { MiniML.Prim( "<=",(prim_ls $1 $3)) }
