@@ -11,7 +11,6 @@
  * =====================================================================================
  *)
 
-(* Requires the Leroy framework for modular modules *)
 open Modules
 
 module MiniMLDebug : sig
