@@ -20,12 +20,13 @@ open Typechecker
  *  The bytecode compiler for MiniML ml
  *-----------------------------------------------------------------------------*)
 module CCompiler : sig
-
-    val compile : MiniMLEnv.binding Modules.Ident.tbl -> MiniML.term list -> string
+    
+    val compile : MiniMLMod.mod_term -> string
 
 end = 
 struct
     open MiniML 
+    open MiniMLMod
 
 
     (* Exceptions *) 
@@ -95,23 +96,19 @@ struct
     *  Description:    compile a list of expressions into a string of bytes
     * =====================================================================================
     *)
-    let compile env terms = "Compiler TODO"
+    let compile prog = 
+        let rec parse_definitions = function [] ->
+            | x::xs ->  match x with Type_str _ -> ""
+                | Module_str (id,mterm) ->
+                | Value_str (id,term) ->
+                
 
-        (* Typececk original program *)
-        (*let types = (check_program env terms)*)
-         
-        (* normalize *)
-        (*and anf_terms = (ANFNormalizer.normalize terms) in*)
-
-        (* Typecheck normal form again*)
-        (*let anf_types =  (check_program env anf_terms) in*)
-
-        (* compare the results *)
-        (*let _ =  (compare_types env types anf_types) in*)
-    
+        match prog with Structure str -> (parse_definitions str)
+        | _ ->  
+            prerr_string "Error: Not interested in this program"; 
+            prerr_newline(); 
+            exit 2
         
 end
-
-(* 30 mins overview, how many papers & acceptance rate & picture of chair, big picture, still odd what supposed to be in there *) 
 
 
