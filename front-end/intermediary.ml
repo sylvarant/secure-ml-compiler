@@ -20,4 +20,6 @@ struct
     and contents =  Gettr string * computation
     |  
 
+    let print: CFILE -> string =
+       | CFILE (name,ls) -> 
 end

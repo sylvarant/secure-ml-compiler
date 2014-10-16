@@ -27,7 +27,7 @@ typedef struct Binding_t
 {
     char * key;
     char * chunk;
-    struct N(Binding_t) * next;
+    struct Binding_t * next;
 } BINDING;
 
 
