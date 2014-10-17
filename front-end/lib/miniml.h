@@ -86,6 +86,7 @@ typedef union Value_u {
 
 typedef void* (* PrimOp) (void*,void*);
 typedef VALUE (* Lambda)();
+typedef void (*gettr)(BINDING *);
 
 
 /*-----------------------------------------------------------------------------
@@ -111,6 +112,17 @@ SCM_(Pair)
    VALUE right;
 _SCM
 
+
+/*-----------------------------------------------------------------------------
+ * Modules
+ *-----------------------------------------------------------------------------*/
+
+struct Structure{
+    BINDING * mod;
+};
+
+
+BINDING * toplevel = NULL;
 
 /*-----------------------------------------------------------------------------
  * Type Structure Definitions

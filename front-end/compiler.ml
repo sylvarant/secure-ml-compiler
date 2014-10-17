@@ -96,19 +96,28 @@ struct
     *  Description:    compile a list of expressions into a string of bytes
     * =====================================================================================
     *)
-    let compile prog = 
-        let rec parse_definitions = function [] ->
-            | x::xs ->  match x with Type_str _ -> ""
-                | Module_str (id,mterm) ->
-                | Value_str (id,term) ->
+    let compile prog gettrlist strtlist = 
+        
+        let rec parse_struct strls path = 
+
+            let rec parse_computation = function _ -> TODO
+
+            let parse_module =  
+               | Structure  
+
+            match strls with [] -> []
+                | x::xs ->  match x with Type_str _ -> ""
+                    | Module_str (id,mterm) -> (parse_module mterm path)
+                    | Value_str (id,term) -> 
+                        gettrlist := (Gettr ((id :: path), (parse_computation term))) :: !gettrlist;
+                        ((BVal id) :: (parse_struct xs (id::path)))
                 
 
-        match prog with Structure str -> (parse_definitions str)
+        match prog with Structure strt -> (parse_definitions strt) 
         | _ ->  
             prerr_string "Error: Not interested in this program"; 
             prerr_newline(); 
             exit 2
-        
 end
 
 
