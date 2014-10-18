@@ -106,7 +106,7 @@ module type MOD_SYNTAX =
         Longident of path                         (* X or X.Y.Z *)
       | Structure of structure                    (* struct ... end *)
       | Functor of Ident.t * mod_type * mod_term 
-                                                  (* functor (X: mty) mod *)
+                                                  (*functor (X: mty) mod *)
       | Apply of mod_term * mod_term              (* mod1(mod2) *)
       | Constraint of mod_term * mod_type         (* (mod : mty) *)
     and structure = definition list
