@@ -42,8 +42,8 @@ struct
 
     (* types used during compilation *)
     type cpath = string list
-    and modbindtype = FB of cpath * string * modbindtype list | SB of cpath * modbindtype list
-    and strctbinding = BVal of string * modbindtype | BMod of string * modbindtype 
+    and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
+    and strctbinding = BVal of string * computation | BMod of string * modbindtype 
     and computation = TODO
 
 
@@ -85,29 +85,30 @@ struct
             (* convert a module definition into a new environment *)
             let rec parse_module env pth modterm = 
 
-                let rec lookup_path env :  = (function x::[] -> let BMod (_,e) = (get_binding x env) in e
-                    | x::xs -> let BMod (_,e) = (get_binding x (lookup_path env xs) ) in e) in
+                let rec lookup_path env = (function x::[] -> let BMod (_,e) = (get_binding x env) in e
+                    | x::xs -> let SB (_,nenv) =  (lookup_path env xs) in
+                        let BMod (_,e) = (get_binding x nenv) in e) in
             
                 match modterm with Longident path -> (lookup_path env (convert_path path))
                     | Structure strls -> let parsed = (parse_struct env pth strls) in SB (path,parsed)
-                    | Functor (id,ty,m) -> FB (path,id.name,m)
+                    | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
                     | Apply (m1,m2) -> 
-                        match (parse_module env pth m1) with
+                        (match (parse_module env pth m1) with
                             | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
                                 (parse_module ((BMod (id,nenv))::env) pth m)
-                            | _ -> raise (Cannot_compile "Needed Functor")
-                | Constraint (m,ty) -> raise Cannot_compile "Constraint !" in
+                            | _ -> raise (Cannot_compile "Needed Functor"))
+                    | Constraint (m,ty) -> raise (Cannot_compile "Constraint !") in
 
             (* recurse over the list of definitions *)
             match strctls with [] -> []
-                | x::xs ->  match x with Type_str _ -> ""
+                | x::xs ->  match x with Type_str _ -> (parse_struct env path xs)
                     | Module_str (id,mterm) -> 
-                        let nenv = (parse_module env (id.name::path) mterm) in
-                        let value = BMod (id.name,nenv) in
+                        let nenv = (parse_module env ((Ident.name id)::path) mterm) in
+                        let value = BMod ((Ident.name id),nenv) in
                         value :: (parse_struct (value :: env) path xs)
                     | Value_str (id,term) -> 
                         let comp = (parse_computation env term) in
-                        let data = BVal ((id.name), (id :: path ,comp)) in 
+                        let data = BVal ((Ident.name id), (comp)) in 
                             data :: (parse_struct (data :: env) path xs) in
                 
         (* top level *)
