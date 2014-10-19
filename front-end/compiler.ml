@@ -15,19 +15,6 @@ open Mini
 open Modules (*opening mini should open this *)
 
 
-
-
-    (* Print the intermediary to a c file *)
-    let printfile env  =
-
-        (* convert the contents *)
-        let printcontents ls = "" in
-
-        (* include miniml settings from lib/ *)
-        None 
-
-
-
 (*-----------------------------------------------------------------------------
  *  The compiler for MiniML ml
  *-----------------------------------------------------------------------------*)
@@ -40,47 +27,51 @@ struct
     (* Exceptions *) 
     exception Cannot_compile of string
 
-    (* types used during compilation *)
+    (* types used during omega translation *)
     type cpath = string list
     and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
     and strctbinding = BVal of string * computation | BMod of string * modbindtype 
     and computation = TODO
+    
+    (* types used during theta translation *)
+    type compred = Gettr of string * computation | Strct of string * assoc list
+    and assoc = action * string * string
+    and action = Call | Share
+ 
+
+    (* convert a path into a list of strings *)
+    let rec convert_path = (function Pident id -> [Ident.name id]
+        | Pdot (p,str) -> str :: (convert_path p)) 
 
 
    (* 
     * ===  FUNCTION  ======================================================================
-    *         Name:    compile
-    *  Description:    compiles MiniML into MLC, returns a list of getters and structs
+    *         Name:    parse_computation
+    *  Description:    compiles the lambda calculus
     * =====================================================================================
     *)
-    let compile program = 
+    let rec parse_computation env = function _ -> TODO 
 
-
-        (* header for the compiled result *)
-        let header = ["// Compiled by lanren"; "#include \"miniml.h"; ""] in
+       
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *         Name:    omega_transformation
+    *  Description:    converts the toplevel into an omega binding
+    * =====================================================================================
+    *)
+    let omega_transformation program = 
 
         (* look up x in the env *)
         let get_binding x env = 
             let find_binding = (function
-            | BVal (nn,_) when (nn = x) -> true
-            | BMod (nn,_) when (nn = x) -> true
-            | _ -> false) in
+                | BVal (nn,_) when (nn = x) -> true
+                | BMod (nn,_) when (nn = x) -> true
+                | _ -> false) in
             try (List.find (find_binding) env)
             with _ -> raise (Cannot_compile "Identifier not found") in
 
-        (* convert a path into a list of strings *)
-        let rec convert_path = (function Pident id -> [Ident.name id]
-            | Pdot (p,str) -> str :: (convert_path p)) in
-
-        (* convert path to string *)
-        let rec path_str = function
-              Pident id -> (Ident.name id) 
-            | Pdot(root, field) -> ((path_str root) ^ "." ^ field) in
-        
         (* convert a sequence of structure definitions *)
         let rec parse_struct env path strctls   = 
-
-            let rec parse_computation env = function _ -> TODO in
 
             (* convert a module definition into a new environment *)
             let rec parse_module env pth modterm = 
@@ -114,9 +105,64 @@ struct
         (* top level *)
         match program with Structure strt -> (parse_struct [] [] strt) 
         | _ ->  
-            prerr_string "Error: Not interested in this program"; 
-            prerr_newline(); 
-            exit 2
+            raise (Cannot_compile "Top level must be structure")
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *         Name:    theta_transformation
+    *  Description:    converts the binding into lists of gettr's struct ptr's and fctr's 
+    * =====================================================================================
+    *)
+    let theta_transformation binding = 
+
+        (* the collection for the compilation *)
+        let gettr_lst = ref []
+        and strct_list = ref []
+        and fctr_list = ref [] 
+        and path_list = ref [] in
+
+        (* helpers functions *)
+        let make_ptr lst = (String.concat "." (List.rev lst)) in
+        let find_path x lst = (List.exists (function y -> (make_ptr x) = (make_ptr y)) lst) in
+
+        (* select the structures gettrs from the previoulsy obtained omega *)
+        let rec select path = (function [] -> []
+            | BVal (name, comp) :: ls -> let ptr = make_ptr (name::path) in
+                gettr_lst := ((Gettr (ptr,comp)) :: !gettr_lst);
+                (Call,name,ptr)::(select path  ls) 
+            | BMod (name, modt) :: ls -> match modt with
+                | SB (pth,nbinding) when (not (find_path pth !path_list)) ->  
+                    path_list := pth :: !path_list;
+                    let light_list = (select (name::path) nbinding) in
+                    let ptr = (make_ptr pth) in
+                    strct_list := ((Strct (ptr,light_list)) :: !strct_list);
+                    (Share,name,ptr)::(select path ls)
+                | SB (pth,nbinding) -> (Share,name,(make_ptr pth))::(select path ls)
+                | FB (pth,var,m) -> (Share,name,(make_ptr pth))::(select path ls)) in (* TODO functor's need special treatment *)
+
+        (* top level *)
+        let top_level = (select [] binding) in 
+        (!gettr_lst,!strct_list,!fctr_list,top_level)
+         
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *         Name:    compile
+    *  Description:    converts the toplevel into a giant string
+    * =====================================================================================
+    *)
+    let compile program =
+
+        let rec print_getters = function [] -> []
+            | Gettr  (ptr,comp) :: xs -> "VALUE" :: (print_getters xs) in
+
+        (* header for the compiled result *)
+        let header = ["// Compiled by lanren"; "#include \"miniml.h"; ""] in
+
+        let omega = omega_transformation program in
+        let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in "done"
+
+    
 end
 
 
