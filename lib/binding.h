@@ -35,7 +35,7 @@ typedef struct Binding_t
  *  Functionality
  *-----------------------------------------------------------------------------*/
 
-FUNCTIONALITY void insertBinding(BINDING **,char *,char *);
+FUNCTIONALITY void insertBinding(BINDING **,char *,char *,char *);
 FUNCTIONALITY void * getBinding(BINDING *,char *);
 
 #endif

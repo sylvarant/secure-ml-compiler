@@ -86,7 +86,7 @@ typedef union Value_u {
 
 typedef void* (* PrimOp) (void*,void*);
 typedef VALUE (* Lambda)();
-typedef void (*gettr)(BINDING *);
+typedef VALUE (*gettr)(BINDING *);
 
 
 /*-----------------------------------------------------------------------------

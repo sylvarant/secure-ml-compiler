@@ -81,8 +81,7 @@ let main() =
     let scoped_prog = MiniMLModScoping.scope_module !init_scope prog in
    (* let mty = MiniMLModTyping.type_module !init_env scoped_prog in *)
     let compilation =  (CCompiler.compile scoped_prog) in
-    (MiniMLDebug.debug "what");
-    (MiniMLDebug.debug "\n");
+    (MiniMLDebug.debug compilation);
     exit 0
   with
     Error s ->

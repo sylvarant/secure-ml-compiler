@@ -20,7 +20,7 @@ module MiniMLDebug : sig
 end =
 struct
 
-    let debug str = Printf.eprintf "%s" str
+    let debug str = Printf.eprintf "%s\n" str
     
 end
 
