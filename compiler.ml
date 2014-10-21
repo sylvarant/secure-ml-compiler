@@ -171,14 +171,16 @@ struct
                     | [] -> []
                     | x::xs -> [(binding^" = "^(make_ptr tail)^".mod;")] 
                     with _ -> [] in
-                decl @ parent @ (print_assoc binding assocs) @ (print_strcts xs) in
+                decl @ parent @ (print_assoc binding assocs) @ [""] @ (print_strcts xs) in
 
         (* build the bootup function: where we set it all up *)
         let boot_up strls top =
-            let def = "void bootup(void) {"  in
-            let body = (print_strcts strls) in
+            let def = "void bootup(void) {\n"  in
+            let body = (print_strcts strls) @ [""] in
             let body2 = (print_assoc "toplevel"  top) in
-                (def :: (body @ body2) @ ["}"]) in
+                (def :: (body @ body2) @ ["";"}"]) in
+
+        let path_entry = ["ENTRYPOINT void path_entry(char * path){"; ]
 
         let rec print_computation comp = ["TODO"] in
 
@@ -186,15 +188,19 @@ struct
             | Gettr  (ptr,comp) :: xs -> let definition = ("VALUE "^ptr^"(BINDING * mod){") in
                 let body = (String.concat "\n" (print_computation comp)) in
                 (String.concat "\n" (definition::body::"}\n"::[]) ) :: (print_getters xs) in
+pathEV_entry()
+{
+    static int start = bootup();
 
+}
 
 
         (* header for the compiled result *)
-        let header = ["// Compiled by lanren"; "#include \"miniml.h"; ""] in
+        let header = ["// Compiled by lanren"; "#include \"miniml.h\""; ""] in
 
         let omega = omega_transformation program in
         let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
-        ((String.concat "\n"  (header @ (print_getters (List.rev gettr_lst)) @ (boot_up (List.rev strct_list) top_level ))) ^ "\n")
+        ((String.concat "\n"  (header @ (print_getters (List.rev gettr_lst)) @ (boot_up (strct_list) top_level ))) ^ "\n")
     
 end
 

@@ -156,6 +156,24 @@ FUNCTIONALITY TYPE makeT(Star)(TYPE, TYPE);
  *  statically inlined constructor methods
  *-----------------------------------------------------------------------------*/
 
+ENTRYPOINT void * path_entry(char * path){
+
+    BINDING * map = toplevel; 
+    char * remainder = path;
+    while(remainder){
+        char * x_i = nextId(&remainder);
+        struct * meta =  getBinding(map,x_i);
+        if(meta.call){
+           if(remainder[0] == '\0') {
+
+           }
+        }
+        else{
+
+        }
+    }
+}
+
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:    makeInt
