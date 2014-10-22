@@ -158,7 +158,8 @@ struct
 
         (* add associations to bindings *)
         let rec print_assoc binding = function [] -> []
-            | (_,strl,strr)::xs -> let temp = ("insertBinding("^binding^", "^strl^" , "^strr^");") in
+            | (ty,strl,strr)::xs -> let ui = (match ty with Call -> "1" | _ -> "0") in
+                let temp = ("insertBinding(&"^binding^", \""^strl^"\" , "^strr^", "^ui^");") in
                 temp :: (print_assoc binding xs) in
 
         (* print_strcts: convert structs into mallocs and bindings *)
@@ -175,32 +176,27 @@ struct
 
         (* build the bootup function: where we set it all up *)
         let boot_up strls top =
-            let def = "void bootup(void) {\n"  in
+            let def = "LOCAL int bootup(void) {\n"  in
             let body = (print_strcts strls) @ [""] in
             let body2 = (print_assoc "toplevel"  top) in
-                (def :: (body @ body2) @ ["";"}"]) in
+                (def :: (body @ body2) @ ["";"return 1;";"}"]) in
 
-        let path_entry = ["ENTRYPOINT void path_entry(char * path){"; ]
-
-        let rec print_computation comp = ["TODO"] in
+        let rec print_computation comp = ["VALUE p = {.byte = NULL}; ";"return p;"] in
 
         let rec print_getters = function [] -> []
             | Gettr  (ptr,comp) :: xs -> let definition = ("VALUE "^ptr^"(BINDING * mod){") in
                 let body = (String.concat "\n" (print_computation comp)) in
                 (String.concat "\n" (definition::body::"}\n"::[]) ) :: (print_getters xs) in
-pathEV_entry()
-{
-    static int start = bootup();
 
-}
+        (* header and footer for the compiled result *)
+        let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
+        let footer = ["";"// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
+                        "#include \"entry.c\""; ""] in
 
-
-        (* header for the compiled result *)
-        let header = ["// Compiled by lanren"; "#include \"miniml.h\""; ""] in
-
+        (* Top Level *)
         let omega = omega_transformation program in
         let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
-        ((String.concat "\n"  (header @ (print_getters (List.rev gettr_lst)) @ (boot_up (strct_list) top_level ))) ^ "\n")
+        ((String.concat "\n"  (header @ (print_getters (List.rev gettr_lst)) @ (boot_up (strct_list) top_level ) @ footer)) ^ "\n")
     
 end
 

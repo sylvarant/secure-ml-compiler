@@ -15,8 +15,6 @@
 #ifndef MINIML_INCLUDED
 #define MINIML_INCLUDED
 
-#include <stdio.h>
-
 #include "binding.h" // adds global.h !
 
 /*-----------------------------------------------------------------------------
@@ -36,28 +34,12 @@ enum{ MFALSE = 0, MTRUE = 1 };
 
 
 /*-----------------------------------------------------------------------------
- *  Tags used by MiniML terms and types
+ * Types
  *-----------------------------------------------------------------------------*/
 
-/*
- * Tags for terms
- */
-typedef enum Tag_e {
-    INT, BOOLEAN, CLOSURE, PAIR 
-} TAG;
-
-/*
- * Tags for types
- * TODO :: add signatures
- */
-Typedef enum T(Tag_e){
+typedef enum T(Tag_e){
     T(UNIT), T(INT), T(BOOLEAN), T(ARROW), T(STAR)
 } T(TAG);
-
-
-/*-----------------------------------------------------------------------------
- * Union of Types
- *-----------------------------------------------------------------------------*/
 
 typedef union Type_u{
     T(TAG) t;
@@ -66,27 +48,17 @@ typedef union Type_u{
     void * byte;         
 } TYPE;
 
+struct T(Arrow){
+    T(TAG) t;
+    TYPE left;
+    TYPE right;
+};
 
-/*-----------------------------------------------------------------------------
- * Union of Values
- *-----------------------------------------------------------------------------*/
-
-typedef union Value_u {
-    void * byte;
-    struct V(Boolean) b;
-    struct V(Int) i;
-    struct V(Closure) c;
-    struct V(Pair) p;
-} VALUE;
-
-
-/*-----------------------------------------------------------------------------
- * Function definitions
- *-----------------------------------------------------------------------------*/
-
-typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)();
-typedef VALUE (*gettr)(BINDING *);
+struct T(Star){
+    T(TAG) t;
+    TYPE left;
+    TYPE right;
+};
 
 
 /*-----------------------------------------------------------------------------
@@ -104,13 +76,30 @@ _SCM
 SCM_(Closure)
     BINDING * env;
     BINDING * mod;
-    Lambda lam;
+    MAX (*lam)(void); 
 _SCM
 
 SCM_(Pair)
-   VALUE left;
-   VALUE right;
+   union Value_u * left;
+   union Value_u * right;
 _SCM
+
+typedef union Value_u {
+    void * byte;
+    struct V(Boolean) b;
+    struct V(Int) i;
+    struct V(Closure) c;
+    struct V(Pair) p;
+} VALUE;
+
+
+/*-----------------------------------------------------------------------------
+ * Function definitions
+ *-----------------------------------------------------------------------------*/
+
+typedef void* (* PrimOp) (void*,void*);
+typedef VALUE (* Lambda)(void);
+typedef VALUE (* Gettr)(BINDING *);
 
 
 /*-----------------------------------------------------------------------------
@@ -123,56 +112,49 @@ struct Structure{
 
 
 BINDING * toplevel = NULL;
-
-/*-----------------------------------------------------------------------------
- * Type Structure Definitions
- *-----------------------------------------------------------------------------*/
-
-struct T(Arrow){
-    T(TAG) t;
-    TYPE left;
-    TYPE right;
-};
-
-struct T(Star){
-    T(Tag) t;
-    TYPE left;
-    TYPE right;
-};
+BINDING * exchange = NULL;
+OtherM dark_malloc = NULL;
+unsigned int LOADED = 0;
 
 
 /*-----------------------------------------------------------------------------
  * type constructors - TODO
  *-----------------------------------------------------------------------------*/
 
-FUNCTIONALITY TYPE makeT(Unit)(void);
-FUNCTIONALITY TYPE makeT(Int)(void);
-FUNCTIONALITY TYPE makeT(Boolean)(void);
-FUNCTIONALITY TYPE makeT(Arrow)(TYPE, TYPE);
-FUNCTIONALITY TYPE makeT(Star)(TYPE, TYPE);
+FUNCTIONALITY TYPE makeTUnit(void);
+FUNCTIONALITY TYPE makeTInt(void);
+FUNCTIONALITY TYPE makeTBoolean(void);
+FUNCTIONALITY TYPE makeTArrow(TYPE, TYPE);
+FUNCTIONALITY TYPE makeTStar(TYPE, TYPE);
+
+/*-----------------------------------------------------------------------------
+ *  statically defined auxilary methods
+ *-----------------------------------------------------------------------------*/
+
+LOCAL unsigned int getAdress(void);
+LOCAL DATA convertV(VALUE);
+LOCAL DATA convert(void *,TAG t);
+
+
+/*-----------------------------------------------------------------------------
+ *  statically inlined helper functions
+ *-----------------------------------------------------------------------------*/
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    mistakeFromOutside
+ *  Description:    terminate when the outside makes a mistake
+ * =====================================================================================
+ */
+LOCAL void mistakeFromOutside(void)
+{
+    exit(2); 
+}
 
 
 /*-----------------------------------------------------------------------------
  *  statically inlined constructor methods
  *-----------------------------------------------------------------------------*/
-
-ENTRYPOINT void * path_entry(char * path){
-
-    BINDING * map = toplevel; 
-    char * remainder = path;
-    while(remainder){
-        char * x_i = nextId(&remainder);
-        struct * meta =  getBinding(map,x_i);
-        if(meta.call){
-           if(remainder[0] == '\0') {
-
-           }
-        }
-        else{
-
-        }
-    }
-}
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -224,7 +206,7 @@ LOCAL VALUE makeClosure(BINDING * env, BINDING * mod, Lambda lambda)
  *  Description:    create a Pair
  * =====================================================================================
  */
-LOCAL VALUE makePair(VALUE left, VALUE right)
+LOCAL VALUE makePair(VALUE * left, VALUE * right)
 {
     VALUE v;
     v.p.t = PAIR;

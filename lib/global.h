@@ -42,7 +42,13 @@
     #define FUNCTIONALITY SM_FUNC(SPM_NAME) extern __attribute__ ((visibility ("hidden")))
 
 #else
+    // standard c - headers
+    #include<stdlib.h>    
+
+    // standard c - memory management
+    #define MALLOC malloc
     
+    // who's who
     #define LOCAL static
     #define SECRET_DATA static
     #define FUNCTIONALITY extern __attribute__ ((visibility ("hidden")))

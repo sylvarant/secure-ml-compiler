@@ -11,9 +11,8 @@
  * =====================================================================================
  */
 
-#include <stdlib.h>
-#include <string.h>
-
+#include <string.h> // TODO sancus liability
+#include "binding.h"
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -26,7 +25,7 @@ FUNCTIONALITY void * getBinding(BINDING * ls, char * key)
     BINDING * node = ls;
     while(node) {
         if(strcmp(key,node->key) == 0)
-            return node->chunk;
+            return node->contents;
         node = node->next;
     }
     return NULL;
@@ -39,9 +38,13 @@ FUNCTIONALITY void * getBinding(BINDING * ls, char * key)
  *  Description:    add a new binding to the environment
  * =====================================================================================
  */
-FUNCTIONALITY void insertBinding(BINDING ** head, char * key, char * chunk)
+FUNCTIONALITY void insertBinding(BINDING ** head, char * key,void * value,unsigned int call)
 {
     BINDING * node = MALLOC(sizeof(BINDING));
+    META * cont = MALLOC(sizeof(META));
+    cont->call = call;
+    if(call) cont->value = value;
+    else cont->gettr = value; // suck it
 
     if(*head == NULL){
         *head        = node;
@@ -51,7 +54,21 @@ FUNCTIONALITY void insertBinding(BINDING ** head, char * key, char * chunk)
         (*head)    = node;
     }
     node->key = key;
-    node->address = chunk;
+    node->contents = cont;
 
 }
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    getAdress
+ *  Description:    return adresses, may overflow
+ * =====================================================================================
+ */
+unsigned int getAdress(void)
+{
+    static unsigned int addr = 0;
+    return ++addr;
+}
+
 

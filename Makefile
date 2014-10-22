@@ -41,3 +41,6 @@ now: native
 
 clean:
 	$(OCAMLBUILD) -clean
+
+setup:
+	mkdir out

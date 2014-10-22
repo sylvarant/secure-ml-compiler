@@ -16,6 +16,7 @@
 #ifndef ENTRY_INCLUDED
 #define ENTRY_INCLUDED
 
+#include <stdlib.h>
 
 /*-----------------------------------------------------------------------------
  * SANCUS SPM structure
@@ -42,11 +43,34 @@
 
 
 /*-----------------------------------------------------------------------------
+ *  Data Sharing
+ *-----------------------------------------------------------------------------*/
+
+typedef enum Tag_e {
+    INT, BOOLEAN, CLOSURE, PAIR, MODULE, FUNCTOR,
+} TAG;
+
+typedef struct Data_s{
+    TAG t;   
+    union {
+        int value; 
+        unsigned int identifier;
+        struct {
+            struct Data_s * left;
+            struct Data_s * right;
+        };
+    };
+} DATA;
+
+typedef void* (* OtherM)(size_t);
+
+/*-----------------------------------------------------------------------------
  *  Secure Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT void path_entry(char * path);
-ENTRYPOINT void closure_entry(int id,void * p);
+ENTRYPOINT void start(OtherM);
+ENTRYPOINT DATA path_entry(char * path, int size);
+ENTRYPOINT DATA closure_entry(int id,void * p);
 
 
 #endif
