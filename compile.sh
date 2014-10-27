@@ -40,5 +40,6 @@ if [[ $? -ne 0 ]];then
     echo "C Compilation failed"
     echo "------------------------------------------------------"
     cat $outputc 
+    exit 2
 fi
 

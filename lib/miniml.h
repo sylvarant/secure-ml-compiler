@@ -206,15 +206,16 @@ LOCAL VALUE makeClosure(BINDING * env, BINDING * mod, Lambda lambda)
  *  Description:    create a Pair
  * =====================================================================================
  */
-LOCAL VALUE makePair(VALUE * left, VALUE * right)
+LOCAL VALUE makePair(VALUE left, VALUE right)
 {
     VALUE v;
     v.p.t = PAIR;
-    v.p.left = left;
-    v.p.right = right;
+    v.p.left = MALLOC(sizeof(VALUE));
+    v.p.right = MALLOC(sizeof(VALUE));
+    *(v.p.left) = left;
+    *(v.p.right) = right;
     return v;
 }
-
 
 
 #endif

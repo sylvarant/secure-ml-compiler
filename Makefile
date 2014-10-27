@@ -44,3 +44,4 @@ clean:
 
 setup:
 	mkdir out
+	mkdir log

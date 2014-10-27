@@ -35,6 +35,7 @@ struct
         Constant of int                        
       | Boolean of bool                      
       | Longident of path                     
+      | Pair of term * term
       | Function of Ident.t * term (* TODO type annotate function var's ? *)
       | Apply of term * term               
       | If of term * term * term
