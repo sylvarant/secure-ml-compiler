@@ -85,7 +85,7 @@ SCM_(Pair)
 _SCM
 
 typedef union Value_u {
-    void * byte;
+    union Value_u * byte;
     struct V(Boolean) b;
     struct V(Int) i;
     struct V(Closure) c;

@@ -39,7 +39,7 @@ struct
             | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
             | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc
             | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-            | MALLOC of tempc | Ptr of tempc | Adress of tempc
+            | MALLOC of tempc | Ptr of tempc | Adress of tempc | ToByte of tempc
   
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath * assoc list 
@@ -149,7 +149,7 @@ struct
         | Apply (l,r) -> let tmp = new_var() in 
           varlist := (CVar tmp) :: !varlist;
           let tcv = (CVar tmp) in
-          ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (Adress (convert r))])))
+          ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (ToByte (convert r))])))
         | Function(id,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))()  in
           (makef lamname idn e);
@@ -199,6 +199,7 @@ struct
     | MALLOC a -> "VALUE "^(printc a)^" = malloc(sizeof(VALUE))"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
+    | ToByte a -> (printc a)^".byte"
   
        (* 
   * ===  FUNCTION  ======================================================================
