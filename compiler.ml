@@ -12,11 +12,12 @@
  *)
 
 open Mini
-open Modules (*opening mini should open this *)
+open Modules 
 
 
 module CCompiler =
 struct
+
   open MiniML 
   open MiniMLMod
 
@@ -33,11 +34,16 @@ struct
   and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
   and strctbinding = BVal of string * computation | BMod of string * modbindtype 
   and computation = tempc list * tempc 
-  and tempc = ToValue of tempc | ToInt of int | ToBoolean of int 
+  and tempc = ToValue of tempc | ToInt of int | ToBoolean of int | CVar of string 
+            | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
+            | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
+            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc
+            | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
+            | MALLOC of tempc | Ptr of tempc | Adress of tempc
   
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath * assoc list 
-         | Fctr of cpath * assoc list | Compttr of string * computation * tempc list
+               | Fctr of cpath * assoc list | Compttr of string * computation * tempc list
   and assoc = action * string * string
   and action = Call | Share
  
@@ -55,13 +61,22 @@ struct
   (* simple string modification *)
   let getmod s = s^"->mod" 
 
+  (* range operator *)
+  let (--) i j = 
+    let rec aux n acc =
+      if n < i then acc else aux (n-1) (n :: acc) in 
+    (aux j [])
+
+  (* get option operator *)
+  let (+&) = (function Some a -> a | None -> raise (Cannot_compile "Some value doesn't exist"))
+
  (*-----------------------------------------------------------------------------
   *  Global constants
   *-----------------------------------------------------------------------------*)
 
-  let CONST_ENV = "my_env" 
-  and CONS_ARG = "my_arg"
-  and CONST_MOD = "my_mod" 
+  let const_env = "my_env" 
+  and const_arg = "my_arg"
+  and const_mod  = "my_mod" 
 
 
  (* 
@@ -73,17 +88,23 @@ struct
   let rec lookup_path env path = 
 
     (* look up x in the env *)
-    let get_binding x = 
+    let get_binding x nenv = 
       let find_binding = (function
       | BVal (nn,_) when (nn = x) -> true
       | BMod (nn,_) when (nn = x) -> true
-      | _ -> false) in
-      try (List.find (find_binding) env)
-      with _ -> raise (Cannot_compile "Identifier not found") in
+      | _ ->  false) in
+      try (List.find (find_binding) nenv)
+      with Not_found -> raise (Cannot_compile "Identifier not found") in
 
-    match path with  x::[] -> let BMod (_,e) = (get_binding x env) in e
-      | x::xs -> let SB (_,nenv) =  (lookup_path env xs) in
-        let BMod (_,e) = (get_binding x nenv) in e 
+    (* When it comes to values all that matters is that they exist *)
+    let extract = function
+        | BVal _ -> None
+        | BMod (_,e) -> Some e in
+
+    (* toplevel *)
+    match path with  x::[] -> (extract (get_binding x env)) 
+      | x::xs -> let SB (_,nenv) = (+&) (lookup_path env xs) in
+        (lookup_path nenv (x::[]))
 
 
  (* 
@@ -92,14 +113,20 @@ struct
   *  Description:  compiles the lambda calculus
   * =====================================================================================
   *)
-  let rec parse_computation env pathstr funclist program = 
+  let rec parse_computation env path funclist program = 
 
     (*TODO generate v@r based on existing syms *)
     let new_var = let count = ref (-1) in 
-      fun () -> incr count; ("v@r_" ^ (string_of_int !count)) in
+      fun () -> incr count; ("v_r_" ^ (string_of_int !count)) in
+
+    let new_func str = let count = ref (-1) in
+      fun () -> incr count; ("Lam_"^str ^ (string_of_int !count)) in
+
+    let new_ptr = let count = ref (-1) in
+        fun () -> incr count; ("ptr" ^ (string_of_int !count)) in
 
     (* get rid of the let terms *)
-    let rec desugar = function
+    let rec desugar : MiniML.term -> MiniML.term  = function
       | Let (id,e,t) -> Apply( (desugar (Function(id, t))) , (desugar e))
       | Constant _ as t -> t
       | Boolean _ as t -> t
@@ -110,32 +137,41 @@ struct
      
      (* miniml -> interm + var list side effect *)
      let rec compile varlist program = 
-      let rec convert = function 
-        | Longident path -> try get_binding 
+      let rec convert : MiniML.term -> tempc = function 
+        | Longident lpath -> let cpath = (convert_path lpath) in 
+          (try let _ = (lookup_path env cpath) in 
+          (Get ((CVar const_mod),(CString (make_ptr cpath))))
+          with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
         | Constant x -> ToInt x
         | Boolean x -> ToBoolean (match x with | true -> 1 | _ -> 0)
-        | If (a,b,c) -> (Question (ToValue (convert a)),(convert b),(convert c) )
-        | Pair(a,b) -> (ToPair (convert  a), (convert b))
+        | If (a,b,c) -> ToQuestion ((ToValue (convert a)),(convert b),(convert c))
+        | Pair(a,b) -> ToPair ((convert  a), (convert b))
         | Apply (l,r) -> let tmp = new_var() in 
-        varlist := tmp :: !varlist;
-        let tcv = (CVar tmp) in
-        ToComma((Assign tcv, (compile l)),(ToCall ((ToLambda tcv),[(ToEnv tcv);(ToMod tcv); (convert r)])))
+          varlist := (CVar tmp) :: !varlist;
+          let tcv = (CVar tmp) in
+          ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (Adress (convert r))])))
         | Function(id,e) -> let idn = (Ident.name id) in
-        let lamname = pathstr^idn in
-        (makef lamname idn e);
-        ToClosure((CVar CONST_ENV),(CVar CONST_MOD),(CVar lamname))
+          let lamname = (new_func (make_ptr path))()  in
+          (makef lamname idn e);
+          ToClosure((CVar const_env),(CVar lamname))
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)
 
       (* create a lambda function *)
       and makef name id e = let vlist = ref [] in
-      let compiled = compile vlist e in
-      let compttr = Compttr (name,(!vlist,compiled),[(Insert((CVar CONST_ENV),(CVar id),(CVar CONS_ARG)))]) in
-      funclist := compttr :: !funclist in
+        let compiled = compile vlist e in
+        let temp = new_ptr() in
+        let ptr = (Ptr (CVar temp)) in
+        let malloc = (MALLOC ptr) in
+        let assign = (Assign(ptr,(Ptr (CVar const_arg)))) in
+        let insert = (Insert((CVar const_env),(CString id),(CVar temp))) in
+        let compttr = Compttr (name,(!vlist,compiled),[ malloc; assign; insert]) in
+        funclist := compttr :: !funclist in
 
     (* toplevel *)
     let var_list = ref [] in
-    let computation = compile var_list program in (!var_list,computation)
+    let computation = (compile var_list (desugar program)) in 
+    (!var_list,computation)
 
    (* 
   * ===  FUNCTION  ======================================================================
@@ -143,21 +179,26 @@ struct
   *  Description:  When all is said and done, conver the computation to string
   * =====================================================================================
   *)
-  let rec printc = function
-    | ToValue a -> (printc c)^".value"  (* TODO is ptr ? *)
-    | ToInt x -> "MakeInt(" ^ x ^ ")"
-    | ToBoolean x -> "MakeBoolean("^ x ")"
+  let rec printc : tempc -> string = function ToValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
+    | ToInt x -> "makeInt(" ^ (string_of_int x) ^ ")"
+    | ToBoolean x -> "makeBoolean("^ (string_of_int x) ^ ")"
     | ToQuestion(a,b,c) -> "("^(printc a)^" ? "^(printc b)^" : "^(printc c)^")"
-    | ToPair (a,b) -> "MakePair("^(printc a)^","^(printc b)^")"
+    | ToPair (a,b) -> "makePair("^(printc a)^","^(printc b)^")"
     | ToComma(a,b) -> "("^(printc a)^","^(printc b)^")"
     | Assign (a,b) -> (printc a) ^ "=" ^ (printc b)
     | CVar str -> str
-    | ToCall (f,ls) -> (printc f)^"("^(String.concat "," (List.map printc ls))^")"
-    | ToLambda a -> (printc a)^".lam"
-    | ToEnv a -> (printc a)^".env"
-    | ToMod a -> (printc c)^".mod"
-    | Insert (a,b,c) -> "insertbinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
-    | ToClosure (a,b,c) -> "makeClosure("(printc a)^","^(printc b)^","^(printc c)^")"
+    | CString str -> ("\""^str^"\"")
+    | ToCall (f,ls) -> "(VALUE) "^(printc f)^"("^(String.concat "," (List.map printc ls))^")"
+    | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
+    | ToEnv a -> (printc a)^".c.env"
+    | ToMod a -> (printc a)^".c.mod"
+    | CastMAX a -> "(MAX) "^(printc a)
+    | Insert (a,b,c) -> "insertBinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
+    | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
+    | Get (a,b) -> "*((VALUE *)(getBinding("^(printc a)^","^(printc b)^")))" (*TODO fix path search *)
+    | MALLOC a -> "VALUE "^(printc a)^" = malloc(sizeof(VALUE))"
+    | Ptr a -> "*"^(printc a) 
+    | Adress a -> "&"^(printc a)
   
        (* 
   * ===  FUNCTION  ======================================================================
@@ -167,14 +208,13 @@ struct
   *)
   let omega_transformation program = 
 
+    let functlist = ref [] in
+
     (* convert a sequence of structure definitions *)
     let rec parse_struct env path strctls   = 
 
       (* convert a module definition into a new environment *)
-      let rec parse_module env pth modterm = 
-
-      
-        match modterm with Longident ident -> (lookup_path env (convert_path ident))
+      let rec parse_module env pth  = function  Longident ident -> (+&) (lookup_path env (convert_path ident))
           | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed)
           | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
           | Apply (m1,m2) -> 
@@ -193,12 +233,13 @@ struct
             let value = BMod ((Ident.name id),nenv) in
             value :: (parse_struct (value :: env) path xs)
           | Value_str (id,term) -> 
-            let comp = (parse_computation env term) in
+            let name = (Ident.name id) in
+            let comp = (parse_computation env (name::path) functlist term) in
             let data = BVal ((Ident.name id), (comp)) in 
               data :: (parse_struct (data :: env) path xs) in
         
     (* top level *)
-    match program with Structure strt -> (parse_struct [] [] strt) 
+    match program with Structure strt -> (!functlist,(parse_struct [] [] strt))
     | _ ->  
       raise (Cannot_compile "Top level must be structure")
 
@@ -249,11 +290,17 @@ struct
   *)
   let compile program =
 
+    (* add ; and indentation *)
+    let format n ls = let indent = (String.concat "" (List.map (fun x -> " ") (1 -- n))) in
+        (List.map (fun x -> (indent ^ x ^ ";")) ls) in
+
     (* add associations to bindings *)
     let rec print_assoc binding = function [] -> []
       | (ty,strl,strr)::xs -> let ui = (match ty with Call -> "1" | _ -> "0") in
         let temp = ("insertBinding(&"^binding^", \""^strl^"\" , "^strr^", "^ui^");") in
         temp :: (print_assoc binding xs) in
+
+    let func_end = ("}\n"::[]) in
 
     (* print_strcts: convert structs into mallocs and bindings *)
     let rec print_strcts = function [] -> ([],[])
@@ -277,12 +324,26 @@ struct
       let body2 = (print_assoc "toplevel"  top) in
       (def :: (body @ body2) @ ["";"return 1;";"}"]) in
 
-    let rec print_computation comp = ["VALUE p = {.byte = NULL}; ";"return p;"] in
+    (* print the tuple computation *)
+    let rec print_computation = function (vlist,comp) -> 
+      let c = [("return "^(printc comp))] in
+      let v = match vlist with [] -> []
+        | _ -> ["VALUE " ^(String.concat "," (List.map printc  vlist))^";"] in
+      v@c in
 
+    (* print the lambda's*)
+    let rec print_lambdas = function [] -> []
+      | Compttr (name,comp,setup) :: xs -> let definition = ("VALUE "^name^"(BINDING * "^const_env^", VALUE *"^const_arg^"){") in
+        let setupls : string list = (List.map printc setup)  in
+        let body = (format 1 (setupls @ (print_computation comp))) in
+        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) in
+
+    (* print a gettr *)
     let rec print_getters = function [] -> []
-      | Gettr  (ptr,comp) :: xs -> let definition = ("VALUE "^ptr^"(BINDING * mod){") in
-        let body = (String.concat "\n" (print_computation comp)) in
-        (String.concat "\n" (definition::body::"}\n"::[]) ) :: (print_getters xs) in
+      | Gettr  (ptr,comp) :: xs -> let definition = ("VALUE "^ptr^"(void){") in
+        let setup = "BINDING * "^const_env^" = NULL" in
+        let body = (format 1 (setup :: (print_computation comp))) in
+        (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) in
 
     (* header and footer for the compiled result *)
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
@@ -290,9 +351,12 @@ struct
             "#include \"entry.c\""; ""] in
 
     (* Top Level *)
-    let omega = omega_transformation program in
+    let (lambda_list,omega) = omega_transformation program in
     let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
-    ((String.concat "\n"  (header @ (print_getters (List.rev gettr_lst)) @ (boot_up (strct_list) top_level ) @ footer)) ^ "\n")
+    let pl_ls = (print_lambdas (List.rev lambda_list)) 
+    and pg_ls = (print_getters (List.rev gettr_lst))
+    and pb_ls = (boot_up (strct_list) top_level ) in
+    ((String.concat "\n"  (header @ pl_ls @ pg_ls @ pb_ls @ footer)) ^ "\n")
   
 end
 

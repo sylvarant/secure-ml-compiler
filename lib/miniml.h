@@ -76,7 +76,7 @@ _SCM
 SCM_(Closure)
     BINDING * env;
     BINDING * mod;
-    MAX (*lam)(void); 
+    MAX (*lam)(BINDING *,/*BINDING *,*/VALUE*); 
 _SCM
 
 SCM_(Pair)
@@ -90,6 +90,7 @@ typedef union Value_u {
     struct V(Int) i;
     struct V(Closure) c;
     struct V(Pair) p;
+    MAX maxsize;
 } VALUE;
 
 
@@ -98,8 +99,8 @@ typedef union Value_u {
  *-----------------------------------------------------------------------------*/
 
 typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)(void);
-typedef VALUE (* Gettr)(BINDING *);
+typedef VALUE (* Lambda)(BINDING *,VALUE*);
+typedef VALUE (* Gettr)(void);
 
 
 /*-----------------------------------------------------------------------------
@@ -190,13 +191,13 @@ LOCAL VALUE makeBoolean(unsigned int b)
  *  Description:    create a closure
  * =====================================================================================
  */
-LOCAL VALUE makeClosure(BINDING * env, BINDING * mod, Lambda lambda)
+LOCAL VALUE makeClosure(BINDING * env, /*BINDING * mod,*/ Lambda lambda)
 {
     VALUE v;
     v.c.t = CLOSURE;
     v.c.lam = lambda;
     v.c.env = env;
-    v.c.mod = mod;
+  //  v.c.mod = mod;
     return v;
 }
 
