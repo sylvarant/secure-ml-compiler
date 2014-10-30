@@ -56,8 +56,8 @@ ENTRYPOINT DATA path_entry(char * path, int size)
         if(meta->call)
         {
             if(remainder[0] == '\0'){ 
-                MAX temp = (meta->gettr)(map); 
-                VALUE v = (VALUE) (*temp.weight);
+                VALUE v; 
+                v.maxsize =  ((meta->gettr)(map)); 
                 return convertV(v);
             }
             else mistakeFromOutside();
@@ -71,6 +71,7 @@ ENTRYPOINT DATA path_entry(char * path, int size)
            }
         }
     }
+    mistakeFromOutside();
 }
 
 

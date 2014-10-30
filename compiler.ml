@@ -32,14 +32,15 @@ struct
   (* types used during omega translation and lambda calc compilation *)
   type cpath = string list
   and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
-  and strctbinding = BVal of string * computation | BMod of string * modbindtype 
+  and strctbinding = BVal of string * cpath * computation | BMod of string * modbindtype 
   and computation = tempc list * tempc 
-  and tempc = ToValue of tempc | ToInt of int | ToBoolean of int | CVar of string 
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string | CInt of int
             | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
             | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
             | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc
             | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-            | MALLOC of tempc | Ptr of tempc | Adress of tempc | ToByte of tempc
+            | MALLOC of tempc | Ptr of tempc | Adress of tempc | ToByte of tempc | ToOper of string * tempc * tempc
+  and trawl = Static of string | Environment of modbindtype
   
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath * assoc list 
@@ -77,6 +78,7 @@ struct
   let const_env = "my_env" 
   and const_arg = "my_arg"
   and const_mod  = "my_mod" 
+  and int_op = ["+"; "-"; "/"; "*"]
 
 
  (* 
@@ -90,7 +92,7 @@ struct
     (* look up x in the env *)
     let get_binding x nenv = 
       let find_binding = (function
-      | BVal (nn,_) when (nn = x) -> true
+      | BVal (nn,_,_) when (nn = x) -> true
       | BMod (nn,_) when (nn = x) -> true
       | _ ->  false) in
       try (List.find (find_binding) nenv)
@@ -98,12 +100,12 @@ struct
 
     (* When it comes to values all that matters is that they exist *)
     let extract = function
-        | BVal _ -> None
-        | BMod (_,e) -> Some e in
+        | BVal (nn,pth,_) -> Static (make_ptr (nn::pth))
+        | BMod (_,e) -> (Environment e) in
 
     (* toplevel *)
     match path with  x::[] -> (extract (get_binding x env)) 
-      | x::xs -> let SB (_,nenv) = (+&) (lookup_path env xs) in
+      | x::xs -> let Environment( SB (_,nenv)) = (lookup_path env xs) in
         (lookup_path nenv (x::[]))
 
 
@@ -133,20 +135,26 @@ struct
       | Longident _ as t -> t
       | If (a,b,c) -> If ((desugar a),(desugar b),(desugar c))
       | Prim (op,ls) -> let nls = (List.map desugar ls) in Prim(op,nls)
-      | Function(id,e) -> Function (id,desugar e) in
+      | Function(id,e) -> Function (id,desugar e) 
+      | Pair(a,b) -> Pair( (desugar a), (desugar b))
+      | Prim (s,ls) -> Prim (s, (List.map desugar ls)) 
+      | Apply (a,b) -> Apply ((desugar a),(desugar b)) in
      
      (* miniml -> interm + var list side effect *)
-     let rec compile varlist program = 
+    let rec compile varlist program = 
+      let is_intop str = 
+        let findstr str2 = match (String.compare str str2) with 0 -> true | _ -> false in
+        (List.exists findstr int_op) in
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
-          (try let _ = (lookup_path env cpath) in 
-          (Get ((CVar const_mod),(CString (make_ptr cpath))))
-          with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
-        | Constant x -> ToInt x
-        | Boolean x -> ToBoolean (match x with | true -> 1 | _ -> 0)
-        | If (a,b,c) -> ToQuestion ((ToValue (convert a)),(convert b),(convert c))
-        | Pair(a,b) -> ToPair ((convert  a), (convert b))
-        | Apply (l,r) -> let tmp = new_var() in 
+           (try let Static spath = (lookup_path env cpath) in 
+             (ToCall ((CVar spath),[])) (*(Get ((CVar const_mod),(CString (make_ptr cpath))))*)
+           with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
+         | Constant x -> ToInt (CInt x)
+         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
+         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
+         | Pair(a,b) -> ToPair ((convert  a), (convert b))
+         | Apply (l,r) -> let tmp = new_var() in 
           varlist := (CVar tmp) :: !varlist;
           let tcv = (CVar tmp) in
           ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (ToByte (convert r))])))
@@ -154,6 +162,11 @@ struct
           let lamname = (new_func (make_ptr path))()  in
           (makef lamname idn e);
           ToClosure((CVar const_env),(CVar lamname))
+        | Prim (s,ls) when (List.length ls) == 2 -> let left = ToIValue(convert (List.hd ls)) in 
+          let right = ToIValue((convert (List.hd (List.tl ls)))) in
+          let operation = ToOper(s,left,right) in
+            if (is_intop s) then (ToInt operation) else (ToBoolean operation)
+        | Prim (s,ls) -> raise (Cannot_compile "multi parameter int/bool operands not supported")
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)
 
@@ -164,7 +177,7 @@ struct
         let ptr = (Ptr (CVar temp)) in
         let malloc = (MALLOC ptr) in
         let assign = (Assign(ptr,(Ptr (CVar const_arg)))) in
-        let insert = (Insert((CVar const_env),(CString id),(CVar temp))) in
+        let insert = (Insert((Adress (CVar const_env)),(CString id),(CVar temp))) in
         let compttr = Compttr (name,(!vlist,compiled),[ malloc; assign; insert]) in
         funclist := compttr :: !funclist in
 
@@ -179,14 +192,16 @@ struct
   *  Description:  When all is said and done, conver the computation to string
   * =====================================================================================
   *)
-  let rec printc : tempc -> string = function ToValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
-    | ToInt x -> "makeInt(" ^ (string_of_int x) ^ ")"
-    | ToBoolean x -> "makeBoolean("^ (string_of_int x) ^ ")"
+  let rec printc : tempc -> string = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
+    | ToIValue a -> (printc a)^".i.value"
+    | ToInt a -> "makeInt(" ^ (printc a) ^ ")"
+    | ToBoolean a -> "makeBoolean("^ (printc a) ^ ")"
     | ToQuestion(a,b,c) -> "("^(printc a)^" ? "^(printc b)^" : "^(printc c)^")"
     | ToPair (a,b) -> "makePair("^(printc a)^","^(printc b)^")"
     | ToComma(a,b) -> "("^(printc a)^","^(printc b)^")"
     | Assign (a,b) -> (printc a) ^ "=" ^ (printc b)
     | CVar str -> str
+    | CInt a -> (string_of_int a)
     | CString str -> ("\""^str^"\"")
     | ToCall (f,ls) -> "(VALUE) "^(printc f)^"("^(String.concat "," (List.map printc ls))^")"
     | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
@@ -200,6 +215,7 @@ struct
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
     | ToByte a -> (printc a)^".byte"
+    | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
   
        (* 
   * ===  FUNCTION  ======================================================================
@@ -215,15 +231,16 @@ struct
     let rec parse_struct env path strctls   = 
 
       (* convert a module definition into a new environment *)
-      let rec parse_module env pth  = function  Longident ident -> (+&) (lookup_path env (convert_path ident))
-          | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed)
-          | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
-          | Apply (m1,m2) -> 
-            (match (parse_module env pth m1) with
-              | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
-                (parse_module ((BMod (id,nenv))::env) pth m)
-              | _ -> raise (Cannot_compile "Needed Functor"))
-          | Constraint (m,ty) -> raise (Cannot_compile "Constraint !") in
+      let rec parse_module env pth  = function  
+          Longident ident -> let (Environment e) = (lookup_path env (convert_path ident)) in e
+        | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed)
+        | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
+        | Apply (m1,m2) -> 
+          (match (parse_module env pth m1) with
+            | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
+              (parse_module ((BMod (id,nenv))::env) pth m)
+            | _ -> raise (Cannot_compile "Needed Functor"))
+        | Constraint (m,ty) -> raise (Cannot_compile "Constraint !") in
 
       (* recurse over the list of definitions *)
       match strctls with [] -> []
@@ -236,7 +253,7 @@ struct
           | Value_str (id,term) -> 
             let name = (Ident.name id) in
             let comp = (parse_computation env (name::path) functlist term) in
-            let data = BVal ((Ident.name id), (comp)) in 
+            let data = BVal ((Ident.name id), path, (comp)) in 
               data :: (parse_struct (data :: env) path xs) in
         
     (* top level *)
@@ -263,7 +280,7 @@ struct
 
     (* select the structures gettrs from the previoulsy obtained omega *)
     let rec select path = (function [] -> []
-      | BVal (name, comp) :: ls -> let ptr = make_ptr (name::path) in
+      | BVal (name, _, comp) :: ls -> let ptr = make_ptr (name::path) in
         gettr_lst := ((Gettr (ptr,comp)) :: !gettr_lst);
         (Call,name,ptr)::(select path  ls) 
       | BMod (name, modt) :: ls -> match modt with
