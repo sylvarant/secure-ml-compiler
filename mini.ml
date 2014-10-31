@@ -41,6 +41,8 @@ struct
       | If of term * term * term
       | Let of Ident.t * term * term      
       | Prim of string * (term list)
+      | Fst of term
+      | Snd of term
 
     (* Type system *) 
     and simple_type =

@@ -75,7 +75,7 @@ _SCM
 
 SCM_(Closure)
     BINDING * env;
-    BINDING * mod;
+  //  BINDING * mod;
     MAX (*lam)(BINDING *,/*BINDING *,*/union Value_u *); 
 _SCM
 

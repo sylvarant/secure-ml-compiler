@@ -40,6 +40,7 @@ struct
             | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc
             | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
             | MALLOC of tempc | Ptr of tempc | Adress of tempc | ToByte of tempc | ToOper of string * tempc * tempc
+            | ToLeft of tempc | ToRight of tempc
   and trawl = Static of string | Environment of modbindtype
   
   (* types used during theta translation *)
@@ -121,8 +122,10 @@ struct
     let new_var = let count = ref (-1) in 
       fun () -> incr count; ("v_r_" ^ (string_of_int !count)) in
 
-    let new_func str = let count = ref (-1) in
-      fun () -> incr count; ("Lam_"^str ^ (string_of_int !count)) in
+    let new_lambda = let count = ref (-1) in
+        fun () -> incr count; ("Lam_"^(string_of_int !count)) in
+
+    let new_func str = (str^new_lambda())  in
 
     let new_ptr = let count = ref (-1) in
         fun () -> incr count; ("ptr" ^ (string_of_int !count)) in
@@ -138,7 +141,9 @@ struct
       | Function(id,e) -> Function (id,desugar e) 
       | Pair(a,b) -> Pair( (desugar a), (desugar b))
       | Prim (s,ls) -> Prim (s, (List.map desugar ls)) 
-      | Apply (a,b) -> Apply ((desugar a),(desugar b)) in
+      | Apply (a,b) -> Apply ((desugar a),(desugar b)) 
+      | Fst a -> Fst (desugar a)
+      | Snd a -> Snd (desugar a) in
      
      (* miniml -> interm + var list side effect *)
     let rec compile varlist program = 
@@ -150,16 +155,16 @@ struct
            (try let Static spath = (lookup_path env cpath) in 
              (ToCall ((CVar spath),[])) (*(Get ((CVar const_mod),(CString (make_ptr cpath))))*)
            with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
-         | Constant x -> ToInt (CInt x)
-         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
-         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
-         | Pair(a,b) -> ToPair ((convert  a), (convert b))
-         | Apply (l,r) -> let tmp = new_var() in 
-          varlist := (CVar tmp) :: !varlist;
-          let tcv = (CVar tmp) in
-          ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (ToByte (convert r))])))
+        | Constant x -> ToInt (CInt x)
+        | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
+        | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
+        | Pair(a,b) -> ToPair ((convert  a), (convert b))
+        | Apply (l,r) -> let tmp = new_var() in 
+           varlist := (CVar tmp) :: !varlist;
+           let tcv = (CVar tmp) in
+           ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (ToByte (convert r))])))
         | Function(id,e) -> let idn = (Ident.name id) in
-          let lamname = (new_func (make_ptr path))()  in
+          let lamname = (new_func (make_ptr path))  in
           (makef lamname idn e);
           ToClosure((CVar const_env),(CVar lamname))
         | Prim (s,ls) when (List.length ls) == 2 -> let left = ToIValue(convert (List.hd ls)) in 
@@ -167,6 +172,8 @@ struct
           let operation = ToOper(s,left,right) in
             if (is_intop s) then (ToInt operation) else (ToBoolean operation)
         | Prim (s,ls) -> raise (Cannot_compile "multi parameter int/bool operands not supported")
+        | Fst a -> (ToLeft (convert a))
+        | Snd a -> (ToRight (convert a))
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)
 
@@ -186,7 +193,7 @@ struct
     let computation = (compile var_list (desugar program)) in 
     (!var_list,computation)
 
-   (* 
+ (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  printc
   *  Description:  When all is said and done, conver the computation to string
@@ -210,14 +217,17 @@ struct
     | CastMAX a -> "(MAX) "^(printc a)
     | Insert (a,b,c) -> "insertBinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
     | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
-    | Get (a,b) -> "*((VALUE *)(getBinding("^(printc a)^","^(printc b)^")))" (*TODO fix path search *)
+    | Get (a,b) -> "(*((VALUE *)(getBinding("^(printc a)^","^(printc b)^"))))" (*TODO fix path search *)
     | MALLOC a -> "VALUE "^(printc a)^" = malloc(sizeof(VALUE))"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
     | ToByte a -> (printc a)^".byte"
     | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
-  
-       (* 
+    | ToLeft a -> "(*("^ (printc a) ^ ".p.left))"
+    | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
+
+
+ (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  omega_transformation
   *  Description:  converts the toplevel into an omega binding
@@ -261,7 +271,7 @@ struct
     | _ ->  
       raise (Cannot_compile "Top level must be structure")
 
-   (* 
+ (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  theta_transformation
   *  Description:  converts the binding into lists of gettr's struct ptr's and fctr's 
@@ -300,7 +310,7 @@ struct
     (!gettr_lst,!strct_list,!fctr_list,top_level)
      
 
-   (* 
+ (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  compile
   *  Description:  converts the toplevel into a giant string
@@ -346,7 +356,7 @@ struct
     let rec print_computation = function (vlist,comp) -> 
       let c = [("return "^(printc comp))] in
       let v = match vlist with [] -> []
-        | _ -> ["VALUE " ^(String.concat "," (List.map printc  vlist))^";"] in
+        | _ -> ["VALUE " ^(String.concat "," (List.map printc  vlist))] in
       v@c in
 
     (* print the lambda's*)
@@ -358,23 +368,29 @@ struct
 
     (* print a gettr *)
     let rec print_getters = function [] -> []
-      | Gettr  (ptr,comp) :: xs -> let definition = ("VALUE "^ptr^"(void){") in
+      | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL VALUE "^ptr^"(void){") in
         let setup = "BINDING * "^const_env^" = NULL" in
         let body = (format 1 (setup :: (print_computation comp))) in
         (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) in
 
+    (* print some local declarations *)
+    let rec print_decl = function [] -> [] 
+      | Gettr  (ptr,comp) :: xs -> ("LOCAL VALUE "^ptr^"(void);") :: (print_decl xs) in
+
     (* header and footer for the compiled result *)
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
+    let separate name ls = ["//---------------"^ name ^ "----------------------"; ""] @ ls @ [""] in
     let footer = ["";"// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
             "#include \"entry.c\""; ""] in
 
     (* Top Level *)
     let (lambda_list,omega) = omega_transformation program in
     let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
-    let pl_ls = (print_lambdas (List.rev lambda_list)) 
-    and pg_ls = (print_getters (List.rev gettr_lst))
-    and pb_ls = (boot_up (strct_list) top_level ) in
-    ((String.concat "\n"  (header @ pl_ls @ pg_ls @ pb_ls @ footer)) ^ "\n")
+    let dec_ls = (separate "declarations" (print_decl gettr_lst))
+    and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
+    and pg_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
+    and pb_ls = (separate "Boot" (boot_up (strct_list) top_level )) in
+    ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pg_ls @ pb_ls @ footer)) ^ "\n")
   
 end
 

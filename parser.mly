@@ -77,6 +77,8 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %token THEN
 %token TYPE
 %token VALUE
+%token FST
+%token SND
 
 
 %right ARROW
@@ -128,6 +130,8 @@ valexpr:
   | FUNCTION IDENT ARROW valexpr {MiniML.Function(Ident.create $2, $4) } 
   | LET IDENT valbind IN valexpr      { MiniML.Let(Ident.create $2, $3, $5) }
   | IF valexpr THEN valexpr ELSE valexpr { MiniML.If( $2, $4, $6) }
+  | FST valexpr {MiniML.Fst $2}
+  | SND valexpr {MiniML.Snd $2}
 ;
 valexpr1:
     valexpr0 { $1 }
