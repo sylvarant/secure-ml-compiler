@@ -45,7 +45,7 @@ struct
   
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath * assoc list 
-               | Fctr of cpath * assoc list | Compttr of string * computation * tempc list
+               | Fctr of string | Compttr of string * computation * tempc list
   and assoc = action * string * string
   and action = Call | Share
  
@@ -78,8 +78,12 @@ struct
 
   let const_env = "my_env" 
   and const_arg = "my_arg"
-  and const_mod  = "my_mod" 
+  and const_mod = "my_mod" 
+  and const_str = "my_str"
   and int_op = ["+"; "-"; "/"; "*"]
+  and c_value = "VALUE"
+  and c_binding = "BINDING*"
+  and c_strc = "STRUCTURE"
 
 
  (* 
@@ -210,15 +214,15 @@ struct
     | CVar str -> str
     | CInt a -> (string_of_int a)
     | CString str -> ("\""^str^"\"")
-    | ToCall (f,ls) -> "(VALUE) "^(printc f)^"("^(String.concat "," (List.map printc ls))^")"
+    | ToCall (f,ls) -> "("^c_value^") "^(printc f)^"("^(String.concat "," (List.map printc ls))^")"
     | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
     | ToEnv a -> (printc a)^".c.env"
     | ToMod a -> (printc a)^".c.mod"
     | CastMAX a -> "(MAX) "^(printc a)
     | Insert (a,b,c) -> "insertBinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
     | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
-    | Get (a,b) -> "(*((VALUE *)(getBinding("^(printc a)^","^(printc b)^"))))" (*TODO fix path search *)
-    | MALLOC a -> "VALUE "^(printc a)^" = malloc(sizeof(VALUE))"
+    | Get (a,b) -> "(*(("^c_value^" *)(getBinding("^(printc a)^","^(printc b)^"))))" (*TODO fix path search *)
+    | MALLOC a -> c_value^" "^(printc a)^" = malloc(sizeof("^c_value^"))"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
     | ToByte a -> (printc a)^".byte"
@@ -301,9 +305,9 @@ struct
           strct_list := ((Strct (pth,light_list)) :: !strct_list);
           (Share,name,ptr)::(select path ls)
         | SB (pth,nbinding) -> (Share,name,(make_ptr pth))::(select path ls)
-        | FB (pth,var,m) -> 
-          fctr_list :=  !fctr_list;
-          (Share,name,(make_ptr pth))::(select path ls)) in 
+        | FB (pth,var,m) -> let npath = make_ptr (name::pth) in
+          fctr_list := (Fctr npath) :: !fctr_list;
+          (Share,name,npath)::(select path ls)) in 
 
     (* top level *)
     let top_level = (select [] binding) in 
@@ -335,7 +339,7 @@ struct
       | Strct (pth,assocs) :: xs -> 
         let ptr = (make_ptr pth) in
         let binding = (getmod ptr) in
-        let decl = ("struct Structure * "^ptr^" = malloc(sizeof(struct Structure));") in
+        let decl = (c_strc ^" * "^ptr^" = malloc(sizeof("^ c_strc ^"));") in
         let parent = try let tail = (List.tl pth) in match tail with
           | [] -> []
           | x::xs -> [(binding^" = "^(getmod (make_ptr tail))^";")] 
@@ -356,26 +360,33 @@ struct
     let rec print_computation = function (vlist,comp) -> 
       let c = [("return "^(printc comp))] in
       let v = match vlist with [] -> []
-        | _ -> ["VALUE " ^(String.concat "," (List.map printc  vlist))] in
+        | _ -> [c_value^ " " ^(String.concat "," (List.map printc  vlist))] in
       v@c in
 
     (* print the lambda's*)
     let rec print_lambdas = function [] -> []
-      | Compttr (name,comp,setup) :: xs -> let definition = ("VALUE "^name^"(BINDING * "^const_env^", VALUE *"^const_arg^"){") in
+      | Compttr (name,comp,setup) :: xs -> let arguments = "("^c_binding^" "^const_env^", "^c_value^" *"^const_arg^")" in
+        let definition = (c_value^" "^name^arguments^"{") in
         let setupls : string list = (List.map printc setup)  in
         let body = (format 1 (setupls @ (print_computation comp))) in
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) in
 
     (* print a gettr *)
     let rec print_getters = function [] -> []
-      | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL VALUE "^ptr^"(void){") in
-        let setup = "BINDING * "^const_env^" = NULL" in
+      | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL "^c_value^" "^ptr^"(void){") in
+        let setup = c_binding^" * "^const_env^" = NULL" in
         let body = (format 1 (setup :: (print_computation comp))) in
         (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) in
 
     (* print some local declarations *)
     let rec print_decl = function [] -> [] 
-      | Gettr  (ptr,comp) :: xs -> ("LOCAL VALUE "^ptr^"(void);") :: (print_decl xs) in
+      | Gettr  (ptr,comp) :: xs -> ("LOCAL "^c_value^" "^ptr^"(void);") :: (print_decl xs) in
+
+    (* print fnctrs TODO *)
+    let rec print_fctrs = function [] -> []
+      | (Fctr name) :: xs -> let definition = c_strc^"* "^name^"("^c_strc^"* "^const_str^"){" in
+        let body = (format 1 ["return NULL;"]) in 
+        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) in
 
     (* header and footer for the compiled result *)
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
@@ -388,9 +399,10 @@ struct
     let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
     let dec_ls = (separate "declarations" (print_decl gettr_lst))
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
-    and pg_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
+    and pv_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
+    and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
     and pb_ls = (separate "Boot" (boot_up (strct_list) top_level )) in
-    ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pg_ls @ pb_ls @ footer)) ^ "\n")
+    ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n")
   
 end
 

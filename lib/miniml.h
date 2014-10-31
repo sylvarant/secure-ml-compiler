@@ -107,9 +107,9 @@ typedef VALUE (* Gettr)(void);
  * Modules
  *-----------------------------------------------------------------------------*/
 
-struct Structure{
+typedef struct Structure{
     BINDING * mod;
-};
+}STRUCTURE;
 
 
 BINDING * toplevel = NULL;
