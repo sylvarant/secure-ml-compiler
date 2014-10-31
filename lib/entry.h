@@ -41,6 +41,13 @@
 
 #endif
 
+/*-----------------------------------------------------------------------------
+ *  Memory Sharing
+ *-----------------------------------------------------------------------------*/
+
+extern void * malloc(size_t);
+#define OUTERM malloc
+
 
 /*-----------------------------------------------------------------------------
  *  Data Sharing
@@ -62,13 +69,11 @@ typedef struct Data_s{
     };
 } DATA;
 
-typedef void* (* OtherM)(size_t);
 
 /*-----------------------------------------------------------------------------
  *  Secure Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT void start(OtherM);
 ENTRYPOINT DATA path_entry(char * path, int size);
 ENTRYPOINT DATA closure_entry(int id,void * p);
 

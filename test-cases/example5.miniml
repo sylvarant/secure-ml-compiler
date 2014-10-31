@@ -1,0 +1,10 @@
+struct
+
+    module One = struct
+        val value = 5
+    end
+
+    module Two = One
+
+end
+

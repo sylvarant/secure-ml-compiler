@@ -374,7 +374,7 @@ struct
     (* print a gettr *)
     let rec print_getters = function [] -> []
       | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL "^c_value^" "^ptr^"(void){") in
-        let setup = c_binding^" * "^const_env^" = NULL" in
+        let setup = c_binding^" "^const_env^" = NULL" in
         let body = (format 1 (setup :: (print_computation comp))) in
         (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) in
 
@@ -390,7 +390,8 @@ struct
 
     (* header and footer for the compiled result *)
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
-    let separate name ls = ["//---------------"^ name ^ "----------------------"; ""] @ ls @ [""] in
+    let separate name = function [] -> []
+      | x::xs as ls -> ["//---------------"^ name ^ "----------------------"; ""] @ ls @ [""] in
     let footer = ["";"// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
             "#include \"entry.c\""; ""] in
 

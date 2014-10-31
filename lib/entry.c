@@ -45,9 +45,10 @@ LOCAL char * nextId(char ** str)
  */
 ENTRYPOINT DATA path_entry(char * path, int size)
 {
+    check_state();
+
     // check that the string is null terminated
     if(path[size] != '\0') mistakeFromOutside();
-
     BINDING * map = toplevel; 
     char * remainder = path;
     while(remainder){
@@ -74,17 +75,4 @@ ENTRYPOINT DATA path_entry(char * path, int size)
     mistakeFromOutside();
 }
 
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:    start
- *  Description:    start the show, callback negotation is to take place here
- * =====================================================================================
- */
-ENTRYPOINT void start(OtherM dark)
-{
-    dark_malloc = dark;
-    if(bootup()) LOADED = 1;
-    return;
-}
 

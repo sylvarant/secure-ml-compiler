@@ -7,13 +7,13 @@
 # By Ajhl
 #====================================================
 
-usage="compile.sh input"
-compiler="./main.native"
-outf="out/"
+Usage="compile.sh input"
+Compiler="./main.native"
+Outfold="out/"
 
 
 if [[ $# -lt 1 ]];then
-    echo $usage
+    echo $Usage
     exit 2
 fi
 
@@ -21,19 +21,19 @@ input=$1
 filename=$(basename "$1" 2> /dev/null) 
 extension="${filename##*.}"
 base="${filename%.*}"
-outputc="${outf}${base}.c"
-outputm="${outf}${base}.o"
+outputc="${Outfold}${base}.c"
+outputm="${Outfold}${base}.o"
 
-$compiler < $input > $outputc
+$Compiler < $input > $outputc
 
 if [[ $? -ne 0 ]];then
     echo "MiniML compiler failed"
     echo " Result of :: $outputc"
     cat $outputc 
-    exit 2
+    exit 1
 fi
 
-gcc  $outputc -I./lib/ -Wfatal-errors -O -c -o $outputm
+gcc  $outputc -I./lib/ -Wfatal-errors -O -c -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"
@@ -43,3 +43,4 @@ if [[ $? -ne 0 ]];then
     exit 2
 fi
 
+exit 0

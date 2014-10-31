@@ -39,8 +39,8 @@ LOCAL DATA convertV(VALUE input)
         case PAIR:{
             DATA left = convertV(*(input.p.left));
             DATA right = convertV(*(input.p.right));
-            d.left = dark_malloc(sizeof(DATA));
-            d.right = dark_malloc(sizeof(DATA));
+            d.left = OUTERM(sizeof(DATA));
+            d.right = OUTERM(sizeof(DATA));
             *(d.left) = left;
             *(d.right) = right;
             break;

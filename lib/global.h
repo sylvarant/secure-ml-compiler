@@ -21,6 +21,8 @@
  *  DEBUGGING
  *-----------------------------------------------------------------------------*/
 
+#define DEBUG
+
 #ifdef DEBUG
     #include <stdlib.h> // TODO remove duplicates
     #include <stdio.h>
@@ -40,6 +42,8 @@
     #define LOCAL SM_FUNC(SPM_NAME) static
     #define SECRET_DATA SM_DATA(SPM_NAME) static 
     #define FUNCTIONALITY SM_FUNC(SPM_NAME) extern __attribute__ ((visibility ("hidden")))
+
+    // TODO custom memory manager ...
 
 #else
     // standard c - headers

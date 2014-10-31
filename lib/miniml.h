@@ -114,7 +114,6 @@ typedef struct Structure{
 
 BINDING * toplevel = NULL;
 BINDING * exchange = NULL;
-OtherM dark_malloc = NULL;
 unsigned int LOADED = 0;
 
 
@@ -135,6 +134,7 @@ FUNCTIONALITY TYPE makeTStar(TYPE, TYPE);
 LOCAL unsigned int getAdress(void);
 LOCAL DATA convertV(VALUE);
 LOCAL DATA convert(void *,TAG t);
+LOCAL int bootup(void);
 
 
 /*-----------------------------------------------------------------------------
@@ -150,6 +150,19 @@ LOCAL DATA convert(void *,TAG t);
 LOCAL void mistakeFromOutside(void)
 {
     exit(2); 
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    check_state
+ *  Description:    check the current load state
+ * =====================================================================================
+ */
+LOCAL void check_state(void)
+{
+    if(!LOADED){ 
+        if(bootup()) LOADED = 1;
+    }
 }
 
 
