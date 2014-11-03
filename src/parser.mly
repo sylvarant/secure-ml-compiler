@@ -143,6 +143,7 @@ valexpr0:
   | TRUE { MiniML.Boolean true }
   | FALSE { MiniML.Boolean false }
   | LPAREN valexpr RPAREN { $2 }
+  | LPAREN valexpr COMMA  valexpr RPAREN { MiniML.Pair($2,$4) }
 ;
 
 

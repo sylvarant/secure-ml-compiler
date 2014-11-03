@@ -3,7 +3,7 @@ struct
     module Outer =
     struct
 
-        val value = 5
+        val value = true
 
         module  Inner =
         struct

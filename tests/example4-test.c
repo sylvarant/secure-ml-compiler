@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  example3-test.c
+ *       Filename:  example4-test.c
  *
  *         Author:  Adriaan Larmuseau, ajhl
  *        Company:  Uppsala
@@ -16,19 +16,19 @@ int tests_run = 0;
 int tests_set = 2;
 
 TEST(getModule)
-    DATA temp = path_entry("Main",4);
-    CHECK("Did not fetch Main module",temp.t == MODULE);
+    DATA temp = path_entry("Outer",5);
+    CHECK("Did not fetch Outer module",temp.t == MODULE);
 DONE
 
-TEST(getCLosure)
-    DATA temp = path_entry("Main.main",9);
-    CHECK("Did not fetch Integer",temp.t == INT);
-    CHECK("Did not fetch value 5",temp.value == 5);
+TEST(getValue)
+    DATA temp = path_entry("Outer.value",11);
+    CHECK("Did not fetch Integer",temp.t == BOOLEAN);
+    CHECK("Did not fetch value ",temp.value == 1);
 DONE
 
 LIST
     RUN(getModule);
-    RUN(getCLosure);
+    RUN(getValue);
 DONE
 
 INCLUDE_MAIN

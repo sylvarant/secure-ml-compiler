@@ -1,7 +1,7 @@
 struct
 
     module One = struct
-        val value = 5
+        val value = (1,false)
     end
 
     module Two = One

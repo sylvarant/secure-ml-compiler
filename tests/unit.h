@@ -42,14 +42,16 @@
 #define INCLUDE_MAIN int main(void){\
     char *result = all_tests();\
     if (result != 0) printf("%s\n", result);\
-    printf("Tests run: %d\n", tests_run);\
+    printf("Ran: %d/%d Tests\n", tests_run,tests_set);\
     return result != 0;\
 }
 
-#define TEST(func) static char * func(){
+#define TEST(func) static char * func(){ \
+    DEBUG_PRINT("Running Test: %s", #func);
 #define LIST static char * all_tests(){ 
 #define DONE return 0;}
 
 extern int tests_run;
+extern int tests_set;
 
 #endif

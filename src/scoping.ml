@@ -43,6 +43,7 @@ struct
         | Prim (c,ls) -> Prim(c,(List.map  (fun x -> (scope_term sc x)) ls))
         | Fst t1 ->  Fst (scope_term sc t1)
         | Snd t1 ->  Snd (scope_term sc t1)
+        | Pair (t1,t2) -> Pair ((scope_term sc t1), (scope_term sc t2))
 
     let rec scope_simple_type sc = function
         Var v -> Var v
