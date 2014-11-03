@@ -3,49 +3,27 @@
 # By Adriaan Larmuseau                  #
 #########################################
 
+OUTPUT_DIR = bin
+COMPILER_DIR = src
+COMPILER_BIN = main.native
 
 #============================================
-# Tools
+# compiler
 #============================================
-
-OCAMLBUILD=ocamlbuild
-
-
-#============================================
-# Executable Targets
-#============================================
-
-TARGET=main
+compiler: 
+	$(MAKE) -C $(COMPILER_DIR)
 
 
 #============================================
-# Compilation sources
+# extra's
 #============================================
-
-SOURCES =$(wildcard *.ml*)
-
-
-#============================================
-# Compiling
-#============================================
-
-native:
-	$(OCAMLBUILD) $(TARGET).native
-
-
-#============================================
-# Results
-#============================================
-now: native
-
-
-#============================================
-# Extra
-#============================================
-clean:
-	$(OCAMLBUILD) -clean
 
 setup:
-	mkdir out
-	mkdir log
+	-mkdir out
+	-mkdir setup
 
+test:
+	@./test
+
+
+.PHONY: test setup compiler

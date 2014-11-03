@@ -7,8 +7,9 @@
 # By Ajhl
 #====================================================
 
+Binfold="./bin"
 Usage="compile.sh input"
-Compiler="./main.native"
+Compiler="src/main.native"
 Outfold="out/"
 
 
