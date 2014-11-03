@@ -17,15 +17,15 @@
 int tests_run = 0;
 
 TEST(getModule)
-    DEBUG_PRINT("Attempting path_entry");
     DATA temp = path_entry("Main",4);
     CHECK("Did not fetch Main module",temp.t == MODULE);
-    DEBUG_PRINT("Done");
 DONE
 
 TEST(getCLosure)
     DATA temp = path_entry("Main.main",9);
-    CHECK("Did not fetch Closure Main.main",temp.t == CLOSURE);
+    CHECK("Did not fetch Integer",temp.t == INT);
+    DEBUG_PRINT("value = %d",temp.value);
+    CHECK("Did not fetch value 5",temp.value == 5);
 DONE
 
 LIST

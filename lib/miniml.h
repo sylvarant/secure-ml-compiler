@@ -76,7 +76,7 @@ _SCM
 SCM_(Closure)
     BINDING * env;
   //  BINDING * mod;
-    MAX (*lam)(BINDING *,/*BINDING *,*/union Value_u *); 
+    union Value_u (*lam)(BINDING *,union Value_u); 
 _SCM
 
 SCM_(Pair)
@@ -85,12 +85,10 @@ SCM_(Pair)
 _SCM
 
 typedef union Value_u {
-    union Value_u * byte;
     struct V(Boolean) b;
     struct V(Int) i;
     struct V(Closure) c;
     struct V(Pair) p;
-    MAX maxsize;
 } VALUE;
 
 
@@ -99,7 +97,7 @@ typedef union Value_u {
  *-----------------------------------------------------------------------------*/
 
 typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)(BINDING *,VALUE*);
+typedef VALUE (* Lambda)(BINDING *,VALUE);
 typedef VALUE (* Gettr)(void);
 
 
@@ -131,7 +129,6 @@ FUNCTIONALITY TYPE makeTStar(TYPE, TYPE);
  *  statically defined auxilary methods
  *-----------------------------------------------------------------------------*/
 
-LOCAL unsigned int getAdress(void);
 LOCAL DATA convertV(VALUE);
 LOCAL DATA convert(void *,TAG t);
 LOCAL int bootup(void);
@@ -163,6 +160,18 @@ LOCAL void check_state(void)
     if(!LOADED){ 
         if(bootup()) LOADED = 1;
     }
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    str_cpy
+ *  Description:    inplace string copy
+ * =====================================================================================
+ */
+LOCAL void str_cpy(char * dest,char * input,int size)
+{
+    for(int i = 0; i < size; i++) dest[i] = input[i];
+    dest[size] = '\0';
 }
 
 

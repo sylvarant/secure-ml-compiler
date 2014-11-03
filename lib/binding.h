@@ -17,12 +17,6 @@
 
 #include "global.h"
 
-// trickery
-typedef struct max_s{
-    void * weight[3];
-} MAX;
-
-
 /*-----------------------------------------------------------------------------
  *  Environment Binding
  *  Binds a key -> to either a function call or a module
@@ -33,7 +27,7 @@ typedef struct Meta_s
     unsigned int call;
     union {
         void * value;
-        MAX (*gettr)(struct Binding_s *);
+        union Value_u (*gettr)();
     };
 } META;
 
@@ -50,7 +44,8 @@ typedef struct Binding_s
  *-----------------------------------------------------------------------------*/
 
 FUNCTIONALITY void insertBinding(BINDING **,char *,void *,unsigned int);
-FUNCTIONALITY void * getBinding(BINDING *,char *);
+FUNCTIONALITY META * getBinding(BINDING *,char *);
+FUNCTIONALITY int getAdress(void);
 
 #endif
 

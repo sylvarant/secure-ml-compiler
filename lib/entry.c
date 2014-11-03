@@ -23,7 +23,8 @@ LOCAL char * nextId(char ** str)
 {
     char * start = *str;  
     char * end = start;
-    while(*end != '\0' || *end != '.') end++;
+    while(*end != '\0' && *end != '.') end++;
+
 
     int res_size = end - start;
     char * result = malloc((res_size)+1);
@@ -46,33 +47,30 @@ LOCAL char * nextId(char ** str)
 ENTRYPOINT DATA path_entry(char * path, int size)
 {
     check_state();
+   
+    if(path[size] != '\0') mistakeFromOutside(); // buffer check
 
-    // check that the string is null terminated
-    if(path[size] != '\0') mistakeFromOutside();
+    // get the correct meta value by browsing through the maps
     BINDING * map = toplevel; 
     char * remainder = path;
-    while(remainder){
+    META * meta = NULL;
+    while(*remainder != '\0')
+    {
         char * x_i = nextId(&remainder);
-        META * meta =  getBinding(map,x_i);
-        if(meta->call)
-        {
-            if(remainder[0] == '\0'){ 
-                VALUE v; 
-                v.maxsize =  ((meta->gettr)(map)); 
-                return convertV(v);
-            }
-            else mistakeFromOutside();
-        }
-        else{
-           if(remainder[0] == '\0') return convert(meta->value,MODULE);
-           else
-           { 
-                struct Structure * temp =  meta->value;
-                map = temp->mod;
-           }
-        }
+        meta = getBinding(map,x_i); 
+        if(meta == NULL ||(meta->call && *remainder != '\0')) mistakeFromOutside();
+        struct Structure * temp =  meta->value;
+        map = temp->mod;
     }
-    mistakeFromOutside();
+
+    // return call or structure
+    if(meta->call)
+    {
+        VALUE v = ((meta->gettr)()); 
+        return convertV(v);
+    }
+    
+    return convert(meta->value,MODULE);
 }
 
 

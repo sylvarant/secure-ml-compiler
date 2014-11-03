@@ -28,11 +28,10 @@ LOCAL DATA convertV(VALUE input)
         case BOOLEAN: d.value = input.i.value; break;
 
         case CLOSURE:{
-            unsigned int id = getAdress(); 
+            d.identifier = getAdress(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
-            insertBinding(&exchange,(char *) id,value,0);
-            d.identifier = id;
+            insertBinding(&exchange,d.bytes,value,0);
             break;
         }
 
@@ -52,7 +51,6 @@ LOCAL DATA convertV(VALUE input)
             break;
         }
     }
-    d.value = 0;
     return d;
 }
 
@@ -67,9 +65,8 @@ LOCAL DATA convert(void * p, TAG t)
 {
     DATA d;
     d.t = t;
-    unsigned int id = getAdress(); 
-    insertBinding(&exchange,(char *) id,p,0);    
-    d.identifier = id;
+    d.identifier = getAdress();
+    insertBinding(&exchange,(char *) d.bytes,p,0);    
     return d;
 }
 

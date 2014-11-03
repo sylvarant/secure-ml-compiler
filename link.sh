@@ -36,7 +36,7 @@ pbase="${pfilen%.*}"
 pobj=${Outfold}/${pbase}.o
 tempp=/tmp/${pbase}.tmp
 
-gcc $partner -I./lib/ -Wfatal-errors -O -c -o $pobj  > $tempp 2>&1
+gcc $partner -I./lib/ -g -Werror -Wfatal-errors -O -c -o $pobj  > $tempp 2>&1
 if [[ $? -ne 0 ]];then
     format "Compiling $partner !" $tempp
     exit 3

@@ -20,7 +20,7 @@
  *  Description:    return an element from a given environment for a given key
  * =====================================================================================
  */
-FUNCTIONALITY void * getBinding(BINDING * ls, char * key)
+FUNCTIONALITY META * getBinding(BINDING * ls, char * key)
 {
     BINDING * node = ls;
     while(node) {
@@ -65,9 +65,9 @@ FUNCTIONALITY void insertBinding(BINDING ** head, char * key,void * value,unsign
  *  Description:    return adresses, may overflow
  * =====================================================================================
  */
-unsigned int getAdress(void)
+FUNCTIONALITY int getAdress(void)
 {
-    static unsigned int addr = 0;
+    static  int addr = 0;
     return ++addr;
 }
 

@@ -60,8 +60,9 @@ typedef enum Tag_e {
 typedef struct Data_s{
     TAG t;   
     union {
+        char * bytes;
         int value; 
-        unsigned int identifier;
+        int identifier;
         struct {
             struct Data_s * left;
             struct Data_s * right;

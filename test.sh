@@ -82,13 +82,13 @@ do
 
             # Attempt to link - next if failure
             echo -ne "\tLinking :: "
-            $Linker ${Outfold}/${base}.o ${Outfold}/${testbase}.o >> $logname 2>&1
+            $Linker ${Outfold}/${base}.o ${testf} >> $logname 2>&1
             res=$?
             printr $res
             if [[ $res -ne 0 ]];then
                 echo -ne "\t--> "
                 if [[ $res -ne 2 ]];then
-                    echo "Could not compile $testname !"
+                    echo "Could not compile  $testname!"
                 fi
                 continue
             fi

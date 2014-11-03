@@ -37,10 +37,10 @@ struct
   and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string | CInt of int
             | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
             | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
-            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc
+            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of string * tempc
             | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-            | MALLOC of tempc | Ptr of tempc | Adress of tempc | ToByte of tempc | ToOper of string * tempc * tempc
-            | ToLeft of tempc | ToRight of tempc
+            | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
+            | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
   and trawl = Static of string | Environment of modbindtype
   
   (* types used during theta translation *)
@@ -84,6 +84,7 @@ struct
   and c_value = "VALUE"
   and c_binding = "BINDING*"
   and c_strc = "STRUCTURE"
+  and c_strcpy = "str_cpy"
 
 
  (* 
@@ -157,7 +158,7 @@ struct
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
            (try let Static spath = (lookup_path env cpath) in 
-             (ToCall ((CVar spath),[])) (*(Get ((CVar const_mod),(CString (make_ptr cpath))))*)
+             ToCast (c_value,(ToCall ((CVar spath),[]))) (*(Get ((CVar const_mod),(CString (make_ptr cpath))))*)
            with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
         | Constant x -> ToInt (CInt x)
         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
@@ -166,7 +167,7 @@ struct
         | Apply (l,r) -> let tmp = new_var() in 
            varlist := (CVar tmp) :: !varlist;
            let tcv = (CVar tmp) in
-           ToComma(Assign( tcv, (convert l)),(ToCall ((ToLambda tcv),[(ToEnv tcv); (ToByte (convert r))])))
+           ToComma(Assign( tcv, (convert l)),ToCast (c_value,(ToCall ((ToLambda tcv),[(ToEnv tcv); (convert r)]))))
         | Function(id,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))  in
           (makef lamname idn e);
@@ -184,12 +185,15 @@ struct
       (* create a lambda function *)
       and makef name id e = let vlist = ref [] in
         let compiled = compile vlist e in
-        let temp = new_ptr() in
-        let ptr = (Ptr (CVar temp)) in
-        let malloc = (MALLOC ptr) in
-        let assign = (Assign(ptr,(Ptr (CVar const_arg)))) in
-        let insert = (Insert((Adress (CVar const_env)),(CString id),(CVar temp))) in
-        let compttr = Compttr (name,(!vlist,compiled),[ malloc; assign; insert]) in
+        let ptrarg = CVar (new_ptr()) in
+        let ptrstr = CVar (new_ptr()) in
+        let idsize = (String.length id)  in
+        let malla = MALLOC ((CVar c_value),ptrarg,(Sizeof (CVar c_value))) in
+        let malls = MALLOC ((CVar "char"),ptrstr,(CInt (idsize +1)))  in
+        let assarg = Assign((Ptr ptrarg),(CVar const_arg)) in
+        let assstr = ToCall ((CVar c_strcpy), [ptrstr; (CString id); (CInt idsize)]) in
+        let insert = (Insert((Adress (CVar const_env)),ptrstr,ptrarg)) in
+        let compttr = Compttr (name,(!vlist,compiled),[ malla ; malls ; assarg; assstr; insert]) in
         funclist := compttr :: !funclist in
 
     (* toplevel *)
@@ -214,21 +218,23 @@ struct
     | CVar str -> str
     | CInt a -> (string_of_int a)
     | CString str -> ("\""^str^"\"")
-    | ToCall (f,ls) -> "("^c_value^") "^(printc f)^"("^(String.concat "," (List.map printc ls))^")"
+    | ToCall (f,ls) -> (printc f)^"("^(String.concat "," (List.map printc ls))^")"
     | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
     | ToEnv a -> (printc a)^".c.env"
     | ToMod a -> (printc a)^".c.mod"
     | CastMAX a -> "(MAX) "^(printc a)
     | Insert (a,b,c) -> "insertBinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
     | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
-    | Get (a,b) -> "(*(("^c_value^" *)(getBinding("^(printc a)^","^(printc b)^"))))" (*TODO fix path search *)
-    | MALLOC a -> c_value^" "^(printc a)^" = malloc(sizeof("^c_value^"))"
+    | Get (a,b) -> "(*(("^c_value^" *)(getBinding("^(printc a)^","^(printc b)^")->value)))" (*TODO fix path search *)
+    | MALLOC (a,b,c) -> (printc a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
     | ToByte a -> (printc a)^".byte"
     | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
     | ToLeft a -> "(*("^ (printc a) ^ ".p.left))"
     | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
+    | Sizeof a -> "sizeof("^ (printc a)^")"
+    | ToCast (a,b) -> "((" ^ a ^")"^(printc b)^")"
 
 
  (* 
@@ -365,7 +371,7 @@ struct
 
     (* print the lambda's*)
     let rec print_lambdas = function [] -> []
-      | Compttr (name,comp,setup) :: xs -> let arguments = "("^c_binding^" "^const_env^", "^c_value^" *"^const_arg^")" in
+      | Compttr (name,comp,setup) :: xs -> let arguments = "("^c_binding^" "^const_env^", "^c_value^" "^const_arg^")" in
         let definition = (c_value^" "^name^arguments^"{") in
         let setupls : string list = (List.map printc setup)  in
         let body = (format 1 (setupls @ (print_computation comp))) in

@@ -33,7 +33,7 @@ if [[ $? -ne 0 ]];then
     exit 1
 fi
 
-gcc  $outputc -I./lib/ -Wfatal-errors -O -c -o $outputm 
+gcc  $outputc -I./lib/ -g -Werror -Wfatal-errors -O -c -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"
