@@ -22,8 +22,8 @@ LOCAL DATA convertV(VALUE input)
 {
     DATA d;
     d.t = input.b.t;
-    switch(d.t){
-
+    switch(d.t)
+    {
         case INT: 
         case BOOLEAN: d.value = input.i.value; break;
 
@@ -46,12 +46,47 @@ LOCAL DATA convertV(VALUE input)
         }
 
         default:{
-            DEBUG_PRINT("Wrong TAG observed in VALUE conversion");
+            DEBUG_PRINT("Wrong TAG %d observed in VALUE conversion",d.t);
             exit(3); 
             break;
         }
     }
     return d;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    convertD
+ *  Description:    convert a DATA struct of the attacker into a miniml value
+ * =====================================================================================
+ */
+LOCAL VALUE convertD(DATA input)
+{
+    VALUE v;
+    switch(input.t)
+    {
+        case INT: makeInt(input.value); break;
+
+        case BOOLEAN: makeBoolean(input.value); break;
+
+        case CLOSURE: {
+            META * meta = getBinding(exchange,(char *) input.bytes);
+            if(meta->call) mistakeFromOutside();
+            VALUE temp = *((VALUE *) meta->value);
+            if(temp.c.t != CLOSURE) mistakeFromOutside();
+            v = temp;
+        }
+
+        case PAIR: makePair(convertD(*(input.left)),convertD(*(input.right))); break;
+
+        default:{
+            DEBUG_PRINT("Wrong TAG %d observed in VALUE conversion",input.t);
+            exit(3); 
+            break;
+        }
+    }
+    return v;
 }
 
 

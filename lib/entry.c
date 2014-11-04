@@ -74,3 +74,19 @@ ENTRYPOINT DATA path_entry(char * path, int size)
 }
 
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    closure_entry
+ *  Description:    entry point for closure application
+ * =====================================================================================
+ */
+ENTRYPOINT DATA closure_entry(int id,DATA d)
+{
+    check_state();  
+
+    VALUE argument = convertD(d);
+    
+    // TODO typecheck
+
+    return convertV(argument);    
+}

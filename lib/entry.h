@@ -76,7 +76,7 @@ typedef struct Data_s{
  *-----------------------------------------------------------------------------*/
 
 ENTRYPOINT DATA path_entry(char * path, int size);
-ENTRYPOINT DATA closure_entry(int id,void * p);
+ENTRYPOINT DATA closure_entry(int id,DATA d);
 
 
 #endif
