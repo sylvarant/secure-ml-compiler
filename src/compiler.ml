@@ -37,10 +37,11 @@ struct
   and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string | CInt of int
             | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
             | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
-            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of string * tempc
+            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc * int | ToCast of string * tempc
             | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
             | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
             | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
+            | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
   and trawl = Static of string | Environment of modbindtype
   
   (* types used during theta translation *)
@@ -72,6 +73,16 @@ struct
   (* get option operator *)
   let (+&) = (function Some a -> a | None -> raise (Cannot_compile "Some value doesn't exist"))
 
+  (* generate random string *)
+  let _ = Random.self_init()
+  let gen_rand length =
+    let gen() = match Random.int(26+26+10) with
+        n when n < 26 -> int_of_char 'a' + n
+      | n when n < 26 + 26 -> int_of_char 'A' + n - 26
+      | n -> int_of_char '0' + n - 26 - 26 in
+      let genstr _ = String.make 1 (char_of_int(gen())) in
+      String.concat "" (Array.to_list (Array.init length genstr))
+
  (*-----------------------------------------------------------------------------
   *  Global constants
   *-----------------------------------------------------------------------------*)
@@ -85,6 +96,8 @@ struct
   and c_binding = "BINDING*"
   and c_strc = "STRUCTURE"
   and c_strcpy = "str_cpy"
+  and var_prefix = (gen_rand 6)
+  and c_boot = "bootup"
 
 
  (* 
@@ -125,7 +138,7 @@ struct
 
     (*TODO generate v@r based on existing syms *)
     let new_var = let count = ref (-1) in 
-      fun () -> incr count; ("v_r_" ^ (string_of_int !count)) in
+      fun () -> incr count; (var_prefix^"_v_r_" ^ (string_of_int !count)) in
 
     let new_lambda = let count = ref (-1) in
         fun () -> incr count; ("Lam_"^(string_of_int !count)) in
@@ -133,7 +146,7 @@ struct
     let new_func str = (str^new_lambda())  in
 
     let new_ptr = let count = ref (-1) in
-        fun () -> incr count; ("ptr" ^ (string_of_int !count)) in
+        fun () -> incr count; (var_prefix^"_ptr" ^ (string_of_int !count)) in
 
     (* get rid of the let terms *)
     let rec desugar : MiniML.term -> MiniML.term  = function
@@ -187,13 +200,11 @@ struct
         let compiled = compile vlist e in
         let ptrarg = CVar (new_ptr()) in
         let ptrstr = CVar (new_ptr()) in
-        let idsize = (String.length id)  in
         let malla = MALLOC ((CVar c_value),ptrarg,(Sizeof (CVar c_value))) in
-        let malls = MALLOC ((CVar "char"),ptrstr,(CInt (idsize +1)))  in
         let assarg = Assign((Ptr ptrarg),(CVar const_arg)) in
-        let assstr = ToCall ((CVar c_strcpy), [ptrstr; (CString id); (CInt idsize)]) in
-        let insert = (Insert((Adress (CVar const_env)),ptrstr,ptrarg)) in
-        let compttr = Compttr (name,(!vlist,compiled),[ malla ; malls ; assarg; assstr; insert]) in
+        let asstr = ToStatic(ptrstr,id) in
+        let insert = (Insert((CVar const_env),ptrstr,ptrarg,0)) in
+        let compttr = Compttr (name,(!vlist,compiled),[asstr; malla ; assarg; insert]) in
         funclist := compttr :: !funclist in
 
     (* toplevel *)
@@ -223,7 +234,7 @@ struct
     | ToEnv a -> (printc a)^".c.env"
     | ToMod a -> (printc a)^".c.mod"
     | CastMAX a -> "(MAX) "^(printc a)
-    | Insert (a,b,c) -> "insertBinding("^(printc a)^","^(printc b)^","^(printc c)^",0)"
+    | Insert (a,b,c,d) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^(printc (CInt d))^")"
     | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
     | Get (a,b) -> "(*(("^c_value^" *)(getBinding("^(printc a)^","^(printc b)^")->value)))" (*TODO fix path search *)
     | MALLOC (a,b,c) -> (printc a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
@@ -235,6 +246,11 @@ struct
     | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
     | Sizeof a -> "sizeof("^ (printc a)^")"
     | ToCast (a,b) -> "((" ^ a ^")"^(printc b)^")"
+    | ToStatic (a,b) -> "static char "^(printc (Assign ((Ptr a),(CString b))))
+    | Emptyline -> ""
+    | ToReturn a -> "return "^(printc a)
+    | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
+      | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
 
 
  (* 
@@ -330,37 +346,59 @@ struct
 
     (* add ; and indentation *)
     let format n ls = let indent = (String.concat "" (List.map (fun x -> " ") (1 -- n))) in
-        (List.map (fun x -> (indent ^ x ^ ";")) ls) in
+        (List.map (fun x  -> if (not (x = "")) then (indent ^ x ^ ";") else "" ) ls) in
 
-    (* add associations to bindings *)
-    let rec print_assoc binding = function [] -> []
-      | (ty,strl,strr)::xs -> let ui = (match ty with Call -> "1" | _ -> "0") in
-        let temp = ("insertBinding(&"^binding^", \""^strl^"\" , "^strr^", "^ui^");") in
-        temp :: (print_assoc binding xs) in
-
+    (* end of function *)
     let func_end = ("}\n"::[]) in
 
-    (* print_strcts: convert structs into mallocs and bindings *)
-    let rec print_strcts = function [] -> ([],[])
-      | Strct (pth,assocs) :: xs -> 
-        let ptr = (make_ptr pth) in
-        let binding = (getmod ptr) in
-        let decl = (c_strc ^" * "^ptr^" = malloc(sizeof("^ c_strc ^"));") in
-        let parent = try let tail = (List.tl pth) in match tail with
-          | [] -> []
-          | x::xs -> [(binding^" = "^(getmod (make_ptr tail))^";")] 
-          with _ -> [] in
-        let (dls,bls) = (print_strcts xs) in
-          ((decl :: dls), (parent @ (print_assoc binding assocs) @ bls)) in
+    (* compare statics *)
+    let comp_stat a b = match a with 
+      ToStatic (_,x) -> (match b with 
+        ToStatic(_,y) -> (String.compare x y)
+        | _ -> -1) 
+      | _ -> -1 in
 
+    (* ================================================= *)
     (* build the bootup function: where we set it all up *)
+    (* ================================================= *)
     let boot_up strls top =
-      let def = "LOCAL int bootup(void) {\n"  in
-      let body = (match (print_strcts strls) with 
-        | (a,b) -> (a @ [""] @ b)
-        |  _ ->  raise (Cannot_compile "Can't combo a tuple")) in 
-      let body2 = (print_assoc "toplevel"  top) in
-      (def :: (body @ body2) @ ["";"return 1;";"}"]) in
+       
+      (* add print the associated binding *)
+      let rec print_assoc binding = function [] -> ([],[])
+        | (ty,strl,strr)::xs -> let ui = (match ty with Call -> 1 | _ -> 0) in
+          let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
+          let static = ToStatic(statptr,strl) 
+          and temp = Insert (binding,statptr,(CVar strr),ui) in
+          let (lss,lsb) = (print_assoc binding xs) in
+          (static::lss,temp::lsb) 
+      in
+
+      (* print_strcts: convert structs into mallocs and bindings *)
+      let rec print_strcts = function [] -> ([],[],[])
+        | Strct (pth,assocs) :: xs -> (let ptr = (make_ptr pth) in
+          let binding = (CVar (getmod ptr)) in
+          let cvar = (CVar c_strc) in
+          let decl = MALLOC (cvar,(CVar ptr),(Sizeof cvar)) in
+          let parent = (try let tail = (List.tl pth) in match tail with
+            | [] -> []
+            | x::xs -> [Assign (binding,(CVar (getmod (make_ptr tail))))] 
+            with _ -> []) in
+          let (stls,dls,bls) = (print_strcts xs) in
+            let (lss,lsb) = (print_assoc  binding assocs) in 
+            (lss @ stls,(decl :: dls), (parent @ lsb @ bls))) 
+        | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
+      in
+        
+      (* top level *)
+      let def = ToDef ((CVar "int"),(CVar c_boot),[]) in
+      let (sts,bind) = (match (print_strcts strls) with 
+        | (c,a,b) -> (c,(a @ [Emptyline] @ b))
+        |  _ ->  raise (Cannot_compile "Can't combo without a tuple")) in 
+      let (sts2,bind2) = (print_assoc (CVar "toplevel") top) in
+      let final_sts =  (List.sort_uniq comp_stat (sts @ sts2)) in
+      let body_ls = (List.map printc (final_sts @ [Emptyline] @ bind @ bind2 @ [Emptyline;(ToReturn (CInt 1))])) in
+      ( (printc def) :: (format 1 body_ls) @ func_end) 
+    in
 
     (* print the tuple computation *)
     let rec print_computation = function (vlist,comp) -> 
@@ -402,15 +440,17 @@ struct
             "#include \"entry.c\""; ""] in
 
     (* Top Level *)
+    (*var_prefix := (gen_rand 10);*)
     let (lambda_list,omega) = omega_transformation program in
     let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
     let dec_ls = (separate "declarations" (print_decl gettr_lst))
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
     and pv_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
-    and pb_ls = (separate "Boot" (boot_up (strct_list) top_level )) in
+    and pb_ls = (separate "Boot" (boot_up strct_list top_level)) in
     ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n")
   
 end
+
 
 
