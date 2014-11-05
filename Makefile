@@ -7,6 +7,7 @@ OUTPUT_DIR = bin
 COMPILER_DIR = src
 COMPILER_BIN = main.native
 
+
 #============================================
 # compiler
 #============================================
@@ -25,5 +26,8 @@ setup:
 test:
 	@./test
 
+clean:
+	$(MAKE) clean -C $(COMPILER_DIR)
+	
 
 .PHONY: test setup compiler

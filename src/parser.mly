@@ -126,8 +126,7 @@ valexpr:
   | valexpr LESSEQUAL valexpr         { MiniML.Prim( "<=",(prim_ls $1 $3)) }
   | valexpr GREATER valexpr           { MiniML.Prim( ">",(prim_ls $1 $3)) }
   | valexpr GREATEREQUAL valexpr      { MiniML.Prim( ">=",(prim_ls $1 $3)) } 
-/*  | FUNCTION IDENT COLON simpletype ARROW valexpr {MiniML.Function(Ident.create $2,$3 $5) } */
-  | FUNCTION IDENT ARROW valexpr {MiniML.Function(Ident.create $2, $4) } 
+  | FUNCTION IDENT ARROW COLON simpletype valexpr {MiniML.Function(Ident.create $2,$3,$5) } 
   | LET IDENT valbind IN valexpr      { MiniML.Let(Ident.create $2, $3, $5) }
   | IF valexpr THEN valexpr ELSE valexpr { MiniML.If( $2, $4, $6) }
   | FST valexpr {MiniML.Fst $2}
