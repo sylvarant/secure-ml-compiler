@@ -38,27 +38,24 @@ enum{ MFALSE = 0, MTRUE = 1 };
  *-----------------------------------------------------------------------------*/
 
 typedef enum T(Tag_e){
-    T(UNIT), T(INT), T(BOOLEAN), T(ARROW), T(STAR)
+    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR)
 } T(TAG);
 
-typedef union Type_u{
-    T(TAG) t;
-    struct T(Arrow) * a;
-    struct T(Star)  * s;
-    void * byte;         
-} TYPE;
-
 struct T(Arrow){
-    T(TAG) t;
-    TYPE left;
-    TYPE right;
+    union Type_u * left;
+    union Type_u * right;
 };
 
 struct T(Star){
-    T(TAG) t;
-    TYPE left;
-    TYPE right;
+    union Type_u * left;
+    union Type_u * right;
 };
+
+typedef union Type_u{
+    T(TAG) t;
+    struct T(Arrow) a;
+    struct T(Star) s;
+} TYPE;
 
 
 /*-----------------------------------------------------------------------------
@@ -75,7 +72,7 @@ _SCM
 
 SCM_(Closure)
     BINDING * env;
-  //  BINDING * mod;
+    TYPE type;
     union Value_u (*lam)(BINDING *,union Value_u); 
 _SCM
 
@@ -93,15 +90,6 @@ typedef union Value_u {
 
 
 /*-----------------------------------------------------------------------------
- * Function definitions
- *-----------------------------------------------------------------------------*/
-
-typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)(BINDING *,VALUE);
-typedef VALUE (* Gettr)(void);
-
-
-/*-----------------------------------------------------------------------------
  * Modules
  *-----------------------------------------------------------------------------*/
 
@@ -110,27 +98,50 @@ typedef struct Structure{
 }STRUCTURE;
 
 
-BINDING * toplevel = NULL;
-BINDING * exchange = NULL;
-unsigned int LOADED = 0;
+/*-----------------------------------------------------------------------------
+ * Helper structs/unions
+ *-----------------------------------------------------------------------------*/
+
+union safe_cast{
+    int value;
+    char * bytes;
+};
 
 
 /*-----------------------------------------------------------------------------
- * type constructors - TODO
+ * Function Pointers
  *-----------------------------------------------------------------------------*/
 
-FUNCTIONALITY TYPE makeTUnit(void);
-FUNCTIONALITY TYPE makeTInt(void);
-FUNCTIONALITY TYPE makeTBoolean(void);
-FUNCTIONALITY TYPE makeTArrow(TYPE, TYPE);
-FUNCTIONALITY TYPE makeTStar(TYPE, TYPE);
+typedef void* (* PrimOp) (void*,void*);
+typedef VALUE (* Lambda)(BINDING *,VALUE);
+typedef VALUE (* Gettr)(void);
+
+/*-----------------------------------------------------------------------------
+ * Global variables for the secure component
+ *-----------------------------------------------------------------------------*/
+
+BINDING * toplevel = NULL;
+BINDING * exchange = NULL;
+BINDING * closure_exchange = NULL;
+unsigned int LOADED = 0;
+
 
 /*-----------------------------------------------------------------------------
  *  statically defined auxilary methods
  *-----------------------------------------------------------------------------*/
 
+// data marshalling functions
+LOCAL int getAdressClo(void);
+LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE);
+LOCAL VALUE convertD(DATA);
 LOCAL DATA convert(void *,TAG t);
+
+// type checking
+LOCAL TYPE get_type(VALUE);
+LOCAL void unify_types(TYPE,TYPE);
+
+// created by the compiler
 LOCAL int bootup(void);
 
 
@@ -213,13 +224,13 @@ LOCAL VALUE makeBoolean(unsigned int b)
  *  Description:    create a closure
  * =====================================================================================
  */
-LOCAL VALUE makeClosure(BINDING * env, /*BINDING * mod,*/ Lambda lambda)
+LOCAL VALUE makeClosure(BINDING * env, TYPE type, Lambda lambda)
 {
     VALUE v;
     v.c.t = CLOSURE;
     v.c.lam = lambda;
     v.c.env = env;
-  //  v.c.mod = mod;
+    v.c.type = type;
     return v;
 }
 
@@ -240,5 +251,77 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
     return v;
 }
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    makeTIGNORE
+ *  Description:    create an IGNORE type
+ * =====================================================================================
+ */
+LOCAL TYPE makeTIGNORE(void)
+{
+    TYPE t;
+    t.t = T(IGNORE);
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    makeTInt
+ *  Description:    create an INT type
+ * =====================================================================================
+ */
+LOCAL TYPE makeTInt(void)
+{
+    TYPE t;
+    t.t = T(INT);
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    makeTBoolean
+ *  Description:    create a BOOLEAN type
+ * =====================================================================================
+ */
+LOCAL TYPE makeTBoolean(void)
+{
+    TYPE t;
+    t.t = T(BOOLEAN);
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    makeTArrow
+ *  Description:    create an Arrow type - mallocs !
+ * =====================================================================================
+ */
+LOCAL TYPE makeTArrow(TYPE left, TYPE right)
+{
+    TYPE t;
+    t.t = T(ARROW);
+    t.a.left = MALLOC(sizeof(TYPE));
+    t.a.right = MALLOC(sizeof(TYPE));
+    *(t.a.left) = left; 
+    *(t.a.right) = right; 
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    makeTStar
+ *  Description:    create a Star/Pair type - mallocs !
+ * =====================================================================================
+ */
+LOCAL TYPE makeTStar(TYPE left, TYPE right)
+{
+    TYPE t;
+    t.t = T(ARROW);
+    t.a.left = MALLOC(sizeof(TYPE));
+    t.a.right = MALLOC(sizeof(TYPE));
+    *(t.a.left) = left; 
+    *(t.a.right) = right; 
+    return t;
+}
 
 #endif

@@ -31,7 +31,7 @@ LOCAL DATA convertV(VALUE input)
             d.identifier = getAdress(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
-            insertBinding(&exchange,d.bytes,value,0);
+            insertBinding(&closure_exchange,d.bytes,value,0);
             break;
         }
 
@@ -66,19 +66,18 @@ LOCAL VALUE convertD(DATA input)
     VALUE v;
     switch(input.t)
     {
-        case INT: makeInt(input.value); break;
+        case INT: v = makeInt(input.value); break;
 
-        case BOOLEAN: makeBoolean(input.value); break;
+        case BOOLEAN: v = makeBoolean(input.value); break;
 
         case CLOSURE: {
-            META * meta = getBinding(exchange,(char *) input.bytes);
-            if(meta->call) mistakeFromOutside();
+            META * meta = getBinding(closure_exchange,(char *) input.bytes);
             VALUE temp = *((VALUE *) meta->value);
-            if(temp.c.t != CLOSURE) mistakeFromOutside();
             v = temp;
+            break;
         }
 
-        case PAIR: makePair(convertD(*(input.left)),convertD(*(input.right))); break;
+        case PAIR: v = makePair(convertD(*(input.left)),convertD(*(input.right))); break;
 
         default:{
             DEBUG_PRINT("Wrong TAG %d observed in VALUE conversion",input.t);
@@ -104,4 +103,40 @@ LOCAL DATA convert(void * p, TAG t)
     insertBinding(&exchange,(char *) d.bytes,p,0);    
     return d;
 }
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    get_type
+ *  Description:    returns the type pointed to by the value
+ * =====================================================================================
+ */
+LOCAL TYPE get_type(VALUE v)
+{
+    TYPE t;
+    switch(v.b.t)
+    {
+        case INT: t.t = T(INT); break;
+
+        case BOOLEAN: t.t = T(BOOLEAN); break;
+
+        case CLOSURE: {
+            // TODO
+            break;                  
+        }
+
+        case PAIR: t = makeTStar(get_type(*(v.p.left)),get_type(*(v.p.right))); break;
+
+        default:{
+            DEBUG_PRINT("Wrong TAG %d observed in TYPE procurement",v.b.t);
+            exit(3); 
+            break;
+        }
+
+    }
+    return t;
+}
+
+LOCAL void unify_types(TYPE t1,TYPE t2){}
+
 

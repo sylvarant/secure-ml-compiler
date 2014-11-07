@@ -59,16 +59,6 @@ FUNCTIONALITY void insertBinding(BINDING ** head, char * key,void * value,unsign
 }
 
 
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:    getAdress
- *  Description:    return adresses, may overflow
- * =====================================================================================
- */
-FUNCTIONALITY int getAdress(void)
-{
-    static  int addr = 0;
-    return ++addr;
-}
+
 
 

@@ -16,48 +16,73 @@ open Mini
 open Modules
 
 
+(* Exceptions *) 
+type typefail = Expansion | Unification
+exception Cannot_TypeCheck of typefail
+
+let string_typefail = function
+  | Expansion -> "Could not expand!"
+  | Unification -> "Could not unify!"
+
+
 (*-----------------------------------------------------------------------------
  *  MiniML ML typing
  *-----------------------------------------------------------------------------*)
 module MiniMLTyping =
 struct
-  module Core = MiniML
+  module Core = MiniML (* for the signature *)
   module Env = MiniMLEnv
-  open MiniML (* TODO necessary ? *)
+  open MiniML 
 
 
-  (* Exceptions *) 
-  exception Cannot_expand
+ (*-----------------------------------------------------------------------------
+  *  Global Variables 
+  *-----------------------------------------------------------------------------*)
 
-  (* Module vars *)
   let current_level = ref 0
   let begin_def() = incr current_level
   let end_def() = decr current_level
+
+
+ (*-----------------------------------------------------------------------------
+  *  Helper Funcions
+  *-----------------------------------------------------------------------------*)
+
+  (* produce an empty variable *) 
   let newvar() = {repres = None; level = !current_level}
   let unknown() = Var(newvar())
 
-  let rec typerepr = function
-    Var({repres = Some ty} as var) ->
-      let r = typerepr ty in var.repres <- Some r; r
+  (* fetch the representation of a variable *)
+  let rec typerepr = function 
+      Var({repres = Some ty} as var) -> let r = typerepr ty in 
+        var.repres <- Some r; r
     | ty -> ty
 
+  (* Replace variable type with argument *)
   let rec subst_vars subst ty =
     match typerepr ty with
     Var var as tyvar ->
       begin try List.assq var subst with Not_found -> tyvar end
     | Typeconstr(p, tl) -> Typeconstr(p, List.map (subst_vars subst) tl)
 
+  (* TODO what does this do *)
+  let instance vty = match vty.quantif with [] -> vty.body
+    | vars -> subst_vars (List.map (fun v -> (v, unknown())) vars) vty.body
+
+
+
   let expand_manifest env path args =
     match Env.find_type path env with
     {MiniMLMod.manifest = None} ->
-      raise Cannot_expand
+      raise (Cannot_TypeCheck Expansion)
     | {MiniMLMod.manifest = Some def} ->
       subst_vars (List.combine def.params args) def.defbody
 
   (* Expand abbreviations in ty1 and ty2 until their top constructor match *)
   let rec scrape_types env ty1 ty2 =
-    let repr1 = typerepr ty1 and repr2 = typerepr ty2 in
-    match (repr1, repr2) with
+    let repr1 = typerepr ty1 
+    and repr2 = typerepr ty2 in
+    match (repr1, repr2) with 
     (Typeconstr(path1, args1), Typeconstr(path2, args2)) ->
       if path_equal path1 path2 then
       begin
@@ -66,21 +91,21 @@ struct
       else begin
       try
         scrape_types env (expand_manifest env path1 args1) repr2
-      with Cannot_expand ->
+      with Cannot_TypeCheck Expansion ->
         try
         scrape_types env repr1 (expand_manifest env path2 args2)
-        with Cannot_expand ->
+        with Cannot_TypeCheck Expansion ->
         (repr1, repr2)
       end
     | (Typeconstr(path, args), _) ->
       begin try
       scrape_types env (expand_manifest env path args) repr2
-      with Cannot_expand -> (repr1, repr2)
+      with Cannot_TypeCheck Expansion -> (repr1, repr2)
       end
     | (_, Typeconstr(path, args)) ->
       begin try
       scrape_types env repr1 (expand_manifest env path args)
-      with Cannot_expand ->
+      with Cannot_TypeCheck Expansion ->
       (repr1, repr2)
       end
     | (_, _) -> (repr1, repr2)
@@ -89,100 +114,13 @@ struct
     match typerepr ty with
     Var var' -> if var == var' then error "cycle in unification"
     | Typeconstr(p, tl) -> List.iter (occur_check var) tl
+    | LambdaType(_,tl) -> List.iter (occur_check var) tl
 
   let rec update_levels level_max ty =
     match typerepr ty with
     Var v -> if v.level > level_max then v.level <- level_max
     | Typeconstr(p, tl) -> List.iter (update_levels level_max) tl
-
-  let rec unify env t1 t2 =
-    match scrape_types env t1 t2 with
-      (r1, r2) when r1 == r2 -> ()
-    | (Var v, r2) ->
-      occur_check v r2;
-      update_levels v.level r2;
-      v.repres <- Some r2
-    | (r1, Var v) ->
-      occur_check v r1;
-      update_levels v.level r1;
-      v.repres <- Some r1
-    | (Typeconstr(path1, args1), Typeconstr(path2, args2))
-      when path1 = path2 ->
-      List.iter2 (unify env) args1 args2
-    | (_, _) ->
-      error "type constructor mismatch in unification"
-
-  let generalize ty =
-    let rec gen_vars vars ty =
-    match typerepr ty with
-      Var v ->
-      if v.level > !current_level & not (List.memq v vars)
-      then v :: vars
-      else vars
-    | Typeconstr(path, tl) ->
-      List.fold_left gen_vars vars tl in
-    { quantif = gen_vars [] ty; body = ty }
-
-  let trivial_scheme ty =
-    { quantif = []; body = ty }
-
-  let instance vty =
-    match vty.quantif with
-    [] -> vty.body
-    | vars -> subst_vars (List.map (fun v -> (v, unknown())) vars) vty.body
-
-
-  (* 
-   * ===  FUNCTION  ======================================================================
-   *     Name:  infer_type
-   *  Description:  type inference algorithm
-   * =====================================================================================
-   *)
-  let rec infer_type env = function
-    Constant _ -> MiniML.int_type
-    | Boolean  _ -> MiniML.bool_type
-    | Longident path ->
-      let (Pident id) = path in
-      let x = instance (Env.find_value path env) in
-      x
-    | Function(param,body) ->
-      let type_param = unknown() in
-      let type_body =
-      infer_type (Env.add_value param (trivial_scheme type_param) env) body in
-      MiniML.arrow_type type_param type_body
-    | Apply(funct, arg) ->
-      let type_funct = infer_type env funct in
-      let type_arg = infer_type env arg in
-      let type_result = unknown() in
-      unify env type_funct (MiniML.arrow_type type_arg type_result);
-      type_result
-    | Let(ident, arg, body) ->
-      begin_def();
-      let type_arg = infer_type env arg in
-      end_def();
-      let nn = (Env.add_value ident (generalize type_arg) env) in
-      let tt = infer_type (Env.add_value ident (generalize type_arg) env) body in
-      tt
-    | If (t1,t2,t3) ->
-      let t1_type = infer_type env t1 
-      and t2_type = infer_type env t2 
-      and t3_type = infer_type env t3 in
-      unify env t1_type MiniML.bool_type;
-      unify env t2_type t3_type;
-      t3_type
-    | Prim (str,ls) -> 
-      let t1_type = infer_type env (List.hd ls) 
-      and t2_type = infer_type env (List.hd (List.tl ls))  in
-      match str with
-      | "+" | "*" | "-" | "/" -> 
-        unify env t2_type MiniML.int_type;
-        unify env t1_type MiniML.int_type;
-        MiniML.int_type
-      | "==" | "<>" | "<=" | ">=" | ">" | "<" -> 
-        unify env t2_type MiniML.int_type;
-        unify env t1_type MiniML.int_type;
-        MiniML.bool_type
-      
+    | LambdaType(_, tl) -> List.iter (update_levels level_max) tl
 
   let rec check_simple_type env params ty =
     match typerepr ty with
@@ -202,17 +140,117 @@ struct
 
   let check_kind env kind = ()
 
+
   (* 
    * ===  FUNCTION  ======================================================================
-   *     Name:  type a term
-   *  Description:  infer and generalize
+   *     Name:  generalize
+   *  Description: Why does this generalize for higher level variables shouldn't it be lower ?
+   * =====================================================================================
+   *)
+  let generalize ty =
+    let rec gen_vars vars ty = match typerepr ty with
+      Var v -> if v.level > !current_level & not (List.memq v vars)
+        then v :: vars
+        else vars
+      | Typeconstr(path, tl) -> List.fold_left gen_vars vars tl 
+      | LambdaType(_,tl) -> List.fold_left gen_vars vars tl 
+    in 
+    { quantif = gen_vars [] ty; body = ty }
+
+  (* 
+   * ===  FUNCTION  ======================================================================
+   *     Name:  type_term
+   *  Description: types the internal lambda calculus terms
    * =====================================================================================
    *)
   let type_term env term =
-    begin_def(); (* I don't know what the levels do *)
+
+    (* helper *)
+    let trivial_scheme ty = { quantif = []; body = ty } in
+
+    (* unify types *)
+    let rec unify env t1 t2 =
+
+      (* unify lambda types *)
+      let unify_lt t1 t2 = match (t1,t2) with
+        | (TIgnore,_) -> true
+        | (_,TIgnore) -> true
+        | _ -> t1 = t2
+      in
+      
+      (* top level *)
+      match scrape_types env t1 t2 with
+        (r1, r2) when r1 == r2 -> ()
+      | (Var v, r2) -> occur_check v r2;
+         update_levels v.level r2;
+         v.repres <- Some r2
+      | (r1, Var v) -> occur_check v r1;
+         update_levels v.level r1;
+         v.repres <- Some r1
+      | (Typeconstr(path1, args1), Typeconstr(path2, args2)) when path1 = path2 ->
+         List.iter2 (unify env) args1 args2
+      | (LambdaType (lty1,ls1), LambdaType (lty2,ls2)) when (unify_lt lty1 lty2) ->
+         List.iter2 (unify env) ls1 ls2  
+      | (_, _) -> raise (Cannot_TypeCheck Unification)
+    in
+
+    (* infer the Lambda calc type *)
+    let rec infer_type env = function
+        Constant _ -> MiniML.int_type
+      | Boolean  _ -> MiniML.bool_type
+      | Longident path -> let (Pident id) = path in
+        let x = instance (Env.find_value path env) in x
+      | Function(param,ty,body) -> let quantifier = (trivial_scheme ty) in
+        let type_body = infer_type (Env.add_value param quantifier env) body in
+        MiniML.arrow_type ty type_body
+      | Apply(funct, arg) -> let type_funct = infer_type env funct in
+        let type_arg = infer_type env arg in
+        let type_result = unknown() in
+        unify env type_funct (MiniML.arrow_type type_arg type_result);
+        type_result
+      | Let(ident, arg, body) -> begin_def();
+        let type_arg = infer_type env arg in
+        end_def();
+        let nn = (Env.add_value ident (generalize type_arg) env) in
+        let tt = infer_type (Env.add_value ident (generalize type_arg) env) body in tt
+      | If (t1,t2,t3) -> let t1_type = infer_type env t1 
+        and t2_type = infer_type env t2 
+        and t3_type = infer_type env t3 in
+        unify env t1_type MiniML.bool_type;
+        unify env t2_type t3_type;
+        t3_type
+      | Pair (t1,t2) -> let t1_type = infer_type env t1 
+        and t2_type = infer_type env t2 in 
+        (pair_type t1_type t2_type)
+      | Fst t1 -> let t1_type = infer_type env t1 in
+        let result = unknown() in
+        let irrel = unknown() in
+        unify env t1_type (MiniML.pair_type result irrel);
+        result
+      | Snd t1 -> let t1_type = infer_type env t1 in
+        let result = unknown() in
+        let irrel = unknown() in
+        unify env t1_type (MiniML.pair_type irrel result);
+        result
+      | Prim (str,ls) -> 
+        let t1_type = infer_type env (List.hd ls) 
+        and t2_type = infer_type env (List.hd (List.tl ls))  in
+        match str with
+        | "+" | "*" | "-" | "/" -> 
+          unify env t2_type MiniML.int_type;
+          unify env t1_type MiniML.int_type;
+          MiniML.int_type
+        | "==" | "<=" | ">=" | ">" | "<" -> 
+          unify env t2_type MiniML.int_type;
+          unify env t1_type MiniML.int_type;
+          MiniML.bool_type
+    in
+
+    (* top level *)
+    begin_def(); 
     let ty = infer_type env term in
     end_def();
-    generalize ty
+    generalize ty (* TODO remove ? *)
 
 
   let valtype_match env vty1 vty2 =
@@ -265,7 +303,7 @@ struct
       if is_rooted_at id path then begin
       try
         nondep_type env id (expand_manifest env path args)
-      with Cannot_expand ->
+      with Cannot_TypeCheck Expansion ->
         raise Not_found
       end else
       Typeconstr(path, List.map (nondep_type env id) args)
@@ -276,7 +314,7 @@ struct
     { params = def.params; defbody = nondep_type env id def.defbody }
   let nondep_kind env id kind =
     kind
-  end
+end
 
 (*-----------------------------------------------------------------------------
  *  Apply the Modular Module system to the typing

@@ -3,7 +3,7 @@
  *
  *     Filename:  compiler.ml
  *
- *  Description:  Compile the AST into C?
+ *  Description:  Compile the AST into C
  *
  *     Author:  Adriaan Larmuseau, ajhl
  *    Company:  Uppsala IT
@@ -15,15 +15,15 @@ open Mini
 open Modules 
 
 
+(* Exceptions *) 
+exception Cannot_compile of string
+
 module CCompiler =
 struct
 
   open MiniML 
   open MiniMLMod
 
-
-  (* Exceptions *) 
-  exception Cannot_compile of string
 
  (*-----------------------------------------------------------------------------
   *  Types
@@ -34,14 +34,14 @@ struct
   and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
   and strctbinding = BVal of string * cpath * computation | BMod of string * modbindtype 
   and computation = tempc list * tempc 
-  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string | CInt of int
-            | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
-            | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc
-            | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc * int | ToCast of string * tempc
-            | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-            | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
-            | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
-            | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+    | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
+    | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
+    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc * int | ToCast of string * tempc
+    | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
+    | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
+    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
+    | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
   and trawl = Static of string | Environment of modbindtype
   
   (* types used during theta translation *)
@@ -127,6 +127,14 @@ struct
       | x::xs -> let Environment( SB (_,nenv)) = (lookup_path env xs) in
         (lookup_path nenv (x::[]))
 
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  parse_type
+  *  Description:  compiles the lambda calculus
+  * =====================================================================================
+  *)
+ (* let rec parse_type = function
+    | *)
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -150,13 +158,13 @@ struct
 
     (* get rid of the let terms *)
     let rec desugar : MiniML.term -> MiniML.term  = function
-      | Let (id,e,t) -> Apply( (desugar (Function(id, t))) , (desugar e))
+      | Let (id,e,t) -> Apply( (desugar (Function(id,ignore_type,t))) , (desugar e))
       | Constant _ as t -> t
       | Boolean _ as t -> t
       | Longident _ as t -> t
       | If (a,b,c) -> If ((desugar a),(desugar b),(desugar c))
       | Prim (op,ls) -> let nls = (List.map desugar ls) in Prim(op,nls)
-      | Function(id,e) -> Function (id,desugar e) 
+      | Function(id,ty,e) -> Function (id,ty,desugar e) 
       | Pair(a,b) -> Pair( (desugar a), (desugar b))
       | Prim (s,ls) -> Prim (s, (List.map desugar ls)) 
       | Apply (a,b) -> Apply ((desugar a),(desugar b)) 
@@ -181,10 +189,11 @@ struct
            varlist := (CVar tmp) :: !varlist;
            let tcv = (CVar tmp) in
            ToComma(Assign( tcv, (convert l)),ToCast (c_value,(ToCall ((ToLambda tcv),[(ToEnv tcv); (convert r)]))))
-        | Function(id,e) -> let idn = (Ident.name id) in
+        | Function(id,ty,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))  in
+          (*let convert_ty = (parse_type ty) in*)
           (makef lamname idn e);
-          ToClosure((CVar const_env),(CVar lamname))
+          ToClosure((CVar const_env),(*convert_ty,*)(CVar lamname)) (* TODO pain point *)
         | Prim (s,ls) when (List.length ls) == 2 -> let left = ToIValue(convert (List.hd ls)) in 
           let right = ToIValue((convert (List.hd (List.tl ls)))) in
           let operation = ToOper(s,left,right) in

@@ -4,6 +4,7 @@
  *       Filename:  parser.mly
  *
  *    Description:  Parser for MiniML ML based on Leroy's parser for miniML
+ *   Extension of:  Xavier Leroy's modular Modules implementation
  *
  *         Author:  Adriaan Larmuseau, ajhl
  *        Company:  uppsala
@@ -115,18 +116,17 @@ path:
 
 valexpr:
     valexpr1                          { $1 }
-/*  | valexpr COMMA valexpr             { binop "," $1 $3 } Fuck floating point */
   | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
   | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
   | valexpr STAR valexpr              { MiniML.Prim( "*",(prim_ls $1 $3)) }
   | valexpr SLASH valexpr             { MiniML.Prim( "/",(prim_ls $1 $3)) } /* TODO do we support integer operands? */
   | valexpr EQUALEQUAL valexpr        { MiniML.Prim( "==",(prim_ls $1 $3)) }
-/*  | valexpr LESSGREATER valexpr       { MiniML.Prim( "<>",(prim_ls $1 $3)) } */
   | valexpr LESS valexpr              { MiniML.Prim( "<",(prim_ls $1 $3)) }
   | valexpr LESSEQUAL valexpr         { MiniML.Prim( "<=",(prim_ls $1 $3)) }
   | valexpr GREATER valexpr           { MiniML.Prim( ">",(prim_ls $1 $3)) }
   | valexpr GREATEREQUAL valexpr      { MiniML.Prim( ">=",(prim_ls $1 $3)) } 
-  | FUNCTION IDENT ARROW COLON simpletype valexpr {MiniML.Function(Ident.create $2,$3,$5) } 
+  | FUNCTION IDENT COLON simpletype EQUAL valexpr {MiniML.Function(Ident.create $2,$4,$6) } 
+  | FUNCTION IDENT EQUAL valexpr {MiniML.Function(Ident.create $2,(MiniML.ignore_type),$4) } 
   | LET IDENT valbind IN valexpr      { MiniML.Let(Ident.create $2, $3, $5) }
   | IF valexpr THEN valexpr ELSE valexpr { MiniML.If( $2, $4, $6) }
   | FST valexpr {MiniML.Fst $2}
@@ -148,20 +148,22 @@ valexpr0:
 
 valbind:
     EQUAL valexpr     { $2 }
-  | IDENT valbind     { MiniML.Function(Ident.create $1, $2) }
+  | IDENT COLON simpletype valbind { MiniML.Function(Ident.create $1,$3,$4) }
+  | IDENT valbind { MiniML.Function(Ident.create $1,MiniML.ignore_type,$2) }
 ;
 
 /* Type expressions for the core language */
 
 simpletype:
     QUOTE IDENT             { MiniML.Var(find_type_variable $2) }
-  | simpletype ARROW simpletype { MiniML.Typeconstr(MiniML.path_arrow, [$1; $3]) }
-  | simpletype STAR simpletype  { MiniML.Typeconstr(MiniML.path_star, [$1; $3]) }
+  | simpletype ARROW simpletype { (MiniML.arrow_type $1 $3) }
+  | simpletype STAR simpletype  { (MiniML.pair_type $1 $3) }
   | TBOOL                   { MiniML.bool_type }
   | TINT                    { MiniML.int_type }
   | path                    { MiniML.Typeconstr($1, []) }
   | simpletype path         { MiniML.Typeconstr($2, [$1]) }
   | LPAREN simpletypelist RPAREN path { MiniML.Typeconstr($4, List.rev $2) }
+  | LPAREN simpletype RPAREN { $2 }
 ;
 simpletypelist:
     simpletype { [$1] }

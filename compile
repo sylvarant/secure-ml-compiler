@@ -26,12 +26,17 @@ outputc="${Outfold}${base}.c"
 outputm="${Outfold}${base}.o"
 
 $Compiler < $input > $outputc
-
-if [[ $? -ne 0 ]];then
-    echo "MiniML compiler failed"
-    echo " Result of :: $outputc"
-    cat $outputc 
-    exit 1
+res=$?
+if [[ $res -ne 0 ]];then
+    if [[ $res -eq 5 ]]; then
+        echo "MiniML type checker failed"
+        exit 2
+    else
+        echo "MiniML compiler failed"
+        echo " Result of :: $outputc"
+        cat $outputc 
+        exit 3
+    fi
 fi
 
 gcc  $outputc -I./lib/ -g -Werror -Wfatal-errors -O -c -o $outputm 
@@ -41,7 +46,7 @@ if [[ $? -ne 0 ]];then
     echo "C Compilation failed"
     echo "------------------------------------------------------"
     cat $outputc 
-    exit 2
+    exit 1
 fi
 
 exit 0

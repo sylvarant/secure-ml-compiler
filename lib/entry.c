@@ -13,6 +13,23 @@
  */
 
 
+/*-----------------------------------------------------------------------------
+ * Adress generators
+ *-----------------------------------------------------------------------------*/
+
+LOCAL int getAdress(void)
+{
+    static  int addr = 0;
+    return ++addr;
+}
+
+LOCAL int getAdressClo(void)
+{
+    static  int addr = 0;
+    return ++addr;
+}
+
+
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:    nextId
@@ -80,13 +97,22 @@ ENTRYPOINT DATA path_entry(char * path, int size)
  *  Description:    entry point for closure application
  * =====================================================================================
  */
-ENTRYPOINT DATA closure_entry(int id,DATA d)
+ENTRYPOINT DATA closure_entry(int id, DATA d)
 {
     check_state();  
 
+    // fetch and type check
     VALUE argument = convertD(d);
-    
-    // TODO typecheck
+    union safe_cast key = {.value = id};
 
-    return convertV(argument);    
+    META * meta = getBinding(closure_exchange,key.bytes);
+    VALUE closure = *((VALUE *) meta->value);
+    TYPE required = closure.c.type;
+    TYPE given = get_type(argument);
+    unify_types(required,given);
+     
+    // when typechecks have succeeded apply the argument to the closure
+    VALUE result = closure.c.lam(closure.c.env,argument);
+    return convertV(result);    
 }
+

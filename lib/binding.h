@@ -45,7 +45,6 @@ typedef struct Binding_s
 
 FUNCTIONALITY void insertBinding(BINDING **,char *,void *,unsigned int);
 FUNCTIONALITY META * getBinding(BINDING *,char *);
-FUNCTIONALITY int getAdress(void);
 
 #endif
 

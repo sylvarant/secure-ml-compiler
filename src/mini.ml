@@ -1,54 +1,51 @@
 (*
  * =====================================================================================
  *
- *     Filename:  miniml.ml
+ *      Filename:  miniml.ml
  *
- *  Description:  MiniML specification
+ *   Description:  MiniML term and type specification (Modules not included)
+ *  Extension of:  Xavier Leroy's modular Modules implementation
  *
- *     Author:  Adriaan Larmuseau, ajhl
- *    Company:  Uppsala IT
+ *        Author:  Adriaan Larmuseau, ajhl
+ *       Company:  Uppsala IT
  *
  * =====================================================================================
  *)
 
 open Modules
 
-module MiniMLDebug : sig
-  
-  val debug : string -> unit
-
-end =
-struct
-
-  let debug str = Printf.eprintf "%s\n" str
-  
-end
-
-(*-----------------------------------------------------------------------------
- *  MiniML version of ML
- *-----------------------------------------------------------------------------*)
 module MiniML =
 struct
 
-  (* language AST *) 
+ (*-----------------------------------------------------------------------------
+  *  MiniML's non module term's and expressions
+  *-----------------------------------------------------------------------------*)
   type term =
-    Constant of int            
+      Constant of int            
     | Boolean of bool            
     | Longident of path           
     | Pair of term * term
-    | Function of Ident.t * type * term (* TODO type annotate function var's ? *)
-    | Apply of term * term            | If of term * term * term
+    | Function of Ident.t * simple_type * term 
+    | Apply of term * term            
+    | If of term * term * term
     | Let of Ident.t * term * term    
     | Prim of string * (term list)
     | Fst of term
     | Snd of term
 
-  (* Type system *) 
-  and simple_type = Var of type_variable | Typeconstr of path * simple_type list  
+
+ (*-----------------------------------------------------------------------------
+  *  MiniML's type system
+  *-----------------------------------------------------------------------------*)
+  and simple_type = 
+      Var of type_variable 
+    | LambdaType of lambda_type * simple_type list
+    | Typeconstr of path * simple_type list  
 
   and type_variable =
-    { mutable repres: simple_type option;          mutable level: int }    
+    { mutable repres: simple_type option; mutable level: int } (* what's level for ?*)
 
+  and lambda_type = TBool | TInt | TArrow | TPair | TIgnore
 
   type val_type =
     { quantif: type_variable list;     
@@ -57,8 +54,16 @@ struct
   type def_type =
     { params: type_variable list;    
     defbody: simple_type }      
-  type kind = { arity: int }
+  type kind = { arity: int } (* TODO remove kinds ? *)
 
+  (* Type constructors *)
+  let arrow_type t1 t2 = LambdaType(TArrow,[t1;t2])
+  let bool_type = LambdaType(TBool, [])
+  let int_type = LambdaType(TInt, [])
+  let pair_type t1 t2 = LambdaType(TPair,[t1;t2])
+  let ignore_type = LambdaType(TIgnore,[])
+
+  (* Subtype *)
   let rec subst_type subst = function
     Var {repres = None} as ty -> ty
     | Var {repres = Some ty} -> subst_type subst ty
@@ -74,29 +79,6 @@ struct
     defbody = subst_type subst def.defbody }
 
   let subst_kind kind subst = kind
-
-
-  (*------------------------ Base types  ------------------------*)
-
-  (* Arrow type *)
-  let ident_arrow = Ident.create "->"
-  let path_arrow = Pident ident_arrow
-  let arrow_type t1 t2 = Typeconstr(path_arrow, [t1;t2])
-
-  (* Integer type *)
-  let ident_int = Ident.create "int"
-  let path_int = Pident ident_int
-  let int_type = Typeconstr(path_int, [])
-
-  (* Boolean type *)
-  let ident_bool = Ident.create "bool"
-  let path_bool = Pident ident_bool
-  let bool_type = Typeconstr(path_bool, [])
-
-  (* Star type *)
-  let ident_star = Ident.create "*"
-  let path_star = Pident ident_star
-  let tuple_type = Typeconstr(path_star,[t1;t2])
 
 end
 
