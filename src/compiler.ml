@@ -18,7 +18,12 @@ open Modules
 (* Exceptions *) 
 exception Cannot_compile of string
 
-module CCompiler =
+module type CCOMPILER =
+sig
+  val compile: MiniMLEnv.t -> MiniMLMod.mod_term -> string
+end 
+
+module CCompiler : CCOMPILER =
 struct
 
   open MiniML 
@@ -285,7 +290,8 @@ struct
             | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
               (parse_module ((BMod (id,nenv))::env) pth m)
             | _ -> raise (Cannot_compile "Needed Functor"))
-        | Constraint (m,ty) -> raise (Cannot_compile "Constraint !") in
+        | Constraint (m,ty) ->   (parse_module env pth m) (* TODO fix ! *)
+      in
 
       (* recurse over the list of definitions *)
       match strctls with [] -> []
@@ -351,7 +357,7 @@ struct
   *  Description:  converts the toplevel into a giant string
   * =====================================================================================
   *)
-  let compile program =
+  let compile env program =
 
     (* add ; and indentation *)
     let format n ls = let indent = (String.concat "" (List.map (fun x -> " ") (1 -- n))) in

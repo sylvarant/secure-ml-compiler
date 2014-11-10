@@ -255,6 +255,17 @@ module type CORE_TYPING =
     val deftype_of_path: path -> Core.kind -> Core.def_type
   end
 
+
+(*-----------------------------------------------------------------------------
+ *  Pluggable Printer
+ *-----------------------------------------------------------------------------*)
+module type CORE_PRINTING =
+sig
+    module Mod: MOD_SYNTAX
+    val print_modtype : Mod.mod_type -> unit
+    val print_signature_item : Mod.specification -> unit
+end
+
 (* Section 2.8: Type-checking the module language *)
 
 module type MOD_TYPING =
@@ -269,9 +280,11 @@ module Mod_typing
     (TheMod: MOD_SYNTAX)
     (TheEnv: ENV with module Mod = TheMod)
     (CT: CORE_TYPING with module Core = TheMod.Core and module Env = TheEnv)
+    (ThePrinter : CORE_PRINTING with module Mod = TheMod) 
 = struct
     module Mod = TheMod
     module Env = TheEnv
+    module Printer = ThePrinter
     open Mod                          (* Allows to omit the `Mod.' prefix *)
 
     (* Section 2.9: Matching between module types *)
@@ -312,7 +325,9 @@ module Mod_typing
           let (pairs, subst) = pair_signature_components sig1 rem2 in
           ((item1, item2) :: pairs, Subst.add id2 (Pident id1) subst)
     and specification_match env subst = function
-        (Value_sig(_, vty1), Value_sig(_, vty2)) ->
+        (Value_sig(_, vty1), Value_sig(_, vty2)) as tuple ->
+          (*Printer.print_signature_item (fst tuple);
+          Printer.print_signature_item (snd tuple); *)
           if not (CT.valtype_match env vty1 (Core.subst_valtype vty2 subst))
           then error "value components do not match"
       | (Type_sig(id, decl1), Type_sig(_, decl2)) ->
@@ -383,6 +398,12 @@ module Mod_typing
           check_signature (Env.add_module id mty env) 
                           (Ident.name id :: seen) rem
 
+(*
+ * ===  FUNCTION ======================================================================
+ *         Name:  type_module
+ *  Description:  top level of module type checking
+ * =====================================================================================
+ *)
     let rec type_module env = function
         Longident path ->
           strengthen_modtype path (Env.find_module path env)
@@ -403,7 +424,8 @@ module Mod_typing
           error "application of a functor to a non-path"
       | Constraint(modl, mty) ->
           check_modtype env mty;
-          modtype_match env (type_module env modl) mty;
+          let mty2 = (type_module env modl) in 
+          modtype_match env mty2 mty;
           mty
     and type_structure env seen = function
         [] -> []

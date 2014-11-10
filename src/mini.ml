@@ -63,12 +63,12 @@ struct
   let pair_type t1 t2 = LambdaType(TPair,[t1;t2])
   let ignore_type = LambdaType(TIgnore,[])
 
-  (* Subtype *)
+  (* Substitution *)
   let rec subst_type subst = function
     Var {repres = None} as ty -> ty
     | Var {repres = Some ty} -> subst_type subst ty
-    | Typeconstr(p, tl) ->
-      Typeconstr(Subst.path p subst, List.map (subst_type subst) tl)
+    | Typeconstr(p, tl) -> Typeconstr(Subst.path p subst, List.map (subst_type subst) tl)
+    | LambdaType(lty,tl) -> LambdaType( lty ,List.map (subst_type subst) tl)
 
   let subst_valtype vty subst =
     { quantif = vty.quantif;
@@ -79,6 +79,20 @@ struct
     defbody = subst_type subst def.defbody }
 
   let subst_kind kind subst = kind
+
+  (* Helpers *)
+  let rec typerepr = function 
+      Var({repres = Some ty} as var) -> let r = typerepr ty in 
+        var.repres <- Some r; r
+    | ty -> ty
+
+  let path_to_simple path kind =
+    let rec make_params n =
+    if n <= 0 then [] else {repres = None; level = 0} :: make_params (n-1) in
+    let params = make_params kind.arity in
+    { params = params;
+    defbody = Typeconstr(path, List.map (fun v -> Var v) params) }
+
 
 end
 

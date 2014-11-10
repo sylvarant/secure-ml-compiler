@@ -72,7 +72,6 @@ _SCM
 
 SCM_(Closure)
     BINDING * env;
-    TYPE type;
     union Value_u (*lam)(BINDING *,union Value_u); 
 _SCM
 
@@ -224,13 +223,12 @@ LOCAL VALUE makeBoolean(unsigned int b)
  *  Description:    create a closure
  * =====================================================================================
  */
-LOCAL VALUE makeClosure(BINDING * env, TYPE type, Lambda lambda)
+LOCAL VALUE makeClosure(BINDING * env, Lambda lambda)
 {
     VALUE v;
     v.c.t = CLOSURE;
     v.c.lam = lambda;
     v.c.env = env;
-    v.c.type = type;
     return v;
 }
 

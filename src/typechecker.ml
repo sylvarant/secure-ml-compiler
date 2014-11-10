@@ -28,9 +28,10 @@ let string_typefail = function
 (*-----------------------------------------------------------------------------
  *  MiniML ML typing
  *-----------------------------------------------------------------------------*)
-module MiniMLTyping =
+
+module MiniMLTyping  =
 struct
-  module Core = MiniML (* for the signature *)
+  module Core = MiniML 
   module Env = MiniMLEnv
   open MiniML 
 
@@ -52,24 +53,27 @@ struct
   let newvar() = {repres = None; level = !current_level}
   let unknown() = Var(newvar())
 
-  (* fetch the representation of a variable *)
-  let rec typerepr = function 
-      Var({repres = Some ty} as var) -> let r = typerepr ty in 
-        var.repres <- Some r; r
-    | ty -> ty
-
   (* Replace variable type with argument *)
   let rec subst_vars subst ty =
     match typerepr ty with
     Var var as tyvar ->
       begin try List.assq var subst with Not_found -> tyvar end
     | Typeconstr(p, tl) -> Typeconstr(p, List.map (subst_vars subst) tl)
+    | LambdaType(tly,tl) -> LambdaType(tly,List.map (subst_vars subst) tl)
+
+  (* Check if one of the members is to be ignored *)
+  let is_ignore t1 t2 = match (t1,t2) with
+    | (TIgnore,_) -> true
+    | (_,TIgnore) -> true
+    | _ -> false
+
+  (* unify lambda types *)
+  let compare_lty t1 t2 =  if (is_ignore t1 t2) then true
+    else t1 = t2
 
   (* TODO what does this do *)
   let instance vty = match vty.quantif with [] -> vty.body
     | vars -> subst_vars (List.map (fun v -> (v, unknown())) vars) vty.body
-
-
 
   let expand_manifest env path args =
     match Env.find_type path env with
@@ -130,6 +134,7 @@ struct
       let arity = (Env.find_type path env).MiniMLMod.kind.arity in
       if List.length tl <> arity then error "arity error";
       List.iter (check_simple_type env params) tl
+    | LambdaType(_,tl) -> (List.iter (check_simple_type env params) tl)
 
   let kind_deftype env def =
     check_simple_type env def.params def.defbody;
@@ -170,13 +175,6 @@ struct
 
     (* unify types *)
     let rec unify env t1 t2 =
-
-      (* unify lambda types *)
-      let unify_lt t1 t2 = match (t1,t2) with
-        | (TIgnore,_) -> true
-        | (_,TIgnore) -> true
-        | _ -> t1 = t2
-      in
       
       (* top level *)
       match scrape_types env t1 t2 with
@@ -189,17 +187,17 @@ struct
          v.repres <- Some r1
       | (Typeconstr(path1, args1), Typeconstr(path2, args2)) when path1 = path2 ->
          List.iter2 (unify env) args1 args2
-      | (LambdaType (lty1,ls1), LambdaType (lty2,ls2)) when (unify_lt lty1 lty2) ->
-         List.iter2 (unify env) ls1 ls2  
+      | (LambdaType (lty1,ls1), LambdaType (lty2,ls2)) when (compare_lty lty1 lty2) ->
+         if (is_ignore lty1 lty2) then ()
+         else (List.iter2 (unify env) ls1 ls2)
       | (_, _) -> raise (Cannot_TypeCheck Unification)
     in
 
     (* infer the Lambda calc type *)
     let rec infer_type env = function
         Constant _ -> MiniML.int_type
-      | Boolean  _ -> MiniML.bool_type
-      | Longident path -> let (Pident id) = path in
-        let x = instance (Env.find_value path env) in x
+      | Boolean _ -> MiniML.bool_type
+      | Longident path -> instance (Env.find_value path env) 
       | Function(param,ty,body) -> let quantifier = (trivial_scheme ty) in
         let type_body = infer_type (Env.add_value param quantifier env) body in
         MiniML.arrow_type ty type_body
@@ -252,7 +250,12 @@ struct
     end_def();
     generalize ty (* TODO remove ? *)
 
-
+  (* 
+   * ===  FUNCTION  ======================================================================
+   *     Name:  valtype_match
+   *  Description: match value types
+   * =====================================================================================
+   *)
   let valtype_match env vty1 vty2 =
     let rec filter ty1 ty2 =
     match scrape_types env ty1 ty2 with
@@ -262,6 +265,8 @@ struct
       else (v.repres <- Some ty2; true)
     | (Typeconstr(path1, tl1), Typeconstr(path2, tl2)) ->
       path1 = path2 & List.for_all2 filter tl1 tl2
+    | (LambdaType (tly1,tl1), LambdaType(tly2,tl2)) ->
+        (compare_lty tly1 tly2) & List.for_all2 filter tl1 tl2
     | (_, _) -> false in
     filter (instance vty1) vty2.body
 
@@ -271,6 +276,8 @@ struct
       (Var v1, Var v2) -> v1 == v2
     | (Typeconstr(path1, args1), Typeconstr(path2, args2)) ->
       path1 = path2 & List.for_all2 equiv args1 args2
+    | (LambdaType (lty1,tl1) , LambdaType (lty2, tl2)) ->
+      (compare_lty lty1 lty2) & (List.for_all2 equiv tl1 tl2)
     | (_, _) -> false in
     let subst =
     List.map2 (fun v1 v2 -> (v2, Var v1)) def1.params def2.params in
@@ -299,6 +306,7 @@ struct
   let rec nondep_type env id ty =
     match typerepr ty with
     Var v as tvar -> tvar
+    | LambdaType(tly,ls) -> LambdaType(tly, (List.map (nondep_type env id) ls))
     | Typeconstr(path, args) ->
       if is_rooted_at id path then begin
       try
@@ -307,6 +315,7 @@ struct
         raise Not_found
       end else
       Typeconstr(path, List.map (nondep_type env id) args)
+        
 
   let nondep_valtype env id vty =
     { quantif = vty.quantif; body = nondep_type env id vty.body }
@@ -319,5 +328,5 @@ end
 (*-----------------------------------------------------------------------------
  *  Apply the Modular Module system to the typing
  *-----------------------------------------------------------------------------*)
-module MiniMLModTyping = Mod_typing(MiniMLMod)(MiniMLEnv)(MiniMLTyping)
+module MiniMLModTyping = Mod_typing(MiniMLMod)(MiniMLEnv)(MiniMLTyping)(Printer.Pretty) 
 

@@ -107,9 +107,9 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
 
     META * meta = getBinding(closure_exchange,key.bytes);
     VALUE closure = *((VALUE *) meta->value);
-    TYPE required = closure.c.type;
+  /*  TYPE required = closure.c.type;
     TYPE given = get_type(argument);
-    unify_types(required,given);
+    unify_types(required,given); */
      
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.env,argument);

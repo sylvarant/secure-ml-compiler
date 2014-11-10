@@ -21,9 +21,9 @@ open Printer
 
 
 (*
- * ===  FUNCTION  ======================================================================
- *         Name:    main
- *  Description:    feeds the lexer from stdin and then parses and compiles it
+ * ===  FUNCTION ======================================================================
+ *         Name:  main
+ *  Description:  feeds the lexer from stdin and then parses and compiles it
  * =====================================================================================
  *)
 let main() =
@@ -34,7 +34,7 @@ let main() =
     let prog = Parser.implementation Lexer.token lexbuf in
     let scoped_prog = MiniMLModScoping.scope_module !init_scope prog in
     let mty = MiniMLModTyping.type_module !init_env scoped_prog in
-    let compilation =  (CCompiler.compile scoped_prog) in
+    let compilation =  (CCompiler.compile !init_env scoped_prog) in
     (print_string compilation);
     exit 0
   with Error s -> prerr_string "Error: "; 
