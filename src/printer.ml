@@ -14,6 +14,7 @@
 open Modules
 open Mini
 
+(* For debugging purposes only *)
 module Pretty  =
 struct
 
@@ -88,11 +89,11 @@ struct
   let rec print_modtype = function
       Signature sg ->
         open_hvbox 2;
-        print_string "sig";
+        print_string "(sig";
         List.iter
           (fun item -> print_space(); print_signature_item item) sg;
         print_break 1 (-2);
-        print_string "end \n";
+        print_string "end)\n";
         close_box()
     | Functor_type(param, arg, body) ->
         open_hvbox 2;
@@ -104,7 +105,7 @@ struct
       Value_sig(id, vty) ->
         open_hvbox 2;
         print_string "val "; print_string(Ident.name id);
-        print_string ":"; print_space(); print_valtype vty;
+        print_string ":"; print_space(); print_valtype vty; print_string ";";
         close_box()
     | Type_sig(id, decl) ->
         open_hvbox 2;

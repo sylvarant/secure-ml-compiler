@@ -20,7 +20,7 @@ exception Cannot_compile of string
 
 module type CCOMPILER =
 sig
-  val compile: MiniMLEnv.t -> MiniMLMod.mod_term -> string
+  val compile: MiniMLMod.mod_type -> MiniMLMod.mod_term -> string
 end 
 
 module CCompiler : CCOMPILER =
@@ -273,42 +273,47 @@ struct
   *  Description:  converts the toplevel into an omega binding
   * =====================================================================================
   *)
-  let omega_transformation program = 
+  let omega_transformation progty program = 
 
     let functlist = ref [] in
 
     (* convert a sequence of structure definitions *)
-    let rec parse_struct env path strctls   = 
+    let rec parse_struct env path tyls strctls   = 
 
       (* convert a module definition into a new environment *)
-      let rec parse_module env pth  = function  
-          Longident ident -> let (Environment e) = (lookup_path env (convert_path ident)) in e
-        | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed)
-        | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
-        | Apply (m1,m2) -> 
-          (match (parse_module env pth m1) with
-            | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
-              (parse_module ((BMod (id,nenv))::env) pth m)
+      let rec parse_module env pth mty modm = match (mty,modm) with
+          (_, Longident ident) -> let (Environment e) = (lookup_path env (convert_path ident)) in e
+        | (Signature sign, Structure strls) -> let parsed = (parse_struct env pth sign strls) in SB (pth,parsed)
+        | (Functor_type _, Functor (id,ty,m)) -> FB (path,(Ident.name id),m)
+        | (ty, Apply (m1,m2)) -> 
+          (match (parse_module env pth ty m1) with
+            | FB (_,id,m) -> let nenv = (parse_module env pth ty m2) in
+              (parse_module ((BMod (id,nenv))::env) pth ty m)
             | _ -> raise (Cannot_compile "Needed Functor"))
-        | Constraint (m,ty) ->   (parse_module env pth m) (* TODO fix ! *)
+        | (mty, Constraint (m,ty)) ->   (parse_module env pth mty m) (* TODO fix ! *)
+        | _ -> raise (Cannot_compile "Could not pattern match in parse_module\n")
       in
 
       (* recurse over the list of definitions *)
-      match strctls with [] -> []
-        | x::xs ->  match x with Type_str _ -> (parse_struct env path xs)
-          | Module_str (id,mterm) -> 
-            let name = (Ident.name id) in
-            let nenv = (parse_module env (name::path) mterm) in
-            let value = BMod ((Ident.name id),nenv) in
-            value :: (parse_struct (value :: env) path xs)
-          | Value_str (id,term) -> 
-            let name = (Ident.name id) in
-            let comp = (parse_computation env (name::path) functlist term) in
-            let data = BVal ((Ident.name id), path, (comp)) in 
-              data :: (parse_struct (data :: env) path xs) in
+      match (tyls,strctls) with ([],[]) -> []
+        | (t::ts,x::xs) ->  match (t,x) with 
+            (Type_sig (id1,_), Type_str (id2,_,_)) when id1 = id2 -> 
+            (parse_struct env path ts xs)
+          | (Module_sig (id1,mty), Module_str (id2,mterm)) when id1 = id2 -> 
+            let name = (Ident.name id1) in
+            let nenv = (parse_module env (name::path) mty mterm) in
+            let value = BMod (name,nenv) in
+            value :: (parse_struct (value :: env) path ts xs)
+          | (Value_sig (id1,vty), Value_str (id2,term)) when id1 = id2 -> 
+            let name = (Ident.name id1) in
+            let comp = (parse_computation env (name::path) functlist term) in (* TODO add valtype here *)
+            let data = BVal (name, path, (comp)) in 
+              data :: (parse_struct (data :: env) path ts xs) 
+          | _ -> raise (Cannot_compile "Could not pattern match in parse_struct\n")
+    in
         
     (* top level *)
-    match program with Structure strt -> (!functlist,(parse_struct [] [] strt))
+    match (progty,program) with (Signature sign,Structure strt) -> (!functlist,(parse_struct [] [] sign strt))
     | _ ->  
       raise (Cannot_compile "Top level must be structure")
 
@@ -357,7 +362,7 @@ struct
   *  Description:  converts the toplevel into a giant string
   * =====================================================================================
   *)
-  let compile env program =
+  let compile mty program =
 
     (* add ; and indentation *)
     let format n ls = let indent = (String.concat "" (List.map (fun x -> " ") (1 -- n))) in
@@ -456,7 +461,8 @@ struct
 
     (* Top Level *)
     (*var_prefix := (gen_rand 10);*)
-    let (lambda_list,omega) = omega_transformation program in
+    (*Printer.Pretty.print_modtype mty;*)
+    let (lambda_list,omega) = omega_transformation mty program in
     let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation omega in 
     let dec_ls = (separate "declarations" (print_decl gettr_lst))
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))

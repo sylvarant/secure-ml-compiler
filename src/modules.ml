@@ -327,7 +327,7 @@ module Mod_typing
     and specification_match env subst = function
         (Value_sig(_, vty1), Value_sig(_, vty2)) as tuple ->
           (*Printer.print_signature_item (fst tuple);
-          Printer.print_signature_item (snd tuple); *)
+          Printer.print_signature_item (snd tuple);*)
           if not (CT.valtype_match env vty1 (Core.subst_valtype vty2 subst))
           then error "value components do not match"
       | (Type_sig(id, decl1), Type_sig(_, decl2)) ->
