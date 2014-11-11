@@ -23,10 +23,13 @@ struct
   open MiniMLMod
   open Format
 
+ (*-----------------------------------------------------------------------------
+  *  Helper functions
+  *-----------------------------------------------------------------------------*)
+
   let variable_names = ref ([] : (type_variable * string) list)
 
   let reset_names () = variable_names := []
-
 
   let rec print_path = function
       Pident id ->
@@ -34,6 +37,12 @@ struct
     | Pdot(root, field) ->
         print_path root; print_string "."; print_string field
 
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  print_simple_type
+  *  Description: print a simple type
+  * =====================================================================================
+  *)
   let rec print_simple_type ty =
     match typerepr ty with
       Var v ->
@@ -44,8 +53,7 @@ struct
             let n = List.length !variable_names + 1 in
             let s = String.make 1 (Char.chr(97 + n)) in
             variable_names := (v, s) :: !variable_names;
-            s in
-        print_string "'"; print_string name
+            s in print_string "'"; print_string name
     | LambdaType(TBool,_) -> print_string "Bool"
     | LambdaType(TInt,_) -> print_string "Int"
     | LambdaType(TArrow,[t1;t2]) -> print_simple_type t1; 
@@ -67,25 +75,13 @@ struct
         List.iter (fun t -> print_string ", "; print_simple_type t) tl;
         print_string ") "; print_path path
 
-  let print_valtype vty =
-    reset_names(); print_simple_type vty.body
 
-  let print_deftype id dty =
-    reset_names();
-    print_simple_type
-      (Typeconstr(Pident id, List.map (fun v -> Var v) dty.params));
-    print_string " ="; print_space();
-    print_simple_type dty.defbody
-
-  let print_typedecl id decl =
-    match decl.manifest with
-      None ->
-        reset_names();
-        print_simple_type
-          ((path_to_simple (Pident id) decl.kind).defbody)
-    | Some dty ->
-        print_deftype id dty
-
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  print_modtype
+  *  Description: print a module type
+  * =====================================================================================
+  *)
   let rec print_modtype = function
       Signature sg ->
         open_hvbox 2;
@@ -101,19 +97,44 @@ struct
         print_string ": "; print_modtype arg; print_string ")";
         print_space(); print_modtype body;
         close_box()
-  and print_signature_item = function
-      Value_sig(id, vty) ->
-        open_hvbox 2;
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  print_signature_item
+  *  Description: print a member of the signature
+  * =====================================================================================
+  *)
+  and print_signature_item sign = 
+    let print_typedecl id decl =
+      let print_deftype id dty =
+        reset_names();
+        print_simple_type
+        (Typeconstr(Pident id, List.map (fun v -> Var v) dty.params));
+        print_string " ="; print_space();
+        print_simple_type dty.defbody
+      in
+      match decl.manifest with
+          None -> reset_names();
+            print_simple_type ((path_to_simple (Pident id) decl.kind).defbody)
+        | Some dty ->
+            print_deftype id dty
+    in 
+    let print_valtype vty = reset_names(); 
+      print_simple_type vty.body
+    in
+    match sign with
+        Value_sig(id, vty) -> open_hvbox 2;
         print_string "val "; print_string(Ident.name id);
         print_string ":"; print_space(); print_valtype vty; print_string ";";
         close_box()
-    | Type_sig(id, decl) ->
+      | Type_sig(id, decl) ->
         open_hvbox 2;
         print_string "type "; print_typedecl id decl;
         close_box()
-    | Module_sig(id, mty) ->
+      | Module_sig(id, mty) ->
         open_hvbox 2;
         print_string "module "; print_string(Ident.name id);
         print_string ":"; print_space(); print_modtype mty;
         close_box()
+
 end
