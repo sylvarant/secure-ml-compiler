@@ -18,7 +18,7 @@
  *  Description:    convert a miniml value into data for the attacker
  * =====================================================================================
  */
-LOCAL DATA convertV(VALUE input)
+LOCAL DATA convertV(VALUE input,TYPE ty)
 {
     DATA d;
     d.t = input.b.t;
@@ -31,13 +31,13 @@ LOCAL DATA convertV(VALUE input)
             d.identifier = getAdress(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
-            insertBinding(&closure_exchange,d.bytes,value,0);
+            insertBigBinding(&closure_exchange,d.bytes,value,0,ty);
             break;
         }
 
         case PAIR:{
-            DATA left = convertV(*(input.p.left));
-            DATA right = convertV(*(input.p.right));
+            DATA left = convertV(*(input.p.left),ty);
+            DATA right = convertV(*(input.p.right),ty); // TODO left and right if not ignore 
             d.left = OUTERM(sizeof(DATA));
             d.right = OUTERM(sizeof(DATA));
             *(d.left) = left;
@@ -71,7 +71,7 @@ LOCAL VALUE convertD(DATA input)
         case BOOLEAN: v = makeBoolean(input.value); break;
 
         case CLOSURE: {
-            META * meta = getBinding(closure_exchange,(char *) input.bytes);
+            META * meta = (META *) getBinding(closure_exchange,(char *) input.bytes);
             VALUE temp = *((VALUE *) meta->value);
             v = temp;
             break;
@@ -80,7 +80,7 @@ LOCAL VALUE convertD(DATA input)
         case PAIR: v = makePair(convertD(*(input.left)),convertD(*(input.right))); break;
 
         default:{
-            DEBUG_PRINT("Wrong TAG %d observed in VALUE conversion",input.t);
+            DEBUG_PRINT("Wrong TAG %d observed in DATA conversion",input.t);
             exit(3); 
             break;
         }
@@ -95,12 +95,12 @@ LOCAL VALUE convertD(DATA input)
  *  Description:    convert a pointer to an identifier for the outside world
  * =====================================================================================
  */
-LOCAL DATA convert(void * p, TAG t)
+LOCAL DATA convert(void * p, TAG t,TYPE ty)
 {
     DATA d;
     d.t = t;
     d.identifier = getAdress();
-    insertBinding(&exchange,(char *) d.bytes,p,0);    
+    insertBigBinding(&exchange,(char *)d.bytes,p,0,ty);    
     return d;
 }
 

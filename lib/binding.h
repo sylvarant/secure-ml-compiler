@@ -21,20 +21,10 @@
  *  Environment Binding
  *  Binds a key -> to either a function call or a module
  *-----------------------------------------------------------------------------*/
-
-typedef struct Meta_s
-{
-    unsigned int call;
-    union {
-        void * value;
-        union Value_u (*gettr)();
-    };
-} META;
-
 typedef struct Binding_s 
 {
     char * key;
-    META * contents;
+    void * contents;
     struct Binding_s * next;
 } BINDING;
 
@@ -43,8 +33,8 @@ typedef struct Binding_s
  *  Functionality
  *-----------------------------------------------------------------------------*/
 
-FUNCTIONALITY void insertBinding(BINDING **,char *,void *,unsigned int);
-FUNCTIONALITY META * getBinding(BINDING *,char *);
+FUNCTIONALITY void insertBinding(BINDING **,char *,void *);
+FUNCTIONALITY void * getBinding(BINDING *,char *);
 
 #endif
 

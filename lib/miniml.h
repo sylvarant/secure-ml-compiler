@@ -98,6 +98,21 @@ typedef struct Structure{
 
 
 /*-----------------------------------------------------------------------------
+ * Type tracking 
+ *-----------------------------------------------------------------------------*/
+
+typedef struct Meta_s
+{
+    unsigned int call;
+    TYPE type;
+    union {
+        void * value;
+        union Value_u (*gettr)();
+    };
+} META;
+
+
+/*-----------------------------------------------------------------------------
  * Helper structs/unions
  *-----------------------------------------------------------------------------*/
 
@@ -132,9 +147,9 @@ unsigned int LOADED = 0;
 // data marshalling functions
 LOCAL int getAdressClo(void);
 LOCAL int getAdress(void);
-LOCAL DATA convertV(VALUE);
+LOCAL DATA convertV(VALUE,TYPE);
 LOCAL VALUE convertD(DATA);
-LOCAL DATA convert(void *,TAG t);
+LOCAL DATA convert(void *,TAG t,TYPE);
 
 // type checking
 LOCAL TYPE get_type(VALUE);
@@ -156,6 +171,7 @@ LOCAL int bootup(void);
  */
 LOCAL void mistakeFromOutside(void)
 {
+    DEBUG_PRINT("Mistake From Outside !");
     exit(2); 
 }
 
@@ -320,6 +336,33 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
     *(t.a.left) = left; 
     *(t.a.right) = right; 
     return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    insertBigBinding
+ *  Description:    helper function for inserting bindings
+ * =====================================================================================
+ */
+LOCAL void insertBigBinding(BINDING ** binding, char * key, void * val,unsigned int call,TYPE ty)
+{
+    META * m = MALLOC(sizeof(META));
+    m->call = call;
+    m->type = ty;
+    m->value = val;
+    insertBinding(binding,key,m);
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    getValue
+ *  Description:    helper function for grabbing values
+ * =====================================================================================
+ */
+LOCAL VALUE getValue(BINDING * binding,char * key) 
+{
+    return *((VALUE *)getBinding(binding,key));
+
 }
 
 #endif

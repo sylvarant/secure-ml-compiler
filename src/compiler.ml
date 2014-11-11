@@ -18,6 +18,127 @@ open Modules
 (* Exceptions *) 
 exception Cannot_compile of string
 
+
+(* ===  MODULE  ======================================================================
+ *         Name:  CIntermediary
+ *  Description:  defines and prints into the definitions of miniml.h
+ * =====================================================================================
+ *)
+module CIntermediary =
+struct
+
+ (*-----------------------------------------------------------------------------
+  *  Types
+  *-----------------------------------------------------------------------------*)
+
+  type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
+    | TyStar of type_u * type_u
+
+  type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+    | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
+    | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
+    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of string * tempc
+    | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
+    | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
+    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
+    | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
+    | InsertMeta of tempc * tempc * tempc * int * type_u
+
+
+ (*-----------------------------------------------------------------------------
+  *  Helper Funcions
+  *-----------------------------------------------------------------------------*)
+
+  let _ = Random.self_init()
+  let gen_rand length =
+    let gen() = match Random.int(26+26+10) with
+        n when n < 26 -> int_of_char 'a' + n
+      | n when n < 26 + 26 -> int_of_char 'A' + n - 26
+      | n -> int_of_char '0' + n - 26 - 26 in
+      let genstr _ = String.make 1 (char_of_int(gen())) in
+      "_"^(String.concat "" (Array.to_list (Array.init length genstr)))
+
+
+ (*-----------------------------------------------------------------------------
+  *  Global constants
+  *-----------------------------------------------------------------------------*)
+
+  let const_env = "my_env" 
+  and const_arg = "my_arg"
+  and const_mod = "my_mod" 
+  and const_str = "my_str"
+  and int_op = ["+"; "-"; "/"; "*"]
+  and c_value = "VALUE"
+  and c_binding = "BINDING*"
+  and c_strc = "STRUCTURE"
+  and c_strcpy = "str_cpy"
+  and var_prefix = (gen_rand 6)
+  and c_boot = "bootup"
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  printty
+  *  Description:  When all is said and done, conver the computation to string
+  * =====================================================================================
+  *)
+  let rec printty : type_u -> string = function TyIgnore -> "makeTIGNORE()"
+    | TyInt -> "makeTInt()"
+    | TyBool -> "makeTBoolean()"
+    | TyArrow (a,b) -> "makeTArrow("^(printty a)^","^(printty b)^")"
+    | TyStar (a,b) -> "makeTStar("^(printty a)^","^(printty b)^")"
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  printc
+  *  Description:  When all is said and done, conver the computation to string
+  * =====================================================================================
+  *)
+  let rec printc : tempc -> string = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
+    | ToIValue a -> (printc a)^".i.value"
+    | ToInt a -> "makeInt(" ^ (printc a) ^ ")"
+    | ToBoolean a -> "makeBoolean("^ (printc a) ^ ")"
+    | ToQuestion(a,b,c) -> "("^(printc a)^" ? "^(printc b)^" : "^(printc c)^")"
+    | ToPair (a,b) -> "makePair("^(printc a)^","^(printc b)^")"
+    | ToComma(a,b) -> "("^(printc a)^","^(printc b)^")"
+    | Assign (a,b) -> (printc a) ^ "=" ^ (printc b)
+    | CVar str -> str
+    | CInt a -> (string_of_int a)
+    | CString str -> ("\""^str^"\"")
+    | ToCall (f,ls) -> (printc f)^"("^(String.concat "," (List.map printc ls))^")"
+    | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
+    | ToEnv a -> (printc a)^".c.env"
+    | ToMod a -> (printc a)^".c.mod"
+    | CastMAX a -> "(MAX) "^(printc a)
+    | Insert (a,b,c) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^")"
+    | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
+    | Get (a,b) -> "getValue("^(printc a)^","^(printc b)^")" 
+    | MALLOC (a,b,c) -> (printc a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
+    | Ptr a -> "*"^(printc a) 
+    | Adress a -> "&"^(printc a)
+    | ToByte a -> (printc a)^".byte"
+    | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
+    | ToLeft a -> "(*("^ (printc a) ^ ".p.left))"
+    | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
+    | Sizeof a -> "sizeof("^ (printc a)^")"
+    | ToCast (a,b) -> "((" ^ a ^")"^(printc b)^")"
+    | ToStatic (a,b) -> "static char "^(printc (Assign ((Ptr a),(CString b))))
+    | Emptyline -> ""
+    | ToReturn a -> "return "^(printc a)
+    | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
+      | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
+    | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
+      (printc (CInt d))^","^(printty e)^")"
+
+end
+
+
+(* ===  MODULE  ======================================================================
+ *         Name:  CCOMPILER
+ *  Description:  The secure Compiler
+ * =====================================================================================
+ *)
 module type CCOMPILER =
 sig
   val compile: MiniMLMod.mod_type -> MiniMLMod.mod_term -> string
@@ -28,6 +149,7 @@ struct
 
   open MiniML 
   open MiniMLMod
+  open CIntermediary
 
 
  (*-----------------------------------------------------------------------------
@@ -36,19 +158,15 @@ struct
 
   (* types used during omega translation and lambda calc compilation *)
   type cpath = string list
+
   and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
+
   and strctbinding = BVal of string * cpath * computation | BMod of string * modbindtype 
+
   and computation = tempc list * tempc 
-  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
-    | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
-    | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
-    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc * int | ToCast of string * tempc
-    | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-    | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
-    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
-    | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
+
   and trawl = Static of string | Environment of modbindtype
-  
+
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath * assoc list 
                | Fctr of string | Compttr of string * computation * tempc list
@@ -56,6 +174,7 @@ struct
   and assoc = Call of val_type * string * string 
             | Share of MiniMLMod.mod_type * string * string
  
+
  (*-----------------------------------------------------------------------------
   *  Helper Funcions
   *-----------------------------------------------------------------------------*)
@@ -78,32 +197,6 @@ struct
 
   (* get option operator *)
   let (+&) = (function Some a -> a | None -> raise (Cannot_compile "Some value doesn't exist"))
-
-  (* generate random string *)
-  let _ = Random.self_init()
-  let gen_rand length =
-    let gen() = match Random.int(26+26+10) with
-        n when n < 26 -> int_of_char 'a' + n
-      | n when n < 26 + 26 -> int_of_char 'A' + n - 26
-      | n -> int_of_char '0' + n - 26 - 26 in
-      let genstr _ = String.make 1 (char_of_int(gen())) in
-      "_"^(String.concat "" (Array.to_list (Array.init length genstr)))
-
- (*-----------------------------------------------------------------------------
-  *  Global constants
-  *-----------------------------------------------------------------------------*)
-
-  let const_env = "my_env" 
-  and const_arg = "my_arg"
-  and const_mod = "my_mod" 
-  and const_str = "my_str"
-  and int_op = ["+"; "-"; "/"; "*"]
-  and c_value = "VALUE"
-  and c_binding = "BINDING*"
-  and c_strc = "STRUCTURE"
-  and c_strcpy = "str_cpy"
-  and var_prefix = (gen_rand 6)
-  and c_boot = "bootup"
 
 
  (* 
@@ -139,8 +232,26 @@ struct
   *  Description:  compiles the lambda calculus
   * =====================================================================================
   *)
- (* let rec parse_type = function
-    | *)
+  let rec parse_type vty = 
+
+    (* conver the simple types *)
+    let rec convert_simple_type = function
+      | Var _ as x -> convert_simple_type (typerepr x)
+      | LambdaType(TIgnore,_) -> TyIgnore
+      | LambdaType(TBool,_) -> TyBool
+      | LambdaType(TInt,_) -> TyInt
+      | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = convert_simple_type ty1 in
+          let tu2 = convert_simple_type ty2 in
+          TyArrow (tu1,tu2)
+      | LambdaType(TPair,[ty1;ty2]) -> let tu1 = convert_simple_type ty1 in
+          let tu2 = convert_simple_type ty2 in
+          TyStar (tu1,tu2)
+      | Typeconstr(path,_) -> raise (Cannot_compile "When do we get paths?")
+      | _ -> raise (Cannot_compile "Cannot convert a simple type")
+    in
+
+    (* toplevel *)
+    convert_simple_type vty.body
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -218,7 +329,7 @@ struct
         let malla = MALLOC ((CVar c_value),ptrarg,(Sizeof (CVar c_value))) in
         let assarg = Assign((Ptr ptrarg),(CVar const_arg)) in
         let asstr = ToStatic(ptrstr,id) in
-        let insert = (Insert((CVar const_env),ptrstr,ptrarg,0)) in
+        let insert = (Insert((CVar const_env),ptrstr,ptrarg)) in
         let compttr = Compttr (name,(!vlist,compiled),[asstr; malla ; assarg; insert]) in
         funclist := compttr :: !funclist in
 
@@ -227,45 +338,6 @@ struct
     let computation = (compile var_list (desugar program)) in 
     (!var_list,computation)
 
- (* 
-  * ===  FUNCTION  ======================================================================
-  *     Name:  printc
-  *  Description:  When all is said and done, conver the computation to string
-  * =====================================================================================
-  *)
-  let rec printc : tempc -> string = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
-    | ToIValue a -> (printc a)^".i.value"
-    | ToInt a -> "makeInt(" ^ (printc a) ^ ")"
-    | ToBoolean a -> "makeBoolean("^ (printc a) ^ ")"
-    | ToQuestion(a,b,c) -> "("^(printc a)^" ? "^(printc b)^" : "^(printc c)^")"
-    | ToPair (a,b) -> "makePair("^(printc a)^","^(printc b)^")"
-    | ToComma(a,b) -> "("^(printc a)^","^(printc b)^")"
-    | Assign (a,b) -> (printc a) ^ "=" ^ (printc b)
-    | CVar str -> str
-    | CInt a -> (string_of_int a)
-    | CString str -> ("\""^str^"\"")
-    | ToCall (f,ls) -> (printc f)^"("^(String.concat "," (List.map printc ls))^")"
-    | ToLambda a -> (printc a)^".c.lam" (* TODO is ptr ? *)
-    | ToEnv a -> (printc a)^".c.env"
-    | ToMod a -> (printc a)^".c.mod"
-    | CastMAX a -> "(MAX) "^(printc a)
-    | Insert (a,b,c,d) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^(printc (CInt d))^")"
-    | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
-    | Get (a,b) -> "(*(("^c_value^" *)(getBinding("^(printc a)^","^(printc b)^")->value)))" (*TODO fix path search *)
-    | MALLOC (a,b,c) -> (printc a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
-    | Ptr a -> "*"^(printc a) 
-    | Adress a -> "&"^(printc a)
-    | ToByte a -> (printc a)^".byte"
-    | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
-    | ToLeft a -> "(*("^ (printc a) ^ ".p.left))"
-    | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
-    | Sizeof a -> "sizeof("^ (printc a)^")"
-    | ToCast (a,b) -> "((" ^ a ^")"^(printc b)^")"
-    | ToStatic (a,b) -> "static char "^(printc (Assign ((Ptr a),(CString b))))
-    | Emptyline -> ""
-    | ToReturn a -> "return "^(printc a)
-    | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
-      | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
 
 
  (* 
@@ -405,13 +477,13 @@ struct
         | Call (ty,strl,strr) :: xs -> 
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = Insert (binding,statptr,(CVar strr),1) in
+          and temp = InsertMeta (binding,statptr,(CVar strr),1, parse_type ty) in
           let (lss,lsb) = (print_assoc binding xs) in
           (static::lss,temp::lsb) 
         | Share (ty,strl,strr) :: xs -> 
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = Insert (binding,statptr,(CVar strr),0) in
+          and temp = InsertMeta (binding,statptr,(CVar strr),0,TyIgnore) in
           let (lss,lsb) = (print_assoc binding xs) in
           (static::lss,temp::lsb) 
       in

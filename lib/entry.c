@@ -64,7 +64,7 @@ LOCAL char * nextId(char ** str)
 ENTRYPOINT DATA path_entry(char * path, int size)
 {
     check_state();
-   
+  
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
 
     // get the correct meta value by browsing through the maps
@@ -74,7 +74,7 @@ ENTRYPOINT DATA path_entry(char * path, int size)
     while(*remainder != '\0')
     {
         char * x_i = nextId(&remainder);
-        meta = getBinding(map,x_i); 
+        meta = (META *) getBinding(map,x_i); 
         if(meta == NULL ||(meta->call && *remainder != '\0')) mistakeFromOutside();
         struct Structure * temp =  meta->value;
         map = temp->mod;
@@ -84,10 +84,10 @@ ENTRYPOINT DATA path_entry(char * path, int size)
     if(meta->call)
     {
         VALUE v = ((meta->gettr)()); 
-        return convertV(v);
+        return convertV(v,meta->type);
     }
     
-    return convert(meta->value,MODULE);
+    return convert(meta->value,MODULE,meta->type);
 }
 
 
@@ -105,7 +105,7 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
     VALUE argument = convertD(d);
     union safe_cast key = {.value = id};
 
-    META * meta = getBinding(closure_exchange,key.bytes);
+    META * meta = (META*) getBinding(closure_exchange,key.bytes);
     VALUE closure = *((VALUE *) meta->value);
   /*  TYPE required = closure.c.type;
     TYPE given = get_type(argument);
@@ -113,6 +113,6 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
      
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.env,argument);
-    return convertV(result);    
+    return convertV(result,meta->type); // type needs to be sec of arrow clo
 }
 
