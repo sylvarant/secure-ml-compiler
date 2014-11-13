@@ -13,11 +13,19 @@
 #include "entry.h"
 
 int tests_run = 0;
-int tests_set = 2;
+int tests_set = 3;
 
 TEST(getaddClosure)
     DATA temp = path_entry("add",3);
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
+DONE
+
+TEST(applyClosure)
+    DATA temp = path_entry("add",3);
+    CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
+    DATA input = { .t = INT, .value = 5 };
+    DATA res = closure_entry(temp.identifier,input);
+    CHECK("Did not get a correct result",res.value == 6);
 DONE
 
 TEST(getcompClosure)
@@ -28,6 +36,7 @@ DONE
 
 LIST
     RUN(getaddClosure);
+    RUN(applyClosure);
     RUN(getcompClosure);
 DONE
 

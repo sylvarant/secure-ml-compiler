@@ -118,7 +118,12 @@ typedef struct Meta_s
 
 union safe_cast{
     int value;
-    char * bytes;
+    void * bytes;
+};
+
+struct value_type{
+    VALUE val;
+    TYPE ty;
 };
 
 
@@ -148,7 +153,7 @@ unsigned int LOADED = 0;
 LOCAL int getAdressClo(void);
 LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
-LOCAL VALUE convertD(DATA);
+LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TAG t,TYPE);
 
 // type checking
@@ -344,7 +349,7 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
  *  Description:    helper function for inserting bindings
  * =====================================================================================
  */
-LOCAL void insertBigBinding(BINDING ** binding, char * key, void * val,unsigned int call,TYPE ty)
+LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned int call,TYPE ty)
 {
     META * m = MALLOC(sizeof(META));
     m->call = call;
@@ -359,9 +364,9 @@ LOCAL void insertBigBinding(BINDING ** binding, char * key, void * val,unsigned 
  *  Description:    helper function for grabbing values
  * =====================================================================================
  */
-LOCAL VALUE getValue(BINDING * binding,char * key) 
+LOCAL VALUE getValue(BINDING * binding,void * key) 
 {
-    return *((VALUE *)getBinding(binding,key));
+    return *((VALUE *)getBinding(binding,key,cmp_char));
 
 }
 

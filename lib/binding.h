@@ -18,12 +18,17 @@
 #include "global.h"
 
 /*-----------------------------------------------------------------------------
+ *  Key comparison methods
+ *-----------------------------------------------------------------------------*/
+ typedef int (*compare)(void *,void*);
+
+/*-----------------------------------------------------------------------------
  *  Environment Binding
  *  Binds a key -> to either a function call or a module
  *-----------------------------------------------------------------------------*/
 typedef struct Binding_s 
 {
-    char * key;
+    void * key;
     void * contents;
     struct Binding_s * next;
 } BINDING;
@@ -33,8 +38,10 @@ typedef struct Binding_s
  *  Functionality
  *-----------------------------------------------------------------------------*/
 
-FUNCTIONALITY void insertBinding(BINDING **,char *,void *);
-FUNCTIONALITY void * getBinding(BINDING *,char *);
+FUNCTIONALITY void insertBinding(BINDING **,void *,void *);
+FUNCTIONALITY void * getBinding(BINDING *,void *,compare);
+FUNCTIONALITY int cmp_char(void *,void*);
+FUNCTIONALITY int cmp_int(void*,void*);
 
 #endif
 

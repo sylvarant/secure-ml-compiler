@@ -21,17 +21,26 @@
 LOCAL DATA convertV(VALUE input,TYPE ty)
 {
     DATA d;
-    d.t = input.b.t;
-    switch(d.t)
+    switch(input.b.t)
     {
-        case INT: 
-        case BOOLEAN: d.value = input.i.value; break;
+        case INT:{
+            d.t = INT; 
+            d.value = input.i.value;
+            break;
+        }
+
+        case BOOLEAN:{
+            d.t = BOOLEAN;
+            d.value = input.b.value; 
+            break;
+        }
 
         case CLOSURE:{
             d.identifier = getAdress(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
             insertBigBinding(&closure_exchange,d.bytes,value,0,ty);
+            d.t = CLOSURE;
             break;
         }
 
@@ -42,6 +51,7 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
             d.right = OUTERM(sizeof(DATA));
             *(d.left) = left;
             *(d.right) = right;
+            d.t = PAIR;
             break;
         }
 
@@ -61,23 +71,38 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
  *  Description:    convert a DATA struct of the attacker into a miniml value
  * =====================================================================================
  */
-LOCAL VALUE convertD(DATA input)
+LOCAL struct value_type convertD(DATA input)
 {
-    VALUE v;
+    struct value_type result;
     switch(input.t)
     {
-        case INT: v = makeInt(input.value); break;
-
-        case BOOLEAN: v = makeBoolean(input.value); break;
-
-        case CLOSURE: {
-            META * meta = (META *) getBinding(closure_exchange,(char *) input.bytes);
-            VALUE temp = *((VALUE *) meta->value);
-            v = temp;
+        case INT:{ 
+            result.val = makeInt(input.value); 
+            result.ty = makeTInt();    
             break;
         }
 
-        case PAIR: v = makePair(convertD(*(input.left)),convertD(*(input.right))); break;
+        case BOOLEAN:{
+            result.val = makeBoolean(input.value); 
+            result.ty = makeTBoolean(); 
+            break;
+        }
+
+        case CLOSURE:{
+            META * meta = (META *) getBinding(closure_exchange,input.bytes,cmp_int);
+            VALUE temp = *((VALUE *) meta->value);
+            result.val = temp;
+            result.ty = meta->type;
+            break;
+        }
+
+        case PAIR:{
+            struct value_type l = convertD(*(input.left));
+            struct value_type r = convertD(*(input.right)); 
+            result.val = makePair(l.val,r.val);
+            result.ty = makeTStar(l.ty,r.ty);
+            break;
+        }
 
         default:{
             DEBUG_PRINT("Wrong TAG %d observed in DATA conversion",input.t);
@@ -85,7 +110,7 @@ LOCAL VALUE convertD(DATA input)
             break;
         }
     }
-    return v;
+    return result;
 }
 
 
@@ -107,36 +132,29 @@ LOCAL DATA convert(void * p, TAG t,TYPE ty)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    get_type
- *  Description:    returns the type pointed to by the value
+ *         Name:    unify_types
+ *  Description:    type unification, C-style
  * =====================================================================================
  */
-LOCAL TYPE get_type(VALUE v)
+LOCAL void unify_types(TYPE t1,TYPE t2)
 {
-    TYPE t;
-    switch(v.b.t)
+    switch(t1.t)
     {
-        case INT: t.t = T(INT); break;
-
-        case BOOLEAN: t.t = T(BOOLEAN); break;
-
-        case CLOSURE: {
-            // TODO
-            break;                  
-        }
-
-        case PAIR: t = makeTStar(get_type(*(v.p.left)),get_type(*(v.p.right))); break;
-
-        default:{
-            DEBUG_PRINT("Wrong TAG %d observed in TYPE procurement",v.b.t);
-            exit(3); 
+        case T(INT):
+        case T(BOOLEAN):{
+            if(t2.t != t1.t) mistakeFromOutside();
             break;
         }
 
-    }
-    return t;
-}
+        case T(IGNORE): break;
 
-LOCAL void unify_types(TYPE t1,TYPE t2){}
+        case T(STAR):
+        case T(ARROW):{
+            if(t1.t != t2.t) mistakeFromOutside();
+            unify_types(*(t1.a.left),*(t2.a.left));  // CAREFULL: relies on static structure of the struct
+            unify_types(*(t1.a.right),*(t2.a.right)); 
+        }
+    }
+}
 
 
