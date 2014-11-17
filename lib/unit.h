@@ -11,6 +11,8 @@
 #ifndef UNIT_H
 #define UNIT_H
 
+#include <unistd.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -46,10 +48,25 @@
     return result != 0;\
 }
 
+// normal tests
 #define TEST(func) static char * func(){ \
     DEBUG_PRINT("Running Test: %s", #func);
 #define LIST static char * all_tests(){ 
 #define DONE return 0;}
+
+// crash tests
+#define CRASH(func) static char * func(void){ \
+    pid_t childPID; \
+    int status;\
+    childPID = fork(); \
+    if(childPID < 0) return "Failed to fork";\
+    if(childPID == 0){
+
+#define RECOVER exit(0);}\
+    while (wait(&status) != childPID){} \
+    if(status > 0) return 0;\
+    return "Outside did not CRASH"; \
+    }
 
 extern int tests_run;
 extern int tests_set;

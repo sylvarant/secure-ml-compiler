@@ -33,11 +33,18 @@ TEST(getcompClosure)
     CHECK("Did not fetch a Closure from comp",temp.t == CLOSURE);
 DONE
 
+CRASH(crashCloApply)
+    DATA temp = path_entry("add",3);
+    CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
+    DATA input = { .t = BOOLEAN, .value = 5 };
+    DATA res = closure_entry(temp.identifier,input);
+RECOVER
 
 LIST
     RUN(getaddClosure);
     RUN(applyClosure);
     RUN(getcompClosure);
+    RUN(crashCloApply);
 DONE
 
 INCLUDE_MAIN
