@@ -74,6 +74,7 @@ struct
   and c_strcpy = "str_cpy"
   and var_prefix = (gen_rand 6)
   and c_boot = "bootup"
+  and c_topl = "toplevel"
 
 
  (* 
@@ -159,7 +160,7 @@ struct
   (* types used during omega translation and lambda calc compilation *)
   type cpath = string list
 
-  and modbindtype = FB of cpath * string * mod_term | SB of cpath * strctbinding list
+  and modbindtype = FB of cpath * string * mod_term * bool| SB of cpath * strctbinding list * bool
 
   and strctbinding = BVal of string * cpath * computation | BMod of string * modbindtype 
 
@@ -168,11 +169,11 @@ struct
   and trawl = Static of string | Environment of modbindtype
 
   (* types used during theta translation *)
-  type compred = Gettr of string * computation | Strct of cpath * assoc list 
+  type compred = Gettr of string * computation | Strct of cpath 
                | Fctr of string | Compttr of string * computation * tempc list
   (* Bindings *)
-  and assoc = Call of val_type * string * string 
-            | Share of MiniMLMod.mod_type * string * string
+  and assoc = Call of val_type * string * string list
+            | Share of MiniMLMod.mod_type * string * string list
  
 
  (*-----------------------------------------------------------------------------
@@ -207,6 +208,12 @@ struct
   *)
   let rec lookup_path env path = 
 
+    (* note that this is not the original one *)
+    let set_origin = function 
+      | FB (a,b,c,_) -> FB(a,b,c,false)
+      | SB (a,b,_) -> SB(a,b,false)
+    in
+
     (* look up x in the env *)
     let get_binding x nenv = 
       let find_binding = (function
@@ -219,11 +226,11 @@ struct
     (* When it comes to values all that matters is that they exist *)
     let extract = function
         | BVal (nn,pth,_) -> Static (make_ptr (nn::pth))
-        | BMod (_,e) -> (Environment e) in
+        | BMod (_,e) -> (Environment (set_origin e)) in
 
     (* toplevel *)
     match path with  x::[] -> (extract (get_binding x env)) 
-      | x::xs -> let Environment( SB (_,nenv)) = (lookup_path env xs) in
+      | x::xs -> let Environment( SB (_,nenv,_)) = (lookup_path env xs) in
         (lookup_path nenv (x::[]))
 
  (* 
@@ -356,11 +363,11 @@ struct
       (* convert a module definition into a new environment *)
       let rec parse_module env pth = function
           Longident ident -> let (Environment e) = (lookup_path env (convert_path ident)) in e
-        | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed)
-        | Functor (id,ty,m) -> FB (path,(Ident.name id),m)
+        | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
+        | Functor (id,ty,m) -> FB (path,(Ident.name id),m,true)
         | Apply (m1,m2) -> 
           (match (parse_module env pth m1) with
-            | FB (_,id,m) -> let nenv = (parse_module env pth m2) in
+            | FB (_,id,m,_) -> let nenv = (parse_module env pth m2) in
               (parse_module ((BMod (id,nenv))::env) pth m)
             | _ -> raise (Cannot_compile "Needed Functor"))
         | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
@@ -397,53 +404,105 @@ struct
   *)
   let theta_transformation progtype binding = 
 
-    (* the collection for the compilation *)
-    let gettr_lst = ref []
-    and strct_list = ref []
-    and fctr_list = ref [] 
-    and path_list = ref [] in
+    (* ================================================= *)
+    (* extract the shared associations                   *)
+    (* ================================================= *)
+    let extract_assoc sign binding = 
 
-    (* helpers functions *)
-    let find_path x lst = (List.exists (function y -> (make_ptr x) = y) lst) in
-
-    (* remove unwanted data from a signature specification *)
-    let rec clear_sigs = function [] -> []
+      (* remove unwanted data from a signature specification *)
+      let rec clear_sigs = function [] -> []
         | x :: xs -> (match x with
           | Type_sig _ -> (clear_sigs xs)
-          | _ -> x :: (clear_sigs xs))
+          | _ -> x :: xs)
+      in
+           
+      (* sort bindings *)
+      let sort_bindings bls = 
+        let cmp_binding a b = match (a,b) with
+          | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
+          | (BMod (name1,_) , BMod(name2,_)) -> (String.compare name1 name2)
+          | (BVal _, _) -> -1
+          | (BMod _, _) -> 1
+        in
+        (List.sort cmp_binding bls)
+      in
+
+      (* sort signature components *)
+      let sort_sigs sls =
+        let cmp_sig a b = match(a,b) with
+          | (Value_sig (id1,_) , Value_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+          | (Module_sig (id1,_), Module_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+          | (Type_sig (id1,_), Type_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+          | (Type_sig _ , _) -> -1  
+          | (Module_sig _, _) -> 1
+          | (Value_sig _, Type_sig _ ) -> 1
+          | (Value_sig _ , Module_sig _ ) -> 0
+        in
+        (List.sort cmp_sig sls)
+      in
+
+      (* remove those structure bindings that don't need to be shared *)
+      let rec filter_shares sigls strls = match(sigls,strls) with ([],_) -> []
+        | (s::ss,b::bs) -> (match (s,b) with
+          | (Value_sig (id1,vty),BVal (name,_,_)) when (Ident.name id1) = name ->
+            (b,s) :: (filter_shares ss bs) 
+          | (Value_sig _, BVal _ ) -> (filter_shares (s::ss) bs)
+          | (Module_sig (id1,mty), BMod (name,_) as z) when (Ident.name id1) = name ->
+            (b,s) :: (filter_shares ss bs)
+          | (Module_sig _, BMod _) -> (filter_shares (s::ss) bs)
+          | _ -> raise (Cannot_compile "Serieus failure of argument structure in Share computation"))
+        | _ -> raise (Cannot_compile "Serieus failure of list structure in Share computation")
+      in
+
+      (* pipe in the easiest possible input *)
+      let clear_input sign strls = match sign with 
+        | Signature sigls -> (filter_shares (clear_sigs (sort_sigs sigls)) (sort_bindings strls))
+        | _ -> raise (Cannot_compile "Expected a Signature")
+      in
+
+      (* Do the conversion *)
+      let rec convert_assoc path = function [] -> []
+        | (bind,ty)::ls -> match (bind,ty) with
+          | (BVal (name,_,_) , Value_sig (_, vty)) ->  
+            (Call (vty,name,path))::(convert_assoc path ls) 
+          | (BMod (name, modt), Module_sig(_,mty)) -> (match modt with 
+            | SB (pth, nbinding,unique) -> let recurse = if unique 
+              then (convert_assoc (name::path) (clear_input mty nbinding))
+              else [] in 
+                ((Share (mty,name,path)) :: recurse) @ (convert_assoc path ls)
+            | FB (pth,_,_,_) -> (Share (mty,name,path)) :: (convert_assoc path ls)) 
+          | _ -> raise (Cannot_compile "Massive idiocy everywhere")
+
+      in
+
+      (* top level *)
+      convert_assoc [] (clear_input sign binding)
     in
 
-    (* select the structures gettrs from the previoulsy obtained omega *)
-    let rec select path mls strbinding = match (mls,strbinding) with ([],[]) -> []
-      | (ty::ts,str::ss) -> (match (ty,str) with
-        | (Value_sig (id,vty), BVal (name, _, comp)) when (Ident.name id) = name -> 
-          let ptr = make_ptr (name::path) in
-          gettr_lst := ((Gettr (ptr,comp)) :: !gettr_lst);
-          (Call (vty,name,ptr))::(select path ts ss) 
-        | (Module_sig (id,mty), BMod (name, modt)) when (Ident.name id) = name -> 
-           (match (mty,modt) with
-            | (Signature sls, SB (pth,nbinding)) when (not (find_path pth !path_list)) ->  
-              path_list := (make_ptr pth) :: !path_list;
-              let light_list = (select (name::path) (clear_sigs sls) nbinding) in (* Tree Recurse *)
-              let ptr = (make_ptr pth) in
-              strct_list := ((Strct (pth,light_list)) :: !strct_list);
-              (Share (mty,name,ptr))::(select path ts ss)
-            | (Signature sls, SB (pth,nbinding)) -> (Share (mty,name,(make_ptr pth)))::(select path ts ss)
-            | (Functor_type _, FB (pth,var,m)) -> let npath = make_ptr (name::pth) in
-              fctr_list := (Fctr npath) :: !fctr_list;
-              (Share (mty,name,npath)) :: (select path ts ss) 
-            | _ -> raise (Cannot_compile "theta_transformation cannot parse the module"))
-        | _ -> raise (Cannot_compile "Signature to Strct binding mismatch !"))
+    (* ================================================= *)
+    (* extract the compilation redices need              *)
+    (* ================================================= *)
+    let rec extract_compred path = function [] -> ([],[],[]) 
+      | str::ls -> (match str with
+        | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
+          and (a,b,c) = (extract_compred path ls) in
+            ((Gettr (ptr,comp)) :: a, b, c)
+        | BMod (name, modt) -> (match modt with
+          | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract_compred (name::path) nbinding)  
+            and ptr = (make_ptr pth) 
+            and (a,b,c) = (extract_compred path ls) in
+              ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
+          | SB (pth,nbinding,false) -> (extract_compred path ls)
+          | FB (pth,var,mm,_) -> let npath = make_ptr (name::pth) 
+            and (a,b,c) =  (extract_compred path ls) in
+              (a, b, (Fctr npath) :: c)))
     in 
 
     (* top level *)
-    match progtype with
-    | Signature sigls when (List.length (clear_sigs sigls)) = (List.length binding) -> 
-      let top_level = (select [] (clear_sigs sigls) binding) in 
-      (!gettr_lst,!strct_list,!fctr_list,top_level)
-    | _ -> raise (Cannot_compile "theta_transformation need as Signature")
+    let (gettrs,strcts,fctrs) = (extract_compred [] binding) 
+    and assocs = (extract_assoc progtype binding) in 
+      (gettrs,strcts,fctrs,assocs)
 
-     
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -470,27 +529,35 @@ struct
     (* ================================================= *)
     (* build the bootup function: where we set it all up *)
     (* ================================================= *)
-    let boot_up strls top =
+    let boot_up strls assocs =
+
+      (* create the insertion binding *)
+      let to_binding = function [] -> (CVar c_topl)
+        | x :: xs as ls -> let ptr = (make_ptr ls) in
+          (CVar (getmod ptr)) 
+      in
        
       (* add print the associated binding *)
-      let rec print_assoc binding = function [] -> ([],[])
-        | Call (ty,strl,strr) :: xs -> 
+      let rec print_assoc = function [] -> ([],[])
+        | Call (ty,strl,pth) :: xs -> 
+          let strr = CVar (make_ptr (strl::pth)) in
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = InsertMeta (binding,statptr,(CVar strr),1, parse_type ty) in
-          let (lss,lsb) = (print_assoc binding xs) in
+          and temp = InsertMeta ((to_binding pth),statptr,strr,1, parse_type ty) in
+          let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
-        | Share (ty,strl,strr) :: xs -> 
+        | Share (ty,strl,pth) :: xs -> 
+          let strr = CVar (make_ptr (strl::pth)) in
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = InsertMeta (binding,statptr,(CVar strr),0,TyIgnore) in
-          let (lss,lsb) = (print_assoc binding xs) in
+          and temp = InsertMeta ((to_binding pth),statptr,strr,0,TyIgnore) in
+          let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
       in
 
       (* print_strcts: convert structs into mallocs and bindings *)
-      let rec print_strcts = function [] -> ([],[],[])
-        | Strct (pth,assocs) :: xs -> (let ptr = (make_ptr pth) in
+      let rec print_strcts = function [] -> ([],[])
+        | (Strct pth) :: xs -> (let ptr = (make_ptr pth) in
           let binding = (CVar (getmod ptr)) in
           let cvar = (CVar c_strc) in
           let decl = MALLOC (cvar,(CVar ptr),(Sizeof cvar)) in
@@ -498,20 +565,19 @@ struct
             | [] -> []
             | x::xs -> [Assign (binding,(CVar (getmod (make_ptr tail))))] 
             with _ -> []) in
-          let (stls,dls,bls) = (print_strcts xs) in
-            let (lss,lsb) = (print_assoc  binding assocs) in 
-            (lss @ stls,(decl :: dls), (parent @ lsb @ bls))) 
+          let (dls,bls) = (print_strcts xs) in
+            ((decl :: dls), (parent @ bls))) 
         | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
       in
         
       (* top level *)
       let def = ToDef ((CVar "int"),(CVar c_boot),[]) in
-      let (sts,bind) = (match (print_strcts strls) with 
-        | (c,a,b) -> (c,(a @ [Emptyline] @ b))
+      let strdecl = (match (print_strcts strls) with 
+        | (a,b) -> (a @ [Emptyline] @ b)
         |  _ ->  raise (Cannot_compile "Can't combo without a tuple")) in 
-      let (sts2,bind2) = (print_assoc (CVar "toplevel") top) in
-      let final_sts =  (List.sort_uniq comp_stat (sts @ sts2)) in
-      let body_ls = (List.map printc (final_sts @ [Emptyline] @ bind @ bind2 @ [Emptyline;(ToReturn (CInt 1))])) in
+      let (statics,bindings) = (print_assoc assocs) in
+      let final_sts =  (List.sort_uniq comp_stat statics) in
+      let body_ls = (List.map printc (final_sts @ [Emptyline] @ strdecl @ bindings @ [Emptyline;(ToReturn (CInt 1))])) in
       ( (printc def) :: (format 1 body_ls) @ func_end) 
     in
 
@@ -558,12 +624,12 @@ struct
     (*var_prefix := (gen_rand 10);*)
     (*Printer.Pretty.print_modtype mty;*)
     let (lambda_list,omega) = omega_transformation program in
-    let (gettr_lst,strct_list,fctr_list,top_level) = theta_transformation mty omega in 
+    let (gettr_lst,strct_list,fctr_list,assocs) = theta_transformation mty omega in 
     let dec_ls = (separate "declarations" (print_decl gettr_lst))
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
     and pv_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
-    and pb_ls = (separate "Boot" (boot_up strct_list top_level)) in
+    and pb_ls = (separate "Boot" (boot_up strct_list assocs)) in
     ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n")
   
 end
