@@ -44,7 +44,7 @@ LOCAL char * nextId(char ** str)
 
 
     int res_size = end - start;
-    char * result = malloc((res_size)+1);
+    char * result = MALLOC((res_size)+1);
     for(int i = 0; i < res_size; i++) result[i] = start[i];
     result[res_size] = '\0';  
     
@@ -78,6 +78,7 @@ ENTRYPOINT DATA path_entry(char * path, int size)
         if(meta == NULL ||(meta->call && *remainder != '\0')) mistakeFromOutside();
         struct Structure * temp =  meta->value;
         map = temp->mod;
+        FREE(x_i);
     }
 
     // return call or structure

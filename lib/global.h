@@ -51,6 +51,7 @@
 
     // standard c - memory management
     #define MALLOC malloc
+    #define FREE(x) if((x) != NULL) free((x))
     
     // who's who
     #define LOCAL static

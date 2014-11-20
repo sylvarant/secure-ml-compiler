@@ -153,6 +153,13 @@ LOCAL void unify_types(TYPE t1,TYPE t2)
             if(t1.t != t2.t) mistakeFromOutside();
             unify_types(*(t1.a.left),*(t2.a.left));  // CAREFULL: relies on static structure of the struct
             unify_types(*(t1.a.right),*(t2.a.right)); 
+            break;
+        }
+
+        default :{
+            DEBUG_PRINT("Unidentified tag %d",t1.t);
+            mistakeFromOutside();
+            break;
         }
     }
 }

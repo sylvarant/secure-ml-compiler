@@ -42,19 +42,21 @@ typedef enum T(Tag_e){
 } T(TAG);
 
 struct T(Arrow){
-    union Type_u * left;
-    union Type_u * right;
+    struct Type_u * left;
+    struct Type_u * right;
 };
 
 struct T(Star){
-    union Type_u * left;
-    union Type_u * right;
+    struct Type_u * left;
+    struct Type_u * right;
 };
 
-typedef union Type_u{
+typedef struct Type_u{
     T(TAG) t;
-    struct T(Arrow) a;
-    struct T(Star) s;
+    union {
+        struct T(Arrow) a;
+        struct T(Star) s;
+    };
 } TYPE;
 
 
@@ -335,7 +337,7 @@ LOCAL TYPE makeTArrow(TYPE left, TYPE right)
 LOCAL TYPE makeTStar(TYPE left, TYPE right)
 {
     TYPE t;
-    t.t = T(ARROW);
+    t.t = T(STAR);
     t.a.left = MALLOC(sizeof(TYPE));
     t.a.right = MALLOC(sizeof(TYPE));
     *(t.a.left) = left; 

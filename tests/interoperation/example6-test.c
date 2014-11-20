@@ -13,7 +13,7 @@
 #include "entry.h"
 
 int tests_run = 0;
-int tests_set = 3;
+int tests_set = 4;
 
 TEST(getaddClosure)
     DATA temp = path_entry("add",3);
