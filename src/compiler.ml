@@ -229,9 +229,11 @@ struct
         | BMod (_,e) -> (Environment (set_origin e)) in
 
     (* toplevel *)
-    match path with  x::[] -> (extract (get_binding x env)) 
-      | x::xs -> let Environment( SB (_,nenv,_)) = (lookup_path env xs) in
-        (lookup_path nenv (x::[]))
+    match path with  | [] -> raise (Cannot_compile "Empty path given to lookup")
+      | x::[] -> (extract (get_binding x env)) 
+      | x::xs -> match (lookup_path env xs) with
+        | Environment( SB (_,nenv,_)) -> (lookup_path nenv (x::[]))
+        | _ -> raise (Cannot_compile "Wrong tree structure") 
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -290,7 +292,6 @@ struct
       | Prim (op,ls) -> let nls = (List.map desugar ls) in Prim(op,nls)
       | Function(id,ty,e) -> Function (id,ty,desugar e) 
       | Pair(a,b) -> Pair( (desugar a), (desugar b))
-      | Prim (s,ls) -> Prim (s, (List.map desugar ls)) 
       | Apply (a,b) -> Apply ((desugar a),(desugar b)) 
       | Fst a -> Fst (desugar a)
       | Snd a -> Snd (desugar a) in
@@ -302,8 +303,9 @@ struct
         (List.exists findstr int_op) in
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
-           (try let Static spath = (lookup_path env cpath) in 
-             ToCast (c_value,(ToCall ((CVar spath),[]))) (*(Get ((CVar const_mod),(CString (make_ptr cpath))))*)
+           (try (match (lookup_path env cpath) with
+              | Static spath -> ToCast (c_value,(ToCall ((CVar spath),[]))) 
+              | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
            with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
         | Constant x -> ToInt (CInt x)
         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
@@ -362,16 +364,17 @@ struct
 
       (* convert a module definition into a new environment *)
       let rec parse_module env pth = function
-          Longident ident -> let (Environment e) = (lookup_path env (convert_path ident)) in e
+          Longident ident -> (match (lookup_path env (convert_path ident)) with 
+            | (Environment e) -> e
+            | _ -> raise (Cannot_compile "Did not retrieve environment from path lookup"))
         | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
-        | Functor (id,ty,m) -> FB (path,(Ident.name id),m,true)
+        | Functor (id,ty,m) -> FB (pth,(Ident.name id),m,true)
         | Apply (m1,m2) -> 
           (match (parse_module env pth m1) with
             | FB (_,id,m,_) -> let nenv = (parse_module env pth m2) in
               (parse_module ((BMod (id,nenv))::env) pth m)
             | _ -> raise (Cannot_compile "Needed Functor"))
         | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
-        | _ -> raise (Cannot_compile "Could not pattern match in parse_module\n")
       in
 
       (* recurse over the list of definitions *)
@@ -388,7 +391,6 @@ struct
             let comp = (parse_computation env (name::path) functlist term) in 
             let data = BVal (name, path, (comp)) in 
               data :: (parse_struct (data :: env) path xs) 
-          | _ -> raise (Cannot_compile "Could not pattern match in parse_struct\n")
     in
         
     (* top level *)
@@ -436,7 +438,7 @@ struct
           | (Type_sig _ , _) -> -1  
           | (Module_sig _, _) -> 1
           | (Value_sig _, Type_sig _ ) -> 1
-          | (Value_sig _ , Module_sig _ ) -> 0
+          | (Value_sig _ , Module_sig _ ) -> -1
         in
         (List.sort cmp_sig sls)
       in
@@ -445,18 +447,21 @@ struct
       let rec filter_shares sigls strls = match(sigls,strls) with ([],_) -> []
         | (s::ss,b::bs) -> (match (s,b) with
           | (Value_sig (id1,vty),BVal (name,_,_)) when (Ident.name id1) = name ->
+            (*Printf.eprintf "%s == %s \n" (Ident.name id1) name) ;*)
             (b,s) :: (filter_shares ss bs) 
           | (Value_sig _, BVal _ ) -> (filter_shares (s::ss) bs)
-          | (Module_sig (id1,mty), BMod (name,_) as z) when (Ident.name id1) = name ->
+          | (Module_sig (id1,mty), BMod (name,_)) when (Ident.name id1) = name ->
             (b,s) :: (filter_shares ss bs)
           | (Module_sig _, BMod _) -> (filter_shares (s::ss) bs)
+          | (Module_sig (id1,_),BVal _) -> (*Printf.eprintf "as I guessed = %s\n" (Ident.name id1)) ;*) (filter_shares (s::ss) bs)
           | _ -> raise (Cannot_compile "Serieus failure of argument structure in Share computation"))
         | _ -> raise (Cannot_compile "Serieus failure of list structure in Share computation")
       in
 
       (* pipe in the easiest possible input *)
       let clear_input sign strls = match sign with 
-        | Signature sigls -> (filter_shares (clear_sigs (sort_sigs sigls)) (sort_bindings strls))
+        | Signature sigls -> (*(Printf.eprintf "%d vs %d\n" (List.length sigls) (List.length strls)); *)
+            (filter_shares (clear_sigs (sort_sigs sigls)) (sort_bindings strls))
         | _ -> raise (Cannot_compile "Expected a Signature")
       in
 
@@ -469,8 +474,8 @@ struct
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else [] in 
-                ((Share (mty,name,path)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,_,_,_) -> (Share (mty,name,path)) :: (convert_assoc path ls)) 
+                ((Share (mty,name,pth)) :: recurse) @ (convert_assoc path ls)
+            | FB (pth,_,_,_) -> (Share (mty,name,pth)) :: (convert_assoc path ls)) 
           | _ -> raise (Cannot_compile "Massive idiocy everywhere")
 
       in
@@ -489,13 +494,12 @@ struct
             ((Gettr (ptr,comp)) :: a, b, c)
         | BMod (name, modt) -> (match modt with
           | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract_compred (name::path) nbinding)  
-            and ptr = (make_ptr pth) 
             and (a,b,c) = (extract_compred path ls) in
               ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
           | SB (pth,nbinding,false) -> (extract_compred path ls)
-          | FB (pth,var,mm,_) -> let npath = make_ptr (name::pth) 
+          | FB (pth,var,mm,_) -> let npth = (make_ptr pth) 
             and (a,b,c) =  (extract_compred path ls) in
-              (a, b, (Fctr npath) :: c)))
+              (a, b, (Fctr npth) :: c)))
     in 
 
     (* top level *)
@@ -547,10 +551,11 @@ struct
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
         | Share (ty,strl,pth) :: xs -> 
-          let strr = CVar (make_ptr (strl::pth)) in
-          let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
+          let strr = CVar (make_ptr pth) 
+          and bindpth = try (List.tl pth) with _ -> []
+          and statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = InsertMeta ((to_binding pth),statptr,strr,0,TyIgnore) in
+          and temp = InsertMeta ((to_binding bindpth),statptr,strr,0,TyIgnore) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
       in
@@ -558,23 +563,23 @@ struct
       (* print_strcts: convert structs into mallocs and bindings *)
       let rec print_strcts = function [] -> ([],[])
         | (Strct pth) :: xs -> (let ptr = (make_ptr pth) in
-          let binding = (CVar (getmod ptr)) in
           let cvar = (CVar c_strc) in
           let decl = MALLOC (cvar,(CVar ptr),(Sizeof cvar)) in
+          (*
+          let binding = (CVar (getmod ptr)) in
           let parent = (try let tail = (List.tl pth) in match tail with
             | [] -> []
             | x::xs -> [Assign (binding,(CVar (getmod (make_ptr tail))))] 
-            with _ -> []) in
+            with _ -> []) in *) (* Note this is no longer necessary due to static comp *)
           let (dls,bls) = (print_strcts xs) in
-            ((decl :: dls), (parent @ bls))) 
+            ((decl :: dls), bls)) 
         | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
       in
         
       (* top level *)
       let def = ToDef ((CVar "int"),(CVar c_boot),[]) in
       let strdecl = (match (print_strcts strls) with 
-        | (a,b) -> (a @ [Emptyline] @ b)
-        |  _ ->  raise (Cannot_compile "Can't combo without a tuple")) in 
+        | (a,b) -> (a @ [Emptyline] @ b)) in
       let (statics,bindings) = (print_assoc assocs) in
       let final_sts =  (List.sort_uniq comp_stat statics) in
       let body_ls = (List.map printc (final_sts @ [Emptyline] @ strdecl @ bindings @ [Emptyline;(ToReturn (CInt 1))])) in
@@ -594,24 +599,32 @@ struct
         let definition = (c_value^" "^name^arguments^"{") in
         let setupls : string list = (List.map printc setup)  in
         let body = (format 1 (setupls @ (print_computation comp))) in
-        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) in
+        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) 
+      | _ -> raise (Cannot_compile "print_lambdas - only compiles Compttr")
+    in
 
     (* print a gettr *)
     let rec print_getters = function [] -> []
       | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL "^c_value^" "^ptr^"(void){") in
         let setup = c_binding^" "^const_env^" = NULL" in
         let body = (format 1 (setup :: (print_computation comp))) in
-        (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) in
+        (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) 
+      | _ -> raise (Cannot_compile "print_getters - only compiles Gettr")
+    in
 
     (* print some local declarations *)
     let rec print_decl = function [] -> [] 
-      | Gettr  (ptr,comp) :: xs -> ("LOCAL "^c_value^" "^ptr^"(void);") :: (print_decl xs) in
+      | Gettr  (ptr,comp) :: xs -> ("LOCAL "^c_value^" "^ptr^"(void);") :: (print_decl xs) 
+      | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
+    in
 
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
       | (Fctr name) :: xs -> let definition = c_strc^"* "^name^"("^c_strc^"* "^const_str^"){" in
         let body = (format 1 ["return NULL;"]) in 
-        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) in
+        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
+      | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
+    in
 
     (* header and footer for the compiled result *)
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in

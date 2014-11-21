@@ -42,7 +42,7 @@ let main() =
     prerr_newline(); 
     exit 1
   | Cannot_compile s -> prerr_string s; 
-    prerr_newline; 
+    prerr_newline (); 
     exit 2
   | Parsing.Parse_error -> prerr_string "Syntax error at char ";
       prerr_int (Lexing.lexeme_start lexbuf);
