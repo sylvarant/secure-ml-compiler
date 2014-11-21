@@ -32,7 +32,8 @@ struct
   *-----------------------------------------------------------------------------*)
 
   type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
-    | TyStar of type_u * type_u
+    | TyStar of type_u * type_u | TyModule of string * type_u list | TyValue of string ( type_u 
+    | TyDeclar of string * type_u
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -88,6 +89,7 @@ struct
     | TyBool -> "makeTBoolean()"
     | TyArrow (a,b) -> "makeTArrow("^(printty a)^","^(printty b)^")"
     | TyStar (a,b) -> "makeTStar("^(printty a)^","^(printty b)^")"
+  (*  | TyModule (n,ls) -> "addSign("^ ^","^arg^")" *)
 
 
  (* 
@@ -630,7 +632,7 @@ struct
     let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
     let separate name = function [] -> []
       | x::xs as ls -> ["//---------------"^ name ^ "----------------------"; ""] @ ls @ [""] in
-    let footer = ["";"// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
+    let footer = ["// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
             "#include \"entry.c\""; ""] in
 
     (* Top Level *)
@@ -646,6 +648,4 @@ struct
     ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n")
   
 end
-
-
 

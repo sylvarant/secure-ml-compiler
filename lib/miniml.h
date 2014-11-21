@@ -38,7 +38,7 @@ enum{ MFALSE = 0, MTRUE = 1 };
  *-----------------------------------------------------------------------------*/
 
 typedef enum T(Tag_e){
-    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR)
+    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), T(DECLARATION)
 } T(TAG);
 
 struct T(Arrow){
@@ -51,11 +51,34 @@ struct T(Star){
     struct Type_u * right;
 };
 
+struct T(VALUE){ 
+    char * name;
+    struct Type_u * type;
+};
+
+struct T(DECLARATION){
+    char * name;
+    struct Type_u * type;
+};
+
+struct Signlink_s {
+    struct Type_u * type;
+    struct Signlink_s * next;
+};
+
+struct T(MODULE){
+    char * name;
+    struct Signlink_s * head;
+};
+
 typedef struct Type_u{
     T(TAG) t;
     union {
         struct T(Arrow) a;
         struct T(Star) s;
+        struct T(MODULE) m;
+        struct T(VALUE) v;
+        struct T(DECLARATION) d;
     };
 } TYPE;
 
@@ -172,8 +195,8 @@ LOCAL int bootup(void);
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    mistakeFromOutside
- *  Description:    terminate when the outside makes a mistake
+ *         Name:  mistakeFromOutside
+ *  Description:  terminate when the outside makes a mistake
  * =====================================================================================
  */
 LOCAL void mistakeFromOutside(void)
@@ -184,8 +207,8 @@ LOCAL void mistakeFromOutside(void)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    check_state
- *  Description:    check the current load state
+ *         Name:  check_state
+ *  Description:  check the current load state
  * =====================================================================================
  */
 LOCAL void check_state(void)
@@ -197,8 +220,8 @@ LOCAL void check_state(void)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    str_cpy
- *  Description:    inplace string copy
+ *         Name:  str_cpy
+ *  Description:  inplace string copy
  * =====================================================================================
  */
 LOCAL void str_cpy(char * dest,char * input,int size)
@@ -214,8 +237,8 @@ LOCAL void str_cpy(char * dest,char * input,int size)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeInt
- *  Description:    create a numeric value
+ *         Name:  makeInt
+ *  Description:  create a numeric value
  * =====================================================================================
  */
 LOCAL VALUE makeInt(int n)
@@ -228,8 +251,8 @@ LOCAL VALUE makeInt(int n)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeBoolean
- *  Description:    create a boolean
+ *         Name:  makeBoolean
+ *  Description:  create a boolean
  * =====================================================================================
  */
 LOCAL VALUE makeBoolean(unsigned int b)
@@ -242,8 +265,8 @@ LOCAL VALUE makeBoolean(unsigned int b)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeClosure
- *  Description:    create a closure
+ *         Name:  makeClosure
+ *  Description:  create a closure
  * =====================================================================================
  */
 LOCAL VALUE makeClosure(BINDING * env, Lambda lambda)
@@ -257,8 +280,8 @@ LOCAL VALUE makeClosure(BINDING * env, Lambda lambda)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makePair
- *  Description:    create a Pair
+ *         Name:  makePair
+ *  Description:  create a Pair
  * =====================================================================================
  */
 LOCAL VALUE makePair(VALUE left, VALUE right)
@@ -274,8 +297,8 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeTIGNORE
- *  Description:    create an IGNORE type
+ *         Name:  makeTIGNORE
+ *  Description:  create an IGNORE type
  * =====================================================================================
  */
 LOCAL TYPE makeTIGNORE(void)
@@ -287,8 +310,8 @@ LOCAL TYPE makeTIGNORE(void)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeTInt
- *  Description:    create an INT type
+ *         Name:  makeTInt
+ *  Description:  create an INT type
  * =====================================================================================
  */
 LOCAL TYPE makeTInt(void)
@@ -300,8 +323,8 @@ LOCAL TYPE makeTInt(void)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeTBoolean
- *  Description:    create a BOOLEAN type
+ *         Name:  makeTBoolean
+ *  Description:  create a BOOLEAN type
  * =====================================================================================
  */
 LOCAL TYPE makeTBoolean(void)
@@ -313,8 +336,8 @@ LOCAL TYPE makeTBoolean(void)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeTArrow
- *  Description:    create an Arrow type - mallocs !
+ *         Name:  makeTArrow
+ *  Description:  create an Arrow type - mallocs !
  * =====================================================================================
  */
 LOCAL TYPE makeTArrow(TYPE left, TYPE right)
@@ -330,8 +353,8 @@ LOCAL TYPE makeTArrow(TYPE left, TYPE right)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    makeTStar
- *  Description:    create a Star/Pair type - mallocs !
+ *         Name:  makeTStar
+ *  Description:  create a Star/Pair type - mallocs !
  * =====================================================================================
  */
 LOCAL TYPE makeTStar(TYPE left, TYPE right)
@@ -347,8 +370,74 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    insertBigBinding
- *  Description:    helper function for inserting bindings
+ *         Name:  makeTValue
+ *  Description:  create a value type binding for a signature  
+ * =====================================================================================
+ */
+LOCAL TYPE makeTValue(char * name, TYPE type)
+{
+    TYPE t; 
+    t.t = T(VALUE);
+    t.v.name = name;
+    t.v.type = MALLOC(sizeof(TYPE));
+    *(t.v.type) = type;
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeTDeclaration
+ *  Description:  create a type declaration for a signature 
+ * =====================================================================================
+ */
+LOCAL TYPE makeTDeclaration(char * name, TYPE type)
+{
+    TYPE t;
+    t.t = T(DECLARATION);
+    t.d.name = name;
+    t.d.type = MALLOC(sizeof(TYPE));
+    *(t.d.type) = type;
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeTModule
+ *  Description:  create a type declaration for a signature 
+ * =====================================================================================
+ */
+LOCAL TYPE makeTModule(char * name)
+{
+    TYPE t;
+    t.t = T(MODULE);
+    t.m.name = name;
+    t.m.head = NULL;
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  addSign
+ *  Description:  create a type declaration for a signature 
+ * =====================================================================================
+ */
+LOCAL TYPE addSign(TYPE module,TYPE sign)
+{
+    if(module.t != T(MODULE)) mistakeFromOutside();
+    struct Signlink_s * next = NULL;
+    struct Signlink_s * head = module.m.head;
+    if(head != NULL) next = head->next;
+    head = MALLOC(sizeof(struct Signlink_s));
+    head->type = MALLOC(sizeof(TYPE));
+    *(head->type) = sign;
+    head->next = next;
+    return module;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  insertBigBinding
+ *  Description:  helper function for inserting bindings
  * =====================================================================================
  */
 LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned int call,TYPE ty)
@@ -362,8 +451,8 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned 
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    getValue
- *  Description:    helper function for grabbing values
+ *         Name:  getValue
+ *  Description:  helper function for grabbing values
  * =====================================================================================
  */
 LOCAL VALUE getValue(BINDING * binding,void * key) 
@@ -371,5 +460,6 @@ LOCAL VALUE getValue(BINDING * binding,void * key)
     return *((VALUE *)getBinding(binding,key,cmp_char));
 
 }
+
 
 #endif
