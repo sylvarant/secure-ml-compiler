@@ -7,7 +7,7 @@ struct
 
         val public y = let x = 5 in (( x + y ) * secret)
 
-        module Inner : (sig val innerf : int end) = 
+        module Inner : (sig val innerf : int; val ihave : int end) = 
         struct
             val ihave = secret
 
@@ -18,7 +18,7 @@ struct
 
         module IgnoreMe = 
         struct
-            val secret = 20
+            val secret = Inner.ihave
         end
 
     end
