@@ -38,7 +38,8 @@ enum{ MFALSE = 0, MTRUE = 1 };
  *-----------------------------------------------------------------------------*/
 
 typedef enum T(Tag_e){
-    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), T(DECLARATION)
+    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), 
+    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE)
 } T(TAG);
 
 struct T(Arrow){
@@ -51,24 +52,30 @@ struct T(Star){
     struct Type_u * right;
 };
 
-struct T(VALUE){ 
+struct T(Value){ 
     char * name;
     struct Type_u * type;
 };
 
-struct T(DECLARATION){
+struct T(Declaration){
     char * name;
     struct Type_u * type;
 };
 
-struct Signlink_s {
+struct T(Signature) {
     struct Type_u * type;
-    struct Signlink_s * next;
+    struct T(Signature) * next;
 };
 
-struct T(MODULE){
+struct T(Functor){
     char * name;
-    struct Signlink_s * head;
+    struct Type_u * left;
+    struct Type_u * right;
+};
+
+struct T(Module){
+    char * name;
+    struct Type_u * type;
 };
 
 typedef struct Type_u{
@@ -76,11 +83,19 @@ typedef struct Type_u{
     union {
         struct T(Arrow) a;
         struct T(Star) s;
-        struct T(MODULE) m;
-        struct T(VALUE) v;
-        struct T(DECLARATION) d;
+        struct T(Module) m;
+        struct T(Value) v;
+        struct T(Declaration) d;
+        struct T(Functor) f;
+        struct T(Signature) ss;
     };
 } TYPE;
+
+// global constant types
+const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
+const struct Type_u T(Int) = {.t = T(INT), .a = 0};
+const struct Type_u T(Boolean) = {.t = T(BOOLEAN), .a = 0};
+const struct Type_u T(Abstract) = {.t = T(ABSTRACT), .a = 0};
 
 
 /*-----------------------------------------------------------------------------
@@ -295,44 +310,6 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
     return v;
 }
 
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  makeTIGNORE
- *  Description:  create an IGNORE type
- * =====================================================================================
- */
-LOCAL TYPE makeTIGNORE(void)
-{
-    TYPE t;
-    t.t = T(IGNORE);
-    return t;
-}
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  makeTInt
- *  Description:  create an INT type
- * =====================================================================================
- */
-LOCAL TYPE makeTInt(void)
-{
-    TYPE t;
-    t.t = T(INT);
-    return t;
-}
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  makeTBoolean
- *  Description:  create a BOOLEAN type
- * =====================================================================================
- */
-LOCAL TYPE makeTBoolean(void)
-{
-    TYPE t;
-    t.t = T(BOOLEAN);
-    return t;
-}
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -406,32 +383,67 @@ LOCAL TYPE makeTDeclaration(char * name, TYPE type)
  *  Description:  create a type declaration for a signature 
  * =====================================================================================
  */
-LOCAL TYPE makeTModule(char * name)
+LOCAL TYPE makeTModule(char * name, TYPE contents)
 {
     TYPE t;
     t.t = T(MODULE);
     t.m.name = name;
-    t.m.head = NULL;
+    t.m.type = MALLOC(sizeof(TYPE));
+    *(t.m.type) = contents;
     return t;
 }
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  addSign
- *  Description:  create a type declaration for a signature 
+ *         Name:  makeTFunctor
+ *  Description:  create a functor type
  * =====================================================================================
  */
-LOCAL TYPE addSign(TYPE module,TYPE sign)
+LOCAL TYPE makeTFunctor(char * name, TYPE left, TYPE right)
 {
-    if(module.t != T(MODULE)) mistakeFromOutside();
-    struct Signlink_s * next = NULL;
-    struct Signlink_s * head = module.m.head;
-    if(head != NULL) next = head->next;
-    head = MALLOC(sizeof(struct Signlink_s));
-    head->type = MALLOC(sizeof(TYPE));
-    *(head->type) = sign;
-    head->next = next;
-    return module;
+    TYPE t;
+    t.t = T(FUNCTOR);
+    t.f.name = name;
+    t.f.left = MALLOC(sizeof(TYPE));
+    t.f.right = MALLOC(sizeof(TYPE));
+    *(t.f.left) = left;
+    *(t.f.right) = right;
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeTSignature
+ *  Description:  create a standalone signature object
+ * =====================================================================================
+ */
+LOCAL TYPE makeTSignature(TYPE sign)
+{
+    TYPE t;
+    t.t = T(SIGNATURE);
+    t.ss.type = MALLOC(sizeof(TYPE));
+    *(t.ss.type) = sign;
+    t.ss.next = NULL;
+    return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  chainTSignature
+ *  Description:  add a type to an existing chain
+ * =====================================================================================
+ */
+LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
+{
+    if (chain.t != T(SIGNATURE)) mistakeFromOutside();
+    TYPE result = chain;
+    TYPE capsule = makeTSignature(sign);
+    struct T(Signature) arg = capsule.ss;
+    arg.next = result.ss.next;
+     
+    result.ss.next = MALLOC(sizeof(struct T(Signature)));
+    *(result.ss.next) = arg;
+    return chain;
 }
 
 /* 
@@ -458,7 +470,6 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned 
 LOCAL VALUE getValue(BINDING * binding,void * key) 
 {
     return *((VALUE *)getBinding(binding,key,cmp_char));
-
 }
 
 

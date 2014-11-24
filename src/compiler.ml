@@ -32,8 +32,9 @@ struct
   *-----------------------------------------------------------------------------*)
 
   type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
-    | TyStar of type_u * type_u | TyModule of string * type_u list | TyValue of string ( type_u 
-    | TyDeclar of string * type_u
+    | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
+    | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
+    | TySignature of type_u list | TyAbstract |TyCString of string
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -84,12 +85,23 @@ struct
   *  Description:  When all is said and done, conver the computation to string
   * =====================================================================================
   *)
-  let rec printty : type_u -> string = function TyIgnore -> "makeTIGNORE()"
-    | TyInt -> "makeTInt()"
-    | TyBool -> "makeTBoolean()"
+  let rec printty : type_u -> string = function TyIgnore -> "TIgnore"
+    | TyInt -> "TInt"
+    | TyBool -> "TBoolean"
     | TyArrow (a,b) -> "makeTArrow("^(printty a)^","^(printty b)^")"
     | TyStar (a,b) -> "makeTStar("^(printty a)^","^(printty b)^")"
-  (*  | TyModule (n,ls) -> "addSign("^ ^","^arg^")" *)
+    | TySignature ls -> 
+      let rec conversion = function x::[] -> "makeTSignature("^(printty x)^")" 
+          | x :: xs ->  "chainTSignature("^(conversion xs)^","^(printty x)^")"
+          | _ -> raise (Cannot_compile "Signature List cannot be empty !")
+        in 
+        conversion ls
+    | TyModule (n,ty) -> "makeTModule("^(printty n)^","^(printty ty)^")"
+    | TyDeclar (n,a) -> "makeTDeclaration("^(printty n)^","^(printty a)^")"
+    | TyValue (n,a) -> "makeTValue("^(printty n)^","^(printty a)^")"
+    | TyFunctor (n,a,b) -> "makeTFunctor("^(printty n)^","^(printty a)^","^(printty b)^")"
+    | TyAbstract -> "TAbstract"
+    | TyCString n -> "\""^n^"\""
 
 
  (* 
@@ -156,6 +168,11 @@ struct
 
 
  (*-----------------------------------------------------------------------------
+  *  Exceptions
+  *-----------------------------------------------------------------------------*)
+  exception Found of string list
+
+ (*-----------------------------------------------------------------------------
   *  Types
   *-----------------------------------------------------------------------------*)
 
@@ -169,6 +186,8 @@ struct
   and computation = tempc list * tempc 
 
   and trawl = Static of string | Environment of modbindtype
+
+  and typetrawl = Fail | SimpleType of simple_type | Modtype of mod_type | ManifestType of def_type option
 
   (* types used during theta translation *)
   type compred = Gettr of string * computation | Strct of cpath 
@@ -237,32 +256,140 @@ struct
         | Environment( SB (_,nenv,_)) -> (lookup_path nenv (x::[]))
         | _ -> raise (Cannot_compile "Wrong tree structure") 
 
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name: look_up_type_path
+  *  Description: find a path in the modules type decl
+  * =====================================================================================
+  *)
+  let rec look_up_type_path ty path = 
+    (* find a string in a mod_type *)
+    let rec find str mty = 
+      let rec find_decl = function [] -> Fail
+        | x::xs -> match x with
+          | Value_sig(id, vty) when (Ident.name id) = str -> SimpleType vty.body
+          | Type_sig(id, decl) when (Ident.name id) = str -> ManifestType decl.manifest
+          | Module_sig(id,mty) when (Ident.name id) = str -> Modtype mty
+          | _ ->  (find_decl xs)
+      in
+      match mty with 
+        | Signature sls -> (find_decl sls)
+        | Functor_type(id,_,_) when (Ident.name id) = str -> Modtype mty
+        | Functor_type(_,ml1,ml2) -> match (find str ml1) with
+          | Fail -> (find str ml2)
+          | _ as a -> a
+    in
+
+    (* top level *)
+    match path with | [] -> raise (Cannot_compile "Empty path given to lookup")
+    | str :: [] -> (find str ty)
+    | str :: ls -> match (find str ty) with 
+      | Modtype mty -> (look_up_type_path mty ls)
+      | _ -> raise (Cannot_compile "Reached a dead end in type path search")
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name: gen_full_path
+  *  Description: generate a path to pth in mty using nm to check name space (* God mode *)
+  * =====================================================================================
+  *)
+  let rec gen_full_path mty pth ns =
+
+    (* establish the target *) 
+    let target = (match (List.rev pth) with [] -> raise (Cannot_compile "Empty path to complete") | x::_ -> x) in
+
+    (* search declarations *)
+    let rec full_decl (topl : string list) (sigls : specification list) (ns : string list) : unit = match sigls with 
+       | [] -> ()
+       | x :: xs -> match x with 
+         | Value_sig (id,_) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
+         | Type_sig (id,_) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
+         | Module_sig (id,mod_type) when (Ident.name id ) = target -> raise (Found (List.rev (pth@topl)))
+         | Module_sig (id,mod_type) -> let name = (Ident.name id) in
+           (if (name = (List.hd ns)) then (full_mty (name::topl) mod_type (List.tl ns)));
+           (full_decl topl xs ns)
+         | _ -> (full_decl topl xs ns)
+
+    (* search module types *)
+    and full_mty (topl : string list) (ty : mod_type) (ns : string list) : unit = match ty with
+      | Signature sigls -> (full_decl topl sigls ns)
+      | Functor_type (id,ml1,ml2) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
+      | Functor_type (id,ml1,ml2) -> let name = (Ident.name id) in
+        (if (name = List.hd ns) then ((full_mty (name::topl) ml1 (List.tl ns)); (full_mty (name::topl) ml2 (List.tl ns)))); ()
+     
+    in
+    (* top level *)
+    (full_mty [] mty ns)
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  compile_simple_type
+  *  Description:  convert the simple type to the intermed representation
+  * =====================================================================================
+  *)
+  let rec compile_simple_type progtype pth = function
+      | Var _ as x -> compile_simple_type progtype pth (typerepr x)
+      | LambdaType(TIgnore,_) -> TyIgnore
+      | LambdaType(TBool,_) -> TyBool
+      | LambdaType(TInt,_) -> TyInt
+      | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
+          let tu2 = compile_simple_type progtype pth ty2 in
+          TyArrow (tu1,tu2)
+      | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
+          let tu2 = compile_simple_type progtype pth ty2 in
+          TyStar (tu1,tu2)
+      | Typeconstr(path,_) -> 
+        let obtainbase p = (match (look_up_type_path progtype p) with
+          | Fail -> raise (Cannot_compile "Type path not found")
+          | SimpleType ty -> (compile_simple_type progtype p ty)
+          | Modtype mty -> (compile_mty_type progtype (List.rev p) mty)
+          | ManifestType opt -> (match opt with
+            | None -> TyAbstract
+            | Some simple -> (raise (Cannot_compile "Before I recurse"); (compile_simple_type progtype (List.rev p) simple.defbody))))
+        in
+        let fullpath = 
+          (print_string (String.concat "." (convert_path path)));
+          (try (gen_full_path progtype (convert_path path) pth); 
+            raise (Cannot_compile "Couldn't gen. path")
+          with Found topl -> topl
+          | Cannot_compile _ as a -> raise a) in
+        (*(raise (Cannot_compile ("Before obtain "^(String.concat "." fullpath)))); *)
+        (obtainbase fullpath)
+      | _ -> raise (Cannot_compile "Cannot convert a simple type")
+ 
+
  (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  parse_type
   *  Description:  compiles the lambda calculus
   * =====================================================================================
   *)
-  let rec parse_type vty = 
+  and compile_mty_type progtype pth mty = 
 
-    (* conver the simple types *)
-    let rec convert_simple_type = function
-      | Var _ as x -> convert_simple_type (typerepr x)
-      | LambdaType(TIgnore,_) -> TyIgnore
-      | LambdaType(TBool,_) -> TyBool
-      | LambdaType(TInt,_) -> TyInt
-      | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = convert_simple_type ty1 in
-          let tu2 = convert_simple_type ty2 in
-          TyArrow (tu1,tu2)
-      | LambdaType(TPair,[ty1;ty2]) -> let tu1 = convert_simple_type ty1 in
-          let tu2 = convert_simple_type ty2 in
-          TyStar (tu1,tu2)
-      | Typeconstr(path,_) -> raise (Cannot_compile "When do we get paths?")
-      | _ -> raise (Cannot_compile "Cannot convert a simple type")
+    (* type declarations, without kind or param *)
+    let convert_decl pth dec = match dec.manifest with
+      | None -> TyAbstract
+      | Some dt -> (* TODO params *) (compile_simple_type progtype pth dt.defbody)
     in
 
-    (* toplevel *)
-    convert_simple_type vty.body
+    (* signature specifications *)
+    let rec convert_spec pth = function
+      | Value_sig (id,st) -> TyValue (TyCString (Ident.name id),(compile_simple_type progtype pth st.body))
+      | Type_sig (id,td) -> TyDeclar (TyCString (Ident.name id),(convert_decl pth td))
+      | Module_sig (id,mty) -> let name = (Ident.name id) in
+        TyModule (TyCString (Ident.name id), compile_mty_type progtype (name::pth) mty)
+    in
+
+    (* top level *)
+    match mty with 
+    | Signature sigls -> TySignature (List.map (fun x -> convert_spec pth x) sigls)
+    | Functor_type (id,mty1,mty2) -> let name = (Ident.name id) in
+      let inter1 = (compile_mty_type progtype (name::pth) mty1)
+      and inter2 = (compile_mty_type progtype (name::pth) mty2) in
+      TyFunctor (TyCString name ,inter1,inter2)
+
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -455,7 +582,7 @@ struct
           | (Module_sig (id1,mty), BMod (name,_)) when (Ident.name id1) = name ->
             (b,s) :: (filter_shares ss bs)
           | (Module_sig _, BMod _) -> (filter_shares (s::ss) bs)
-          | (Module_sig (id1,_),BVal _) -> (*Printf.eprintf "as I guessed = %s\n" (Ident.name id1)) ;*) (filter_shares (s::ss) bs)
+          | (Module_sig (id1,_),BVal _) -> (filter_shares (s::ss) bs)
           | _ -> raise (Cannot_compile "Serieus failure of argument structure in Share computation"))
         | _ -> raise (Cannot_compile "Serieus failure of list structure in Share computation")
       in
@@ -535,7 +662,7 @@ struct
     (* ================================================= *)
     (* build the bootup function: where we set it all up *)
     (* ================================================= *)
-    let boot_up strls assocs =
+    let boot_up strls assocs progtype =
 
       (* create the insertion binding *)
       let to_binding = function [] -> (CVar c_topl)
@@ -545,19 +672,20 @@ struct
        
       (* add print the associated binding *)
       let rec print_assoc = function [] -> ([],[])
-        | Call (ty,strl,pth) :: xs -> 
+        | Call (vty,strl,pth) :: xs -> 
           let strr = CVar (make_ptr (strl::pth)) in
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = InsertMeta ((to_binding pth),statptr,strr,1, parse_type ty) in
+          and temp = InsertMeta ((to_binding pth),statptr,strr,1, (compile_simple_type progtype pth vty.body)) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
-        | Share (ty,strl,pth) :: xs -> 
+        | Share (mty,strl,pth) :: xs -> 
           let strr = CVar (make_ptr pth) 
           and bindpth = try (List.tl pth) with _ -> []
           and statptr = (CVar (var_prefix^"_"^strl^"_str")) in
           let static = ToStatic(statptr,strl) 
-          and temp = InsertMeta ((to_binding bindpth),statptr,strr,0,TyIgnore) in
+          and tmpmty = TyModule ((TyCString strl),(compile_mty_type progtype pth mty)) in
+          let temp = InsertMeta ((to_binding bindpth),statptr,strr,0,tmpmty) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
       in
@@ -644,7 +772,7 @@ struct
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
     and pv_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
-    and pb_ls = (separate "Boot" (boot_up strct_list assocs)) in
+    and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) in
     ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n")
   
 end

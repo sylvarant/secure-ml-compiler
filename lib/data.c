@@ -78,13 +78,13 @@ LOCAL struct value_type convertD(DATA input)
     {
         case INT:{ 
             result.val = makeInt(input.value); 
-            result.ty = makeTInt();    
+            result.ty = T(Int);    
             break;
         }
 
         case BOOLEAN:{
             result.val = makeBoolean(input.value); 
-            result.ty = makeTBoolean(); 
+            result.ty = T(Boolean); 
             break;
         }
 
