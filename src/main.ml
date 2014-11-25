@@ -27,15 +27,22 @@ open Printer
  * =====================================================================================
  *)
 let main() =
-  let init_scope = ref Scope.empty in
-  let init_env = ref MiniMLEnv.empty in
   let lexbuf = Lexing.from_channel stdin in
-  try (*TODO typing disabled ! *)
+  try 
+    (* Step 1 : Parse *)
     let prog = Parser.implementation Lexer.token lexbuf in
-    let scoped_prog = MiniMLModScoping.scope_module !init_scope prog in
-    let mty = MiniMLModTyping.type_module !init_env scoped_prog in
-    (*Pretty.print_modtype mty; *)
+    
+    (* Step 2 : Scope *)
+    let scoped_prog = MiniMLModScoping.scope_module Scope.empty prog in
+
+    (* Step 3 : TypeCheck *)
+    let mty = MiniMLModTyping.type_module MiniMLEnv.empty scoped_prog in
+    log_type mty;
+
+    (* Step 4 : Compile *)
     let compilation = (CCompiler.compile mty scoped_prog) in
+
+    (* Step 5 : Output *) 
     (print_string compilation);
     exit 0
   with Error s -> prerr_string "Error: "; 

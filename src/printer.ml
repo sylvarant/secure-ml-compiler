@@ -89,7 +89,7 @@ struct
         List.iter
           (fun item -> print_space(); print_signature_item item) sg;
         print_break 1 (-2);
-        print_string "end)\n";
+        print_string "end)";
         close_box()
     | Functor_type(param, arg, body) ->
         open_hvbox 2;
@@ -138,3 +138,20 @@ struct
         close_box()
 
 end
+
+
+(* 
+ * ===  FUNCTION  ======================================================================
+ *     Name:  log_type
+ *  Description: print the full type to the log
+ * =====================================================================================
+ *)
+ let log_type mty =
+    (Format.set_formatter_out_channel Pervasives.stderr);
+    Format.print_string ">>>>>>> TYPE <<<<<<<";
+    Format.print_newline();
+    Pretty.print_modtype mty; 
+    Format.print_newline();
+    Format.print_string ">>>>>>> DONE <<<<<<<";
+    Format.print_newline();
+

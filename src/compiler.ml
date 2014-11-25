@@ -275,7 +275,7 @@ struct
       in
       match mty with 
         | Signature sls -> (find_decl sls)
-        | Functor_type(id,_,_) when (Ident.name id) = str -> Modtype mty
+        | Functor_type(arg,_,_) when (Ident.name arg) = str -> Modtype mty (* TODO *)
         | Functor_type(_,ml1,ml2) -> match (find str ml1) with
           | Fail -> (find str ml2)
           | _ as a -> a
@@ -316,12 +316,13 @@ struct
     and full_mty (topl : string list) (ty : mod_type) (ns : string list) : unit = match ty with
       | Signature sigls -> (full_decl topl sigls ns)
       | Functor_type (id,ml1,ml2) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
-      | Functor_type (id,ml1,ml2) -> let name = (Ident.name id) in
-        (if (name = List.hd ns) then ((full_mty (name::topl) ml1 (List.tl ns)); (full_mty (name::topl) ml2 (List.tl ns)))); ()
+      | Functor_type (id,ml1,ml2) -> let argum = (Ident.name id) in
+         (full_mty topl ml1 ns); (full_mty topl ml2 ns); ()
      
     in
     (* top level *)
     (full_mty [] mty ns)
+
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -329,34 +330,36 @@ struct
   *  Description:  convert the simple type to the intermed representation
   * =====================================================================================
   *)
-  let rec compile_simple_type progtype pth = function
-      | Var _ as x -> compile_simple_type progtype pth (typerepr x)
-      | LambdaType(TIgnore,_) -> TyIgnore
-      | LambdaType(TBool,_) -> TyBool
-      | LambdaType(TInt,_) -> TyInt
-      | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
-          let tu2 = compile_simple_type progtype pth ty2 in
-          TyArrow (tu1,tu2)
-      | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
-          let tu2 = compile_simple_type progtype pth ty2 in
-          TyStar (tu1,tu2)
-      | Typeconstr(path,_) -> 
-        let obtainbase p = (match (look_up_type_path progtype p) with
+  let rec compile_simple_type progtype pth = (*Printf.eprintf "Called compile type with %s\n" (String.concat "." pth); *) 
+    function
+    | Var _ as x -> compile_simple_type progtype pth (typerepr x)
+    | LambdaType(TIgnore,_) -> TyIgnore
+    | LambdaType(TBool,_) -> TyBool
+    | LambdaType(TInt,_) ->  TyInt
+    | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
+        let tu2 = compile_simple_type progtype pth ty2 in
+        TyArrow (tu1,tu2)
+    | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
+        let tu2 = compile_simple_type progtype pth ty2 in
+        TyStar (tu1,tu2)
+    | Typeconstr(path,_) -> (*(Printf.eprintf "Going for %s\n" (String.concat "." (convert_path path)));*)
+      let obtainbase p = 
+      (*(Printf.eprintf "full path = %s\n" (String.concat "." p));*)
+        (match (look_up_type_path progtype p) with
           | Fail -> raise (Cannot_compile "Type path not found")
           | SimpleType ty -> (compile_simple_type progtype p ty)
           | Modtype mty -> (compile_mty_type progtype (List.rev p) mty)
           | ManifestType opt -> (match opt with
             | None -> TyAbstract
-            | Some simple -> (raise (Cannot_compile "Before I recurse"); (compile_simple_type progtype (List.rev p) simple.defbody))))
-        in
-        let fullpath = 
-          (print_string (String.concat "." (convert_path path)));
-          (try (gen_full_path progtype (convert_path path) pth); 
-            raise (Cannot_compile "Couldn't gen. path")
-          with Found topl -> topl
-          | Cannot_compile _ as a -> raise a) in
+            | Some simple -> (compile_simple_type progtype (List.rev p) simple.defbody)))
+      in
+      let fullpath = 
+        (try (gen_full_path progtype (convert_path path) pth); 
+           raise (Cannot_compile "Couldn't gen. path")
+         with Found topl -> topl
+         | Cannot_compile _ as a -> raise a) in
         (*(raise (Cannot_compile ("Before obtain "^(String.concat "." fullpath)))); *)
-        (obtainbase fullpath)
+      (obtainbase fullpath)
       | _ -> raise (Cannot_compile "Cannot convert a simple type")
  
 
@@ -385,10 +388,10 @@ struct
     (* top level *)
     match mty with 
     | Signature sigls -> TySignature (List.map (fun x -> convert_spec pth x) sigls)
-    | Functor_type (id,mty1,mty2) -> let name = (Ident.name id) in
-      let inter1 = (compile_mty_type progtype (name::pth) mty1)
-      and inter2 = (compile_mty_type progtype (name::pth) mty2) in
-      TyFunctor (TyCString name ,inter1,inter2)
+    | Functor_type (id,mty1,mty2) -> let argum = (Ident.name id) in
+      let inter1 = (compile_mty_type progtype pth mty1)
+      and inter2 = (compile_mty_type progtype pth mty2) in
+      TyFunctor (TyCString argum ,inter1,inter2)
 
 
  (* 
