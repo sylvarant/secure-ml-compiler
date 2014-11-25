@@ -52,6 +52,10 @@ struct T(Star){
     struct Type_u * right;
 };
 
+struct T(Abstract){
+    char * name;
+};
+
 struct T(Value){ 
     char * name;
     struct Type_u * type;
@@ -88,6 +92,7 @@ typedef struct Type_u{
         struct T(Declaration) d;
         struct T(Functor) f;
         struct T(Signature) ss;
+        struct T(Abstract) aa;
     };
 } TYPE;
 
@@ -95,7 +100,6 @@ typedef struct Type_u{
 const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
 const struct Type_u T(Int) = {.t = T(INT), .a = 0};
 const struct Type_u T(Boolean) = {.t = T(BOOLEAN), .a = 0};
-const struct Type_u T(Abstract) = {.t = T(ABSTRACT), .a = 0};
 
 
 /*-----------------------------------------------------------------------------
@@ -182,6 +186,7 @@ typedef VALUE (* Gettr)(void);
 BINDING * toplevel = NULL;
 BINDING * exchange = NULL;
 BINDING * closure_exchange = NULL;
+BINDING * abstract_exchange = NULL;
 unsigned int LOADED = 0;
 
 
@@ -191,6 +196,7 @@ unsigned int LOADED = 0;
 
 // data marshalling functions
 LOCAL int getAdressClo(void);
+LOCAL int getAdressAbs(void);
 LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
@@ -347,6 +353,20 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:  makeTAbstract
+ *  Description:  create an abstract type
+ * =====================================================================================
+ */
+LOCAL TYPE makeTAbstract(char * name)
+{
+   TYPE t;
+   t.t = T(ABSTRACT);
+   t.aa.name = name;
+   return t;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:  makeTValue
  *  Description:  create a value type binding for a signature  
  * =====================================================================================
@@ -471,6 +491,5 @@ LOCAL VALUE getValue(BINDING * binding,void * key)
 {
     return *((VALUE *)getBinding(binding,key,cmp_char));
 }
-
 
 #endif

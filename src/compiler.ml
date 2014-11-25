@@ -14,7 +14,6 @@
 open Mini
 open Modules 
 
-
 (* Exceptions *) 
 exception Cannot_compile of string
 
@@ -34,7 +33,7 @@ struct
   type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
-    | TySignature of type_u list | TyAbstract |TyCString of string
+    | TySignature of type_u list | TyAbstract of type_u |TyCString of string
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -100,7 +99,7 @@ struct
     | TyDeclar (n,a) -> "makeTDeclaration("^(printty n)^","^(printty a)^")"
     | TyValue (n,a) -> "makeTValue("^(printty n)^","^(printty a)^")"
     | TyFunctor (n,a,b) -> "makeTFunctor("^(printty n)^","^(printty a)^","^(printty b)^")"
-    | TyAbstract -> "TAbstract"
+    | TyAbstract n -> "makeTAbstract("^(printty n)^")"
     | TyCString n -> "\""^n^"\""
 
 
@@ -220,6 +219,19 @@ struct
   (* get option operator *)
   let (+&) = (function Some a -> a | None -> raise (Cannot_compile "Some value doesn't exist"))
 
+  (* sort signature components *)
+  let sort_sigs sls =
+    let cmp_sig a b = match(a,b) with
+      | (Value_sig (id1,_) , Value_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+      | (Module_sig (id1,_), Module_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+      | (Type_sig (id1,_), Type_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
+      | (Type_sig _ , _) -> -1  
+      | (Module_sig _, _) -> 1
+      | (Value_sig _, Type_sig _ ) -> 1
+      | (Value_sig _ , Module_sig _ ) -> -1
+    in
+    (List.sort cmp_sig sls)
+
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -295,7 +307,7 @@ struct
   *  Description: generate a path to pth in mty using nm to check name space (* God mode *)
   * =====================================================================================
   *)
-  let rec gen_full_path mty pth ns =
+  let gen_full_path mty pth ns =
 
     (* establish the target *) 
     let target = (match (List.rev pth) with [] -> raise (Cannot_compile "Empty path to complete") | x::_ -> x) in
@@ -308,20 +320,22 @@ struct
          | Type_sig (id,_) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
          | Module_sig (id,mod_type) when (Ident.name id ) = target -> raise (Found (List.rev (pth@topl)))
          | Module_sig (id,mod_type) -> let name = (Ident.name id) in
-           (if (name = (List.hd ns)) then (full_mty (name::topl) mod_type (List.tl ns)));
-           (full_decl topl xs ns)
+           if (((List.length ns) > 0) && (name = (List.hd ns))) 
+           then ((full_mty (name::topl) mod_type (List.tl ns)); (full_decl topl xs ns))  (* Recurse *)
+           else (full_decl topl xs ns)
          | _ -> (full_decl topl xs ns)
 
     (* search module types *)
     and full_mty (topl : string list) (ty : mod_type) (ns : string list) : unit = match ty with
-      | Signature sigls -> (full_decl topl sigls ns)
+      | Signature sigls -> (full_decl topl (List.rev (sort_sigs sigls)) ns)
       | Functor_type (id,ml1,ml2) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
       | Functor_type (id,ml1,ml2) -> let argum = (Ident.name id) in
          (full_mty topl ml1 ns); (full_mty topl ml2 ns); ()
      
     in
     (* top level *)
-    (full_mty [] mty ns)
+    (*(Printf.eprintf "Looking for path: %s -> %s in %s\n" (String.concat "." pth) target (String.concat "." ns));*)
+    (full_mty [] mty (List.rev ns))
 
 
  (* 
@@ -330,7 +344,7 @@ struct
   *  Description:  convert the simple type to the intermed representation
   * =====================================================================================
   *)
-  let rec compile_simple_type progtype pth = (*Printf.eprintf "Called compile type with %s\n" (String.concat "." pth); *) 
+  let rec compile_simple_type progtype pth =  
     function
     | Var _ as x -> compile_simple_type progtype pth (typerepr x)
     | LambdaType(TIgnore,_) -> TyIgnore
@@ -344,13 +358,13 @@ struct
         TyStar (tu1,tu2)
     | Typeconstr(path,_) -> (*(Printf.eprintf "Going for %s\n" (String.concat "." (convert_path path)));*)
       let obtainbase p = 
-      (*(Printf.eprintf "full path = %s\n" (String.concat "." p));*)
+        (*Printf.eprintf "full path = %s\n" (String.concat "." p));*)
         (match (look_up_type_path progtype p) with
           | Fail -> raise (Cannot_compile "Type path not found")
           | SimpleType ty -> (compile_simple_type progtype p ty)
           | Modtype mty -> (compile_mty_type progtype (List.rev p) mty)
           | ManifestType opt -> (match opt with
-            | None -> TyAbstract
+            | None -> (TyAbstract (TyCString (String.concat "." p)))
             | Some simple -> (compile_simple_type progtype (List.rev p) simple.defbody)))
       in
       let fullpath = 
@@ -373,7 +387,7 @@ struct
 
     (* type declarations, without kind or param *)
     let convert_decl pth dec = match dec.manifest with
-      | None -> TyAbstract
+      | None -> TyAbstract (TyCString (String.concat "." (List.rev pth)))
       | Some dt -> (* TODO params *) (compile_simple_type progtype pth dt.defbody)
     in
 
@@ -561,19 +575,7 @@ struct
         (List.sort cmp_binding bls)
       in
 
-      (* sort signature components *)
-      let sort_sigs sls =
-        let cmp_sig a b = match(a,b) with
-          | (Value_sig (id1,_) , Value_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
-          | (Module_sig (id1,_), Module_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
-          | (Type_sig (id1,_), Type_sig(id2,_)) -> (String.compare (Ident.name id1) (Ident.name id2))
-          | (Type_sig _ , _) -> -1  
-          | (Module_sig _, _) -> 1
-          | (Value_sig _, Type_sig _ ) -> 1
-          | (Value_sig _ , Module_sig _ ) -> -1
-        in
-        (List.sort cmp_sig sls)
-      in
+
 
       (* remove those structure bindings that don't need to be shared *)
       let rec filter_shares sigls strls = match(sigls,strls) with ([],_) -> []

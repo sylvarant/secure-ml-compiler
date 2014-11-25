@@ -83,8 +83,8 @@ do
     for testf in ${Testfold}/${Iterfold}/*.c
     do
         testname=${testf##*/}
-        testbase=${name%.c}
-        if [[ $testname =~ ^$base ]];then
+        testbase=${testname%-*}
+        if [[ $base =~ .*$testbase.* ]];then
             uppname=$(echo $testname | tr '[:lower:]' '[:upper:]')
             echo -e "\t==> \033[1;34m${uppname}\033[0m <== "  
             tabs 8

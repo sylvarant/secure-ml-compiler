@@ -19,13 +19,19 @@
 
 LOCAL int getAdress(void)
 {
-    static  int addr = 0;
+    static int addr = 0;
     return ++addr;
 }
 
 LOCAL int getAdressClo(void)
 {
-    static  int addr = 0;
+    static int addr = 0;
+    return ++addr;
+}
+
+LOCAL int getAdressAbs(void)
+{
+    static int addr = 0;
     return ++addr;
 }
 
@@ -114,6 +120,6 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
      
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.env,argument.val);
-    return convertV(result,meta->type); 
+    return convertV(result,*(meta->type.a.right)); 
 }
 

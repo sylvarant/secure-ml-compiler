@@ -3,7 +3,7 @@
  *
  *     Filename:  printer.ml
  *
- *  Description:  Compile the AST into bytecode
+ *  Description:  Pretty print the types for debugging purposes
  *
  *       Author:  Adriaan Larmuseau, ajhl
  *      Company:  Uppsala IT
@@ -14,7 +14,9 @@
 open Modules
 open Mini
 
-(* For debugging purposes only *)
+(* Exceptions *) 
+exception Cannot_Print of string
+
 module Pretty  =
 struct
 
@@ -74,6 +76,7 @@ struct
         print_simple_type t1;
         List.iter (fun t -> print_string ", "; print_simple_type t) tl;
         print_string ") "; print_path path
+    | _ -> raise (Cannot_Print "Unkown simple type !")
 
 
  (* 

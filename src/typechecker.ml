@@ -17,12 +17,13 @@ open Modules
 
 
 (* Exceptions *) 
-type typefail = Expansion | Unification
+type typefail = Expansion | Unification | Random of string
 exception Cannot_TypeCheck of typefail
 
 let string_typefail = function
   | Expansion -> "Could not expand!"
   | Unification -> "Could not unify!"
+  | Random s -> s
 
 
 (*-----------------------------------------------------------------------------
@@ -154,7 +155,7 @@ struct
    *)
   let generalize ty =
     let rec gen_vars vars ty = match typerepr ty with
-      Var v -> if v.level > !current_level & not (List.memq v vars)
+      Var v -> if v.level > !current_level && not (List.memq v vars)
         then v :: vars
         else vars
       | Typeconstr(path, tl) -> List.fold_left gen_vars vars tl 
@@ -209,7 +210,7 @@ struct
       | Let(ident, arg, body) -> begin_def();
         let type_arg = infer_type env arg in
         end_def();
-        let nn = (Env.add_value ident (generalize type_arg) env) in
+        let _ = (Env.add_value ident (generalize type_arg) env) in
         let tt = infer_type (Env.add_value ident (generalize type_arg) env) body in tt
       | If (t1,t2,t3) -> let t1_type = infer_type env t1 
         and t2_type = infer_type env t2 
@@ -242,6 +243,7 @@ struct
           unify env t2_type MiniML.int_type;
           unify env t1_type MiniML.int_type;
           MiniML.bool_type
+        | _ -> raise (Cannot_TypeCheck (Random "Couldn't match Prim string"))
     in
 
     (* top level *)
@@ -264,9 +266,9 @@ struct
       then false
       else (v.repres <- Some ty2; true)
     | (Typeconstr(path1, tl1), Typeconstr(path2, tl2)) ->
-      path1 = path2 & List.for_all2 filter tl1 tl2
+      path1 = path2 && List.for_all2 filter tl1 tl2
     | (LambdaType (tly1,tl1), LambdaType(tly2,tl2)) ->
-        (compare_lty tly1 tly2) & List.for_all2 filter tl1 tl2
+        (compare_lty tly1 tly2) && List.for_all2 filter tl1 tl2
     | (_, _) -> false in
     filter (instance vty1) vty2.body
 
@@ -275,9 +277,9 @@ struct
     match scrape_types env ty1 ty2 with
       (Var v1, Var v2) -> v1 == v2
     | (Typeconstr(path1, args1), Typeconstr(path2, args2)) ->
-      path1 = path2 & List.for_all2 equiv args1 args2
+      path1 = path2 && List.for_all2 equiv args1 args2
     | (LambdaType (lty1,tl1) , LambdaType (lty2, tl2)) ->
-      (compare_lty lty1 lty2) & (List.for_all2 equiv tl1 tl2)
+      (compare_lty lty1 lty2) && (List.for_all2 equiv tl1 tl2)
     | (_, _) -> false in
     let subst =
     List.map2 (fun v1 v2 -> (v2, Var v1)) def1.params def2.params in
