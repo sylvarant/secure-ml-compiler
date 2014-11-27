@@ -18,6 +18,7 @@ open Typechecker
 open Scoping
 open Compiler
 open Printer
+open Intermediary
 
 
 (*
@@ -65,6 +66,9 @@ let main() =
   | Cannot_TypeCheck ty -> prerr_string (string_typefail ty); 
     prerr_newline(); 
     exit 5
+  | Cannot_Convert_Intermediary str -> prerr_string str;
+    prerr_newline (); 
+    exit 6
 
 let _ = main()
 
