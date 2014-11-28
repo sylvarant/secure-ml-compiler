@@ -11,7 +11,6 @@
  * =====================================================================================
  *)
 
-(* Requires Module system, MiniML Ast, MiniML Typechecker, MiniML scoping and Compiler *)
 open Modules
 open Mini
 open Typechecker

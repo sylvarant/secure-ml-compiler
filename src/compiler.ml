@@ -103,6 +103,16 @@ struct
     in
     (List.sort cmp_sig sls)
 
+  (* sort bindings *)
+  let sort_bindings bls = 
+    let cmp_binding a b = match (a,b) with
+      | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
+      | (BMod (name1,_) , BMod(name2,_)) -> (String.compare name1 name2)
+      | (BVal _, _) -> -1
+      | (BMod _, _) -> 1
+    in
+    (List.sort cmp_binding bls)
+
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -365,19 +375,18 @@ struct
     (!var_list,computation)
 
 
-
  (* 
   * ===  FUNCTION  ======================================================================
-  *     Name:  omega_transformation
+  *     Name:  static_module_compilation
   *  Description:  converts the toplevel into an omega binding
   * =====================================================================================
   *)
-  let omega_transformation program = 
+  let static_module_compilation program = 
 
     let functlist = ref [] in
 
     (* convert a sequence of structure definitions *)
-    let rec parse_struct env path strctls   = 
+    let rec parse_struct env path strctls  = 
 
       (* convert a module definition into a new environment *)
       let rec parse_module env pth = function
@@ -392,7 +401,9 @@ struct
               (parse_module ((BMod (id,nenv))::env) pth m)
             | _ -> raise (Cannot_compile "Needed Functor"))
         | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
-      in
+     (* and parse_functor_module env pth = function
+        |  
+      in *)
 
       (* recurse over the list of definitions *)
       match strctls with [] -> []
@@ -434,19 +445,6 @@ struct
           | Type_sig _ -> (clear_sigs xs)
           | _ -> x :: xs)
       in
-           
-      (* sort bindings *)
-      let sort_bindings bls = 
-        let cmp_binding a b = match (a,b) with
-          | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
-          | (BMod (name1,_) , BMod(name2,_)) -> (String.compare name1 name2)
-          | (BVal _, _) -> -1
-          | (BMod _, _) -> 1
-        in
-        (List.sort cmp_binding bls)
-      in
-
-
 
       (* remove those structure bindings that don't need to be shared *)
       let rec filter_shares sigls strls = match(sigls,strls) with ([],_) -> []
@@ -626,7 +624,7 @@ struct
 
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
-      | (Fctr name) :: xs -> let definition = c_strc^"* "^name^"("^c_strc^"* "^const_str^"){" in
+      | (Fctr name) :: xs -> let definition = "void "^name^"("^c_strc^"* "^const_str^"){" in
         let body = (format 1 ["return NULL;"]) in 
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
       | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
@@ -642,7 +640,7 @@ struct
     (* Top Level *)
     (*var_prefix := (gen_rand 10);*)
     (*Printer.Pretty.print_modtype mty;*)
-    let (lambda_list,omega) = omega_transformation program in
+    let (lambda_list,omega) = static_module_compilation program in
     let (gettr_lst,strct_list,fctr_list,assocs) = theta_transformation mty omega in 
     let dec_ls = (separate "declarations" (print_decl gettr_lst))
     and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))

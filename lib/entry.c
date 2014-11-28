@@ -121,5 +121,6 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.env,argument.val);
     return convertV(result,*(meta->type.a.right)); 
+
 }
 
