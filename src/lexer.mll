@@ -57,7 +57,7 @@ let _ = List.iter (fun (str,tok) -> Hashtbl.add keyword_table str tok)
 rule token = parse
     [ ' ' '\010' '\013' '\009' '\012' ] +
             { token lexbuf }
-  | [ 'A'-'Z' 'a'-'z' '\192'-'\214' '\216'-'\246' '\248'-'\254' ]
+  | [ (*'A'-'Z'*) 'a'-'z' '\192'-'\214' '\216'-'\246' '\248'-'\254' ]
     [ 'A'-'Z' 'a'-'z' '\192'-'\214' '\216'-'\246' '\248'-'\254'
       '0'-'9' '_' '\'' ] *
             { let s = Lexing.lexeme lexbuf in
@@ -65,6 +65,16 @@ rule token = parse
                 Hashtbl.find keyword_table s
               with Not_found ->
                 IDENT s }
+
+  | [ 'A'-'Z' ]
+    [ 'A'-'Z' 'a'-'z' '\192'-'\214' '\216'-'\246' '\248'-'\254'
+      '0'-'9' '_' '\'' ] *
+            { let s = Lexing.lexeme lexbuf in
+              try
+                Hashtbl.find keyword_table s
+              with Not_found ->
+                MODIDENT s } 
+  
   | ['0'-'9']+
     | '0' ['x' 'X'] ['0'-'9' 'A'-'F' 'a'-'f']+
     | '0' ['o' 'O'] ['0'-'7']+

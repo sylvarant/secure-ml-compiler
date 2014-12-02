@@ -401,6 +401,7 @@ struct
               (parse_module ((BMod (id,nenv))::env) pth m)
             | _ -> raise (Cannot_compile "Needed Functor"))
         | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
+      in
      (* and parse_functor_module env pth = function
         |  
       in *)
@@ -625,7 +626,7 @@ struct
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
       | (Fctr name) :: xs -> let definition = "void "^name^"("^c_strc^"* "^const_str^"){" in
-        let body = (format 1 ["return NULL;"]) in 
+        let body = (format 1 ["return;"]) in 
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
       | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
     in

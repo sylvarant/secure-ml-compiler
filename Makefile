@@ -14,6 +14,7 @@ COMPILER_BIN = main.native
 compiler: 
 	$(MAKE) -C $(COMPILER_DIR)
 
+now: compiler
 
 #============================================
 # extra's

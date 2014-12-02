@@ -36,6 +36,7 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %}
 
 %token <string> IDENT
+%token <string> MODIDENT
 %token <int> INT
 
 %token TINT
@@ -62,7 +63,6 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %token LESSEQUAL
 %token LESSGREATER
 %token LET
-%token LIDENT
 %token LPAREN
 %token MINUS
 %token MODULE
@@ -88,14 +88,6 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %right PLUS MINUS
 %right STAR SLASH
 
-/* Adriaan TODO is writing lose ml terms really needed ?
-%start adriaan 
-%type <Mini.MiniML.term list> adriaan 
-
-%start code
-%type <Mini.MiniMLMod.Core.term> code 
-
-*/
 
 %start implementation
 %type <Mini.MiniMLMod.mod_term> implementation
@@ -109,6 +101,7 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 
 path:
     IDENT           { Pident(Ident.create $1) }
+  |  MODIDENT       { Pident(Ident.create $1) }
   | path DOT IDENT  { Pdot($1, $3) }
 ;
 
@@ -212,7 +205,7 @@ typeinfo:
 modulexpr:
     path                              { MiniMLMod.Longident $1 }
   | STRUCT structure END              { MiniMLMod.Structure(List.rev $2) }
-  | FUNCTOR LPAREN IDENT COLON moduletype RPAREN modulexpr
+  | FUNCTOR LPAREN MODIDENT COLON moduletype RPAREN modulexpr
                                       { MiniMLMod.Functor(Ident.create $3, $5, $7) }
   | modulexpr LPAREN modulexpr RPAREN { MiniMLMod.Apply($1, $3) }
   | LPAREN modulexpr RPAREN           { $2 }
@@ -227,9 +220,9 @@ structure_item:
     VALUE IDENT valbind           { MiniMLMod.Value_str(Ident.create $2, $3) }
   | TYPE typedef                  { let (id, kind, def) = $2 in
                                     MiniMLMod.Type_str(Ident.create id, kind, def) }
-  | MODULE IDENT COLON moduletype EQUAL modulexpr
+  | MODULE MODIDENT COLON moduletype EQUAL modulexpr
                      { MiniMLMod.Module_str(Ident.create $2, MiniMLMod.Constraint($6, $4)) }
-  | MODULE IDENT EQUAL modulexpr   { MiniMLMod.Module_str(Ident.create $2, $4) }
+  | MODULE MODIDENT EQUAL modulexpr   { MiniMLMod.Module_str(Ident.create $2, $4) }
 ;
 opt_semi:
     /* nothing */ { () }
@@ -240,7 +233,7 @@ opt_semi:
 
 moduletype:
     SIG signature END               { MiniMLMod.Signature(List.rev $2) }
-  | FUNCTOR LPAREN IDENT COLON moduletype RPAREN moduletype
+  | FUNCTOR LPAREN MODIDENT COLON moduletype RPAREN moduletype
                                     { MiniMLMod.Functor_type(Ident.create $3, $5, $7) }
   | LPAREN moduletype RPAREN        { $2 }
 ;
@@ -251,7 +244,7 @@ signature:
 signature_item:
     VALUE IDENT valuedecl             { MiniMLMod.Value_sig(Ident.create $2, $3) }
   | TYPE typeinfo    { let (id, def) = $2 in MiniMLMod.Type_sig(Ident.create id, def) }
-  | MODULE IDENT COLON moduletype     { MiniMLMod.Module_sig(Ident.create $2, $4) }
+  | MODULE MODIDENT COLON moduletype     { MiniMLMod.Module_sig(Ident.create $2, $4) }
 ;
 
 /* Toplevel entry point */
