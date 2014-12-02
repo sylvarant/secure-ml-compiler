@@ -64,7 +64,7 @@ do
     name=${file##*/}
     base=${name%.ml}
     logtest $logname $base
-    echo "Testing :: $2"
+    echo "Testing :: $base"
 
     # test compilation and abort further tests if failed
     echo -ne "\tCompilation :: "
@@ -73,6 +73,8 @@ do
     printr $res 0
     tabs 8
     case $res in
+
+        0) ;;#let's move on
         
         1) echo -e "\tCompilation of C code Failed !"
            continue;;
@@ -83,7 +85,7 @@ do
         3) echo -e "\tMiniML Compiler Failed !"
            continue;;
 
-        *) #let's move on
+        *) echo -e "\tUnkown Error"
 
     esac
     tabs 4
