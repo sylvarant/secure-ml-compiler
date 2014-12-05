@@ -1,31 +1,22 @@
+(* generative functor test: seal the output*)
 struct
 
-    module Alternate : (sig
-        type t;
-        val create : t;
-    end) =
+    module IsZero =
     struct
+        val test x = x == 0
+    end
+
+    module Test =
+      functor(Input: sig val test: int->bool end)
+      struct
         type t = bool
-        val create = true
-    end
+        val testfst p = (Input.test p)
+      end : sig
+        type t
+        val testfst : int -> t
+      end
 
-    module Abstract : (sig 
-        type t; 
-        val func : t -> t; 
-        val create : t; 
-        module Inner : (sig  val dumb : t -> int end)
-    end) =
-    struct
-        type t = int
-        val create = 5
-        val func x = x * 2
-
-        module Inner =
-        struct
-            val dumb y = y
-        
-        end
-
-    end
+    module TestZero = Test(IsZero)
+    module TestZero2 = Test(IsZero)
 
 end
