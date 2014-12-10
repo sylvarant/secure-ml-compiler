@@ -23,9 +23,10 @@ filename=$(basename "$1" 2> /dev/null)
 extension="${filename##*.}"
 base="${filename%.*}"
 outputc="${Outfold}${base}.c"
+outputh="${Outfold}${base}.h"
 outputm="${Outfold}${base}.o"
 
-$Compiler < $input > $outputc
+$Compiler -t 0 -o $outputc -h $outputh  < $input > /tmp/tmpfile
 res=$?
 if [[ $res -ne 0 ]];then
     if [[ $res -eq 5 ]]; then
@@ -45,7 +46,7 @@ if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"
     echo "C Compilation failed"
     echo "------------------------------------------------------"
-    cat $outputc 
+    cat /tmp/tmpfile
     exit 1
 fi
 

@@ -15,10 +15,59 @@ open Modules
 open Mini
 open Typechecker
 open Scoping
-open Compiler
 open Printer
+open Secure_compiler
+open Modules_compiler
 open Intermediary
 
+(*-----------------------------------------------------------------------------
+ *  Exceptions
+ *-----------------------------------------------------------------------------*)
+ 
+exception CommandlineArg 
+
+
+(*-----------------------------------------------------------------------------
+ *  Types
+ *-----------------------------------------------------------------------------*)
+
+type inputspec = { 
+  mutable compiler : SecCompiler.compilertype; 
+  mutable obj : string; 
+  mutable header : string
+}
+
+
+(*-----------------------------------------------------------------------------
+ *  Global vars
+ *-----------------------------------------------------------------------------*)
+
+let comptype_enum = [SecCompiler.compile]
+
+
+(*
+ * ===  FUNCTION ======================================================================
+ *         Name:  commandline
+ *  Description:  process the command line arguments
+ * =====================================================================================
+ *)
+let commandline = 
+  let default = { compiler = SecCompiler.compile; obj = "object.c" ; header = "header.h"} in
+  let rec process = function
+    | x :: y :: ls -> if x = "-t" 
+      then (default.compiler <- (List.nth comptype_enum (int_of_string y));
+        process ls)
+      else if x = "-o"
+      then (default.obj <- y;
+        process ls)
+      else if x = "-h"
+      then (default.header <- y;
+        process ls)
+      else ()
+    | _ -> ()
+  in
+  (process (List.tl (Array.to_list Sys.argv)));
+  default
 
 (*
  * ===  FUNCTION ======================================================================
@@ -27,6 +76,7 @@ open Intermediary
  * =====================================================================================
  *)
 let main() =
+  let spec = commandline in
   let lexbuf = Lexing.from_channel stdin in
   try 
     (* Step 1 : Parse *)
@@ -40,11 +90,15 @@ let main() =
     log_type mty;
 
     (* Step 4 : Compile *)
-    let compilation = (CCompiler.compile mty scoped_prog) in
+    let (obj,header) = (spec.compiler mty scoped_prog) in
 
     (* Step 5 : Output *) 
-    (print_string compilation);
+    let obj_chan = open_out spec.obj in
+    let header_chan = open_out spec.header in
+    (output_string obj_chan obj);
+    (output_string header_chan header);
     exit 0
+
   with Error s -> prerr_string "Error: "; 
     prerr_string s; 
     prerr_newline(); 
@@ -68,6 +122,9 @@ let main() =
   | Cannot_Convert_Intermediary str -> prerr_string str;
     prerr_newline (); 
     exit 6
+  | _ -> prerr_string "Not yet stream supported exception";
+      prerr_newline();
+      exit 7
 
 let _ = main()
 

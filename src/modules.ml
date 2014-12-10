@@ -325,7 +325,7 @@ module Mod_typing
           let (pairs, subst) = pair_signature_components sig1 rem2 in
           ((item1, item2) :: pairs, Subst.add id2 (Pident id1) subst)
     and specification_match env subst = function
-        (Value_sig(_, vty1), Value_sig(_, vty2)) as tuple ->
+        (Value_sig(_, vty1), Value_sig(_, vty2))(*as tuple*) ->
           (*Printer.print_signature_item (fst tuple);
           Printer.print_signature_item (snd tuple);*)
           if not (CT.valtype_match env vty1 (Core.subst_valtype vty2 subst))
@@ -336,6 +336,7 @@ module Mod_typing
           then error "type components do not match"
       | (Module_sig(_, mty1), Module_sig(_, mty2)) ->
           modtype_match env mty1 (Mod.subst_modtype mty2 subst)
+      | _ -> error "type components do not match"
     and typedecl_match env id decl1 decl2 =
       CT.kind_match env decl1.kind decl2.kind &&
       (match (decl1.manifest, decl2.manifest) with

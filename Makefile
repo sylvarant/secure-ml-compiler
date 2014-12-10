@@ -29,6 +29,7 @@ test:
 
 clean:
 	$(MAKE) clean -C $(COMPILER_DIR)
+	rm -fr out/*
 	
 
-.PHONY: test setup compiler
+.PHONY: test setup compiler clean now

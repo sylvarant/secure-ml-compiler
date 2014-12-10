@@ -72,6 +72,15 @@ typedef struct Data_s{
 
 
 /*-----------------------------------------------------------------------------
+ *  Signature Sharing
+ *-----------------------------------------------------------------------------*/
+typedef enum Type_e {
+    TYINT, TYBOOLEAN, TYARROW, TYSTAR, TYMODULE, TYVALUE, 
+    TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE
+} TYPE_INFO;
+
+
+/*-----------------------------------------------------------------------------
  *  Secure Entrypoints 
  *-----------------------------------------------------------------------------*/
 
