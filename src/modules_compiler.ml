@@ -56,7 +56,7 @@ struct
 
   and omega = strctbinding list
 
-  type compred = Gettr of string * computation | Strct of cpath 
+  type compred = Gettr of string * CIntermediary.locality * computation | Strct of cpath 
                | Fctr of string | Compttr of string * computation * CIntermediary.tempc list
 
 
@@ -202,7 +202,7 @@ struct
     | str::ls -> (match str with
       | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
         and (a,b,c) = (extract path ls) in
-        ((Gettr (ptr,comp)) :: a, b, c)
+        ((Gettr (ptr,ENTRYPOINT,comp)) :: a, b, c)
       | BMod (name, modt) -> (match modt with
         | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
           and (a,b,c) = (extract path ls) in

@@ -119,7 +119,7 @@ let main() =
   | Cannot_TypeCheck ty -> prerr_string (string_typefail ty); 
     prerr_newline(); 
     exit 5
-  | Cannot_Convert_Intermediary str -> prerr_string str;
+  | Cannot_convert_intermediary str -> prerr_string str;
     prerr_newline (); 
     exit 6
   | _ -> prerr_string "Not yet stream supported exception";

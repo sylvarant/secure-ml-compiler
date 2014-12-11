@@ -12,7 +12,7 @@
  *)
 
 (* Exceptions *) 
-exception Cannot_Convert_Intermediary of string
+exception Cannot_convert_intermediary of string
 
 (* ===  MODULE  ======================================================================
  *         Name:  CIntermediary
@@ -40,6 +40,9 @@ sig
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
+    | CLocal of locality
+
+  and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
 
  (*-----------------------------------------------------------------------------
@@ -49,6 +52,8 @@ sig
   val printty : type_u -> string
 
   val printc : tempc -> string
+
+  val printl : locality -> string
 
  (*-----------------------------------------------------------------------------
   *  Global constants
@@ -90,6 +95,9 @@ struct
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
+    | CLocal of locality
+
+  and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
 
  (*-----------------------------------------------------------------------------
@@ -105,6 +113,11 @@ struct
       let genstr _ = String.make 1 (char_of_int(gen())) in
       "_"^(String.concat "" (Array.to_list (Array.init length genstr)))
 
+  let printl = function
+    | LOCAL -> "LOCAL"
+    | SECRET -> "SECRET"
+    | FUNCTIONALITY -> "FUNCTIONALITY"
+    | ENTRYPOINT -> "ENTRYPOINT"
 
  (*-----------------------------------------------------------------------------
   *  Global constants
@@ -138,7 +151,7 @@ struct
     | TySignature ls -> 
       let rec conversion = function x::[] -> "makeTSignature("^(printty x)^")" 
           | x :: xs ->  "chainTSignature("^(conversion xs)^","^(printty x)^")"
-          | _ -> raise (Cannot_Convert_Intermediary "Signature List cannot be empty !")
+          | _ -> raise (Cannot_convert_intermediary "Signature List cannot be empty !")
         in 
         conversion ls
     | TyModule (n,ty) -> "makeTModule("^(printty n)^","^(printty ty)^")"
@@ -188,6 +201,7 @@ struct
     | ToReturn a -> "return "^(printc a)
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
       | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
+    | CLocal a -> (printl a)
     | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
       (printc (CInt d))^","^(printty e)^")"
 

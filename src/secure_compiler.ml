@@ -83,6 +83,35 @@ struct
     in
     (List.sort cmp_binding bls)
 
+ (*type compred = Gettr of string * CIntermediary.locality * computation | Strct of cpath 
+               | Fctr of string | Compttr of string * computation * CIntermediary.tempc list*)
+
+  (* sort compiler redices *)
+  let sort_compred cls =
+    let cmp_red a b = match (a,b) with
+      | (Gettr(str,_,_),Gettr(str2,_,_)) -> (String.compare str str2)
+      | (Strct pth , Strct pth2) -> (String.compare (make_ptr pth) (make_ptr pth2))
+      | (Fctr str,Fctr str2) -> (String.compare str str2)
+      | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
+      | (Gettr _, _)     -> 1
+      | (_, Gettr _)     -> -1
+      | (Compttr _, _)   -> -1
+      | (_, Compttr _)   -> 1
+      | (Strct _,Fctr _) -> 1
+      | (Fctr _,Strct _) -> -1
+    in
+    (List.sort cmp_red cls)
+
+  (* sort assoc *)
+  let sort_assocs als =
+    let cmp_ass a b = match (a,b) with
+      | (Call (_,n,pth),Call (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2))) 
+      | (Share (_,n,pth),Share (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Call _, _)  -> 1
+      | (Share _, _) -> -1
+    in
+    (List.sort cmp_ass als)
+
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -283,10 +312,25 @@ struct
       convert_assoc [] (clear_input sign binding)
     in
 
+    (* update the gettrs *)
+    let rec update_gettrs gs = function [] -> gs
+      | (Call(_,name,pth) :: cs) as ccs -> let ptr = (make_ptr (name::pth));  in
+        (Printf.eprintf "%s\n" ptr);
+        (match gs with 
+        | [] -> []
+        | g :: ggs -> (match g with
+          | Gettr(str,lc,comp) when ptr = str -> (Printf.eprintf "match = %s\n" str); (g :: (update_gettrs ggs cs))
+          | Gettr (str,_,comp) -> (Printf.eprintf "Miss %s\n" str); (Gettr (str,LOCAL,comp)) :: (update_gettrs ggs ccs)))
+      | _ -> raise (Cannot_compile "Massive idiocy")
+    in
+
     (* top level *)
     let (gettrs,strcts,fctrs) = (MiniModComp.extract [] binding) 
     and assocs = (extract_assoc progtype binding) in 
-      (gettrs,strcts,fctrs,assocs)
+    let calls_s = (List.filter (function Call _ -> true | _ -> false) (sort_assocs assocs)) in
+    let gettr_s = (sort_compred gettrs) in
+    let ngettrs = (update_gettrs gettr_s calls_s) in
+      (ngettrs,strcts,fctrs,assocs)
 
 
  (* 
@@ -369,28 +413,40 @@ struct
         | _ -> [c_value^ " " ^(String.concat "," (List.map printc  vlist))] in
       v@c in
 
-    (* print the lambda's*)
-    let rec print_lambdas = function [] -> []
-      | Compttr (name,comp,setup) :: xs -> let arguments = "("^c_binding^" "^const_env^", "^c_value^" "^const_arg^")" in
-        let definition = (c_value^" "^name^arguments^"{") in
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  print_lambdas
+  *  Description: print a lambda function implementation
+  * =====================================================================================
+  *)
+  let rec print_lambdas = function [] -> []
+    | Compttr (name,comp,setup) :: xs -> 
+        let args = "("^c_binding^" "^const_env^", "^c_value^" "^const_arg^")" in
+        let definition = (c_value^" "^name^args^"{") in
         let setupls : string list = (List.map printc setup)  in
         let body = (format 1 (setupls @ (print_computation comp))) in
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) 
-      | _ -> raise (Cannot_compile "print_lambdas - only compiles Compttr")
-    in
+      | _ -> raise (Cannot_convert_intermediary "print_lambdas - only compiles Compttr")
+   in
 
-    (* print a gettr *)
-    let rec print_getters = function [] -> []
-      | Gettr  (ptr,comp) :: xs -> let definition = ("LOCAL "^c_value^" "^ptr^"(void){") in
-        let setup = c_binding^" "^const_env^" = NULL" in
-        let body = (format 1 (setup :: (print_computation comp))) in
-        (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) 
-      | _ -> raise (Cannot_compile "print_getters - only compiles Gettr")
-    in
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  print_getters
+  *  Description: print a getter
+  * =====================================================================================
+  *)
+  let rec print_getters = function [] -> []
+    | Gettr  (ptr,loc,comp) :: xs -> 
+      let definition = ((printl loc)^" "^c_value^" "^ptr^"(void){") in
+      let setup = c_binding^" "^const_env^" = NULL" in
+      let body = (format 1 (setup :: (print_computation comp))) in
+      (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) 
+    | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
+  in
 
     (* print some local declarations *)
     let rec print_decl = function [] -> [] 
-      | Gettr  (ptr,comp) :: xs -> ("LOCAL "^c_value^" "^ptr^"(void);") :: (print_decl xs) 
+      | Gettr  (ptr,loc,comp) :: xs -> ((printl loc)^" "^c_value^" "^ptr^"(void);") :: (print_decl xs) 
       | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
     in
 
