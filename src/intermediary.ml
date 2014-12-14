@@ -43,7 +43,7 @@ sig
     | CLocal of locality
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA
   and consts = ENV | ARG | MOD | STR | TOP
   type args = (datastr * consts) list
   type funcdef = locality * datastr * string * args * bool
@@ -73,6 +73,12 @@ sig
 
   val func_end : string list
 
+  val header : string list
+
+  val footer : string list
+
+  val separate : string -> string list -> string list
+
 
  (*-----------------------------------------------------------------------------
   *  Global constants - TODO remove
@@ -82,6 +88,7 @@ sig
   val c_strcpy : string
   val var_prefix : string
   val c_boot : string
+  val c_conv : string
 
 end
 
@@ -110,7 +117,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA
 
   and consts = ENV | ARG | MOD | STR | TOP
 
@@ -145,6 +152,7 @@ struct
     | BINDING -> "BINDING*"
     | STRUCTURE -> "STRUCTURE"
     | VOID -> "void"
+    | DATA -> "DATA"
 
   (* print constants *)
   let printconst = function
@@ -178,6 +186,20 @@ struct
   (* end of function *)
   let func_end = ("}\n"::[]) 
 
+  (* header *)
+  let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] 
+  
+  (* separate name *)
+  let separate name = function [] -> []
+      | x::xs as ls -> let st = "----------------------" in
+        ["//"^ st ^ name ^ st ; ""] @ ls @ [""] 
+
+  (* footer *)
+  let footer = ["// Include the entrypoints & binding code"; 
+                "#include \"binding.c\""; 
+                "#include \"data.c\"" ; 
+                "#include \"entry.c\""; ""] 
+
 
  (*-----------------------------------------------------------------------------
   *  Global constants
@@ -187,6 +209,7 @@ struct
   and c_strcpy = "str_cpy"
   and var_prefix = (gen_rand 6)
   and c_boot = "bootup"
+  and c_conv = "convertV"
 
 
  (* 

@@ -86,7 +86,7 @@ struct
   (* sort compiler redices *)
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
-      | (Gettr(str,_,_),Gettr(str2,_,_)) -> (String.compare str str2)
+      | (Gettr(str,_,_,_),Gettr(str2,_,_,_)) -> (String.compare str str2)
       | (Strct pth , Strct pth2) -> (String.compare (make_ptr pth) (make_ptr pth2))
       | (Fctr (str,_),Fctr (str2,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
@@ -108,6 +108,13 @@ struct
       | (Share _, _) -> -1
     in
     (List.sort cmp_ass als)
+
+  (* compare statics *)
+  let cmp_stat a b = match a with 
+    ToStatic (_,x) -> (match b with 
+      ToStatic(_,y) -> (String.compare x y)
+      | _ -> -1) 
+    | _ -> -1 
 
 
  (* 
@@ -310,14 +317,12 @@ struct
     in
 
     (* update the gettrs *)
-    let rec update_gettrs gs = function [] -> gs
-      | (Call(_,name,pth) :: cs) as ccs -> let ptr = (make_ptr (name::pth));  in
-        (Printf.eprintf "%s\n" ptr);
-        (match gs with 
-        | [] -> []
-        | g :: ggs -> (match g with
-          | Gettr(str,lc,comp) when ptr = str -> (Printf.eprintf "match = %s\n" str); (g :: (update_gettrs ggs cs))
-          | Gettr (str,_,comp) -> (Printf.eprintf "Miss %s\n" str); (Gettr (str,LOCAL,comp)) :: (update_gettrs ggs ccs)))
+    let rec entrypts = function [] -> []
+      | (Call(ty,name,pth) :: cs)  -> let eptr = (make_entrypoint (name::pth));  in
+          let ptr = make_ptr (name::pth) in
+          let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
+          let comp = (ToCall ((CVar c_conv),[ToCall((CVar ptr),[]) ; tycomp ])) in
+          Gettr(eptr,DATA,ENTRYPOINT,([],comp)) :: (entrypts cs)
       | _ -> raise (Cannot_compile "Massive idiocy")
     in
 
@@ -326,8 +331,9 @@ struct
     and assocs = (extract_assoc progtype binding) in 
     let calls_s = (List.filter (function Call _ -> true | _ -> false) (sort_assocs assocs)) in
     let gettr_s = (sort_compred gettrs) in
-    let ngettrs = (update_gettrs gettr_s calls_s) in
-      (ngettrs,strcts,fctrs,assocs)
+    let ngettrs = List.map (function Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)) gettr_s in
+    let gentry  = entrypts calls_s in
+      (gentry,ngettrs,strcts,fctrs,assocs)
 
 
  (* 
@@ -337,14 +343,6 @@ struct
   * =====================================================================================
   *)
   let compile mty program =
-
-
-    (* compare statics *)
-    let comp_stat a b = match a with 
-      ToStatic (_,x) -> (match b with 
-        ToStatic(_,y) -> (String.compare x y)
-        | _ -> -1) 
-      | _ -> -1 in
 
     (* ================================================= *)
     (* build the bootup function: where we set it all up *)
@@ -391,7 +389,7 @@ struct
       let strdecl = (match (print_strcts strls) with 
         | (a,b) -> (a @ [Emptyline] @ b)) in
       let (statics,bindings) = (print_assoc assocs) in
-      let final_sts =  (List.sort_uniq comp_stat statics) in
+      let final_sts =  (List.sort_uniq cmp_stat statics) in
       let body_ls = (List.map printc (final_sts @ [Emptyline] @ strdecl @ bindings @ [Emptyline;(ToReturn (CInt 1))])) in
       ( (printc def) :: (format 1 body_ls) @ func_end) 
     in
@@ -404,23 +402,26 @@ struct
       | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
     in
 
-    (* header and footer for the compiled result *)
-    let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] in
-    let separate name = function [] -> []
-      | x::xs as ls -> ["//---------------"^ name ^ "----------------------"; ""] @ ls @ [""] in
-    let footer = ["// Include the entrypoints & binding code"; "#include \"binding.c\""; "#include \"data.c\"" ; 
-            "#include \"entry.c\""; ""] in
+    (* convert list of compiler redices into strings of function definitions *)
+    let mapfd ls = (List.map printf 
+                     (List.map (fun x -> (MC.Low.funcdef true x)) ls))
+    in
 
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
-    let (gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
-    let dec_ls = (separate "declarations" (List.map printf 
-                   (List.map (fun x -> (MC.Low.funcdef true x)) gettr_lst)))
-    and pl_ls =  (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
-    and pv_ls =  (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
+    let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
+    let dec_ls = (separate "declarations" (mapfd gettr_lst))
+    and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
+    and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
+    and en_ls = (separate "Entry Points" (MC.Low.getter gentry))
+    and en_dls = (separate "Entry Points" (mapfd gentry))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
     and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) in
-    (((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n"),"hello there")
+
+    (* the two files *)
+    let objectfile = ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ pb_ls @ footer)) ^ "\n")
+    and headerfile = (String.concat "\n" en_dls) ^ "\n" in
+      (objectfile,headerfile)
   
 end
 

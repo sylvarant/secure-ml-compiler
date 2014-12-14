@@ -59,7 +59,7 @@ struct
 
   and omega = strctbinding list
 
-  type compred = Gettr of string * Intermediary.locality * computation 
+  type compred = Gettr of string * Intermediary.datastr * Intermediary.locality * computation 
                | Strct of cpath 
                | Fctr of  string * Intermediary.locality 
                | Compttr of string * computation * Intermediary.tempc list
@@ -74,7 +74,10 @@ struct
     | Pdot (p,str) -> str :: (convert_path p)) 
   
   (* convert a list into a pointer *)
-  let make_ptr lst = (String.concat "_" (List.rev lst)) 
+  let make_entrypoint lst = (String.concat "_" (List.rev lst)) 
+
+  let make_ptr lst = "_" ^ (make_entrypoint lst)
+
 
   (* get_static *)
   let rec get_static = function
@@ -212,7 +215,7 @@ struct
       | str::ls -> (match str with
         | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
           and (a,b,c) = (extract path ls) in
-          ((Gettr (ptr,Interm.ENTRYPOINT,comp)) :: a, b, c)
+          ((Gettr (ptr,Interm.VALUE,Interm.ENTRYPOINT,comp)) :: a, b, c)
         | BMod (name, modt) -> (match modt with
           | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
             and (a,b,c) = (extract path ls) in
@@ -245,7 +248,7 @@ struct
 
     (* build funcdefi *)
     let funcdef b = function
-      | Gettr (ptr,loc,comp) -> (loc,VALUE,ptr,[],b)
+      | Gettr (ptr,dtstr,loc,comp) -> (loc,dtstr,ptr,[],b)
       | Fctr (ptr,loc) -> (loc,VOID,ptr,[],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
@@ -272,8 +275,8 @@ struct
     * =====================================================================================
     *)
     let rec getter = function [] -> []
-      | Gettr  (ptr,loc,comp) :: xs -> 
-        let definition = (loc,VALUE,ptr,[],false) in
+      | Gettr  (ptr,dtstr,loc,comp) :: xs -> 
+        let definition = (loc,dtstr,ptr,[],false) in
         let setup = (printd BINDING)^" "^(printconst ENV)^" = NULL" in
         let body = (format 1 (setup :: (computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 

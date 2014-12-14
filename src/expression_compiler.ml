@@ -86,7 +86,7 @@ struct
            (try (match (lookup_path env cpath) with
               | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[]))) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
-           with _ -> (Get ((constv ENV),(CString (make_ptr cpath)))))
+           with _ -> (Get ((constv ENV),(CString (make_entrypoint cpath)))))
         | Constant x -> ToInt (CInt x)
         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
