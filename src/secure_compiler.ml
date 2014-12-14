@@ -15,7 +15,6 @@ open Mini
 open Modules 
 open Modules_compiler
 open Expression_compiler
-open Intermediary
 
 (*-----------------------------------------------------------------------------
  * Setup Module Compiler 
@@ -30,11 +29,12 @@ module MiniModComp = ModComp(MiniMLComp)
  *)
 module SecCompiler : CCOMPILER =
 struct
-
+  
+  module MC = MiniModComp
   open MiniML 
   open MiniMLMod
-  open CIntermediary
-  open Omega
+  open MC.MOmega
+  open MiniMLComp.Intermediary
 
 
  (*-----------------------------------------------------------------------------
@@ -83,15 +83,12 @@ struct
     in
     (List.sort cmp_binding bls)
 
- (*type compred = Gettr of string * CIntermediary.locality * computation | Strct of cpath 
-               | Fctr of string | Compttr of string * computation * CIntermediary.tempc list*)
-
   (* sort compiler redices *)
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
       | (Gettr(str,_,_),Gettr(str2,_,_)) -> (String.compare str str2)
       | (Strct pth , Strct pth2) -> (String.compare (make_ptr pth) (make_ptr pth2))
-      | (Fctr str,Fctr str2) -> (String.compare str str2)
+      | (Fctr (str,_),Fctr (str2,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
       | (Gettr _, _)     -> 1
       | (_, Gettr _)     -> -1
@@ -325,7 +322,7 @@ struct
     in
 
     (* top level *)
-    let (gettrs,strcts,fctrs) = (MiniModComp.extract [] binding) 
+    let (gettrs,strcts,fctrs) = (MC.High.extract [] binding) 
     and assocs = (extract_assoc progtype binding) in 
     let calls_s = (List.filter (function Call _ -> true | _ -> false) (sort_assocs assocs)) in
     let gettr_s = (sort_compred gettrs) in
@@ -341,12 +338,6 @@ struct
   *)
   let compile mty program =
 
-    (* add ; and indentation *)
-    let format n ls = let indent = (String.concat "" (List.map (fun x -> " ") (range 1 n))) in
-        (List.map (fun x  -> if (not (x = "")) then (indent ^ x ^ ";") else "" ) ls) in
-
-    (* end of function *)
-    let func_end = ("}\n"::[]) in
 
     (* compare statics *)
     let comp_stat a b = match a with 
@@ -361,7 +352,7 @@ struct
     let boot_up strls assocs progtype =
 
       (* create the insertion binding *)
-      let to_binding = function [] -> (CVar c_topl)
+      let to_binding = function [] -> (constv TOP)
         | x :: xs as ls -> let ptr = (make_ptr ls) in
           (CVar (ptr ^ "->mod" )) 
       in
@@ -389,8 +380,7 @@ struct
       (* print_strcts: convert structs into mallocs and bindings *)
       let rec print_strcts = function [] -> ([],[])
         | (Strct pth) :: xs -> (let ptr = (make_ptr pth) in
-          let cvar = (CVar c_strc) in
-          let decl = MALLOC (cvar,(CVar ptr),(Sizeof cvar)) in
+          let decl = MALLOC (STRUCTURE,(CVar ptr),(Sizeof STRUCTURE)) in
           let (dls,bls) = (print_strcts xs) in
             ((decl :: dls), bls)) 
         | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
@@ -406,56 +396,12 @@ struct
       ( (printc def) :: (format 1 body_ls) @ func_end) 
     in
 
-    (* print the tuple computation *)
-    let rec print_computation = function (vlist,comp) -> 
-      let c = [("return "^(printc comp))] in
-      let v = match vlist with [] -> []
-        | _ -> [c_value^ " " ^(String.concat "," (List.map printc  vlist))] in
-      v@c in
-
- (* 
-  * ===  FUNCTION  ======================================================================
-  *     Name:  print_lambdas
-  *  Description: print a lambda function implementation
-  * =====================================================================================
-  *)
-  let rec print_lambdas = function [] -> []
-    | Compttr (name,comp,setup) :: xs -> 
-        let args = "("^c_binding^" "^const_env^", "^c_value^" "^const_arg^")" in
-        let definition = (c_value^" "^name^args^"{") in
-        let setupls : string list = (List.map printc setup)  in
-        let body = (format 1 (setupls @ (print_computation comp))) in
-        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_lambdas xs) 
-      | _ -> raise (Cannot_convert_intermediary "print_lambdas - only compiles Compttr")
-   in
-
- (* 
-  * ===  FUNCTION  ======================================================================
-  *     Name:  print_getters
-  *  Description: print a getter
-  * =====================================================================================
-  *)
-  let rec print_getters = function [] -> []
-    | Gettr  (ptr,loc,comp) :: xs -> 
-      let definition = ((printl loc)^" "^c_value^" "^ptr^"(void){") in
-      let setup = c_binding^" "^const_env^" = NULL" in
-      let body = (format 1 (setup :: (print_computation comp))) in
-      (String.concat "\n" ( (definition::body) @ func_end ) ) :: (print_getters xs) 
-    | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
-  in
-
-    (* print some local declarations *)
-    let rec print_decl = function [] -> [] 
-      | Gettr  (ptr,loc,comp) :: xs -> ((printl loc)^" "^c_value^" "^ptr^"(void);") :: (print_decl xs) 
-      | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
-    in
-
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
-      | (Fctr name) :: xs -> let definition = "void "^name^"("^c_strc^"* "^const_str^"){" in
+      | (Fctr (name,loc)) as f :: xs -> let definition = printf (MC.Low.funcdef false f) in
         let body = (format 1 ["return;"]) in 
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
-      | _ -> raise (Cannot_compile "print_decl - only compiles Gettr")
+      | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
     in
 
     (* header and footer for the compiled result *)
@@ -466,11 +412,12 @@ struct
             "#include \"entry.c\""; ""] in
 
     (* Top Level *)
-    let (lambda_list,omega) = (MiniModComp.compile program) in
+    let (lambda_list,omega) = (MC.High.compile program) in
     let (gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
-    let dec_ls = (separate "declarations" (print_decl gettr_lst))
-    and pl_ls =  (separate "Closures" (print_lambdas (List.rev lambda_list)))
-    and pv_ls =  (separate "Values" (print_getters (List.rev gettr_lst)))
+    let dec_ls = (separate "declarations" (List.map printf 
+                   (List.map (fun x -> (MC.Low.funcdef true x)) gettr_lst)))
+    and pl_ls =  (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
+    and pv_ls =  (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
     and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) in
     (((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ pb_ls @ footer)) ^ "\n"),"hello there")

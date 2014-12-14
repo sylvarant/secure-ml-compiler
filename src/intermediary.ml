@@ -34,15 +34,19 @@ sig
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
-    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of string * tempc
+    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
     | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-    | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
-    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
+    | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
+    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
     | CLocal of locality
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
+  and datastr = VALUE | BINDING | STRUCTURE | VOID
+  and consts = ENV | ARG | MOD | STR | TOP
+  type args = (datastr * consts) list
+  type funcdef = locality * datastr * string * args * bool
 
 
  (*-----------------------------------------------------------------------------
@@ -55,22 +59,29 @@ sig
 
   val printl : locality -> string
 
+  val printd : datastr -> string
+
+  val printconst : consts -> string
+
+  val constv : consts -> tempc
+
+  val printf : funcdef -> string
+
+  val format : int -> string list -> string list
+
+  val range : int -> int -> int list
+
+  val func_end : string list
+
+
  (*-----------------------------------------------------------------------------
-  *  Global constants
+  *  Global constants - TODO remove
   *-----------------------------------------------------------------------------*)
 
-  val const_env : string
-  val const_arg : string
-  val const_mod : string
-  val const_str : string
   val int_op : string list
-  val c_value : string
-  val c_binding : string
-  val c_strc : string 
   val c_strcpy : string
   val var_prefix : string
   val c_boot : string
-  val c_topl : string
 
 end
 
@@ -89,15 +100,23 @@ struct
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
-    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of string * tempc
+    | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
     | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
-    | MALLOC of tempc *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
-    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of tempc
+    | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
+    | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
     | CLocal of locality
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
+
+  and datastr = VALUE | BINDING | STRUCTURE | VOID
+
+  and consts = ENV | ARG | MOD | STR | TOP
+
+  and args = (datastr * consts) list
+
+  and funcdef = locality * datastr * string * args * bool
 
 
  (*-----------------------------------------------------------------------------
@@ -113,28 +132,61 @@ struct
       let genstr _ = String.make 1 (char_of_int(gen())) in
       "_"^(String.concat "" (Array.to_list (Array.init length genstr)))
 
+  (* print locality *)
   let printl = function
     | LOCAL -> "LOCAL"
     | SECRET -> "SECRET"
     | FUNCTIONALITY -> "FUNCTIONALITY"
     | ENTRYPOINT -> "ENTRYPOINT"
 
+  (* print data structure *)
+  let printd = function
+    | VALUE -> "VALUE" 
+    | BINDING -> "BINDING*"
+    | STRUCTURE -> "STRUCTURE"
+    | VOID -> "void"
+
+  (* print constants *)
+  let printconst = function
+    | ENV -> "my_env" 
+    | ARG -> "my_arg"
+    | MOD -> "my_mod" 
+    | STR -> "my_str"
+    | TOP -> "toplevel"
+
+  (* build cvar from const *)
+  let constv v = CVar (printconst v)
+
+  (* range operator *)
+  let range i j = 
+    let rec aux n acc =
+      if n < i then acc else aux (n-1) (n :: acc) in 
+    (aux j [])
+
+  (* add ; and indentation *)
+  let format n ls = 
+    let indent = (String.concat "" (List.map (fun x -> " ") (range 1 n))) in
+      (List.map (fun x  -> if (not (x = "")) then (indent ^ x ^ ";") else "" ) ls) 
+
+  (* print functions *)
+  let printf = function
+    | (loc,ret,name,args,def) -> let par = (match args with
+        | [] -> "void"
+        | ls -> (String.concat "," (List.map (function (x,y) -> (printd x)^" "^(printconst y)) args))) in
+        ((printl loc)^" "^(printd ret)^" "^name^" "^"("^par^")"^(if def then ";" else"{"))
+
+  (* end of function *)
+  let func_end = ("}\n"::[]) 
+
+
  (*-----------------------------------------------------------------------------
   *  Global constants
   *-----------------------------------------------------------------------------*)
 
-  let const_env = "my_env" 
-  and const_arg = "my_arg"
-  and const_mod = "my_mod" 
-  and const_str = "my_str"
-  and int_op = ["+"; "-"; "/"; "*"]
-  and c_value = "VALUE"
-  and c_binding = "BINDING*"
-  and c_strc = "STRUCTURE"
+  let int_op = ["+"; "-"; "/"; "*"]
   and c_strcpy = "str_cpy"
   and var_prefix = (gen_rand 6)
   and c_boot = "bootup"
-  and c_topl = "toplevel"
 
 
  (* 
@@ -187,15 +239,15 @@ struct
     | Insert (a,b,c) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^")"
     | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
     | Get (a,b) -> "getValue("^(printc a)^","^(printc b)^")" 
-    | MALLOC (a,b,c) -> (printc a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
+    | MALLOC (a,b,c) -> (printd a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
     | ToByte a -> (printc a)^".byte"
     | ToOper (a,b,c) -> (printc b) ^" "^a^" "^(printc c)
     | ToLeft a -> "(*("^ (printc a) ^ ".p.left))"
     | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
-    | Sizeof a -> "sizeof("^ (printc a)^")"
-    | ToCast (a,b) -> "((" ^ a ^")"^(printc b)^")"
+    | Sizeof a -> "sizeof("^ (printd a)^")"
+    | ToCast (a,b) -> "((" ^ (printd a) ^")"^(printc b)^")"
     | ToStatic (a,b) -> "static char "^(printc (Assign ((Ptr a),(CString b))))
     | Emptyline -> ""
     | ToReturn a -> "return "^(printc a)

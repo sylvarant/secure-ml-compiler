@@ -28,14 +28,16 @@ exception Cannot_compile of string
 module MiniMLComp : EXPR_COMP =
 struct
 
+  module Intermediary = CIntermediary
+  module MOmega = Omega(Intermediary)
   open MiniML 
   open CIntermediary
-  open Omega
+  open MOmega
 
  (*-----------------------------------------------------------------------------
   *  Types
   *-----------------------------------------------------------------------------*)
-  type exprcomp = Omega.compred list * Omega.computation
+  type exprcomp = Omega(Intermediary).compred list * Omega(Intermediary).computation
 
 
  (* 
@@ -82,9 +84,9 @@ struct
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
            (try (match (lookup_path env cpath) with
-              | Static spath -> ToCast (c_value,(ToCall ((CVar spath),[]))) 
+              | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[]))) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
-           with _ -> (Get ((CVar const_env),(CString (make_ptr cpath)))))
+           with _ -> (Get ((constv ENV),(CString (make_ptr cpath)))))
         | Constant x -> ToInt (CInt x)
         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
@@ -92,12 +94,12 @@ struct
         | Apply (l,r) -> let tmp = new_var() in 
            varlist := (CVar tmp) :: !varlist;
            let tcv = (CVar tmp) in
-           ToComma(Assign( tcv, (convert l)),ToCast (c_value,(ToCall ((ToLambda tcv),[(ToEnv tcv); (convert r)]))))
+           ToComma(Assign( tcv, (convert l)),ToCast (VALUE,(ToCall ((ToLambda tcv),[(ToEnv tcv); (convert r)]))))
         | Function(id,ty,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))  in
           (*let convert_ty = (parse_type ty) in*)
           (makef lamname idn e);
-          ToClosure((CVar const_env),(*convert_ty,*)(CVar lamname)) (* TODO pain point *)
+          ToClosure((constv ENV),(*convert_ty,*)(CVar lamname)) (* TODO pain point *)
         | Prim (s,ls) when (List.length ls) == 2 -> let left = ToIValue(convert (List.hd ls)) in 
           let right = ToIValue((convert (List.hd (List.tl ls)))) in
           let operation = ToOper(s,left,right) in
@@ -113,10 +115,10 @@ struct
         let compiled = mcompile vlist e in
         let ptrarg = CVar (new_ptr()) in
         let ptrstr = CVar (new_ptr()) in
-        let malla = MALLOC ((CVar c_value),ptrarg,(Sizeof (CVar c_value))) in
-        let assarg = Assign((Ptr ptrarg),(CVar const_arg)) in
+        let malla = MALLOC (VALUE,ptrarg,(Sizeof VALUE)) in
+        let assarg = Assign((Ptr ptrarg),(constv ARG)) in
         let asstr = ToStatic(ptrstr,id) in
-        let insert = (Insert((CVar const_env),ptrstr,ptrarg)) in
+        let insert = (Insert((constv ENV),ptrstr,ptrarg)) in
         let compttr = Compttr (name,(!vlist,compiled),[asstr; malla ; assarg; insert]) in
         funclist := compttr :: !funclist in
 

@@ -22,7 +22,7 @@ exception Cannot_compile of string
 
 
 (*-----------------------------------------------------------------------------
- *  Compiler type
+ *  General Compiler type
  *-----------------------------------------------------------------------------*)
 module type CCOMPILER =
 sig
@@ -34,10 +34,10 @@ end
 (* 
  * ===  MODULE  ======================================================================
  *         Name:  Omega
- *  Description:  The bindings structure
+ *  Description:  The modules representation
  * =====================================================================================
  *)
-module Omega =
+module Omega(Intermediary : CINTERMEDIARY) =
 struct
 
  (*-----------------------------------------------------------------------------
@@ -46,29 +46,28 @@ struct
 
   type cpath = string list
 
-  and modbindtype = FB of cpath * string * MiniMLMod.mod_term * bool| SB of cpath * strctbinding list * bool
+  and modbindtype = FB of cpath * string * MiniMLMod.mod_term * bool
+                  | SB of cpath * strctbinding list * bool
 
-  and strctbinding = BVal of string * cpath * computation | BMod of string * modbindtype 
+  and strctbinding = BVal of string * cpath * computation 
+                   | BMod of string * modbindtype 
 
-  and computation = CIntermediary.tempc list * CIntermediary.tempc 
+  and computation = Intermediary.tempc list * Intermediary.tempc 
 
-  and trawl = Static of string | Environment of modbindtype
+  and trawl = Static of string 
+            | Environment of modbindtype
 
   and omega = strctbinding list
 
-  type compred = Gettr of string * CIntermediary.locality * computation | Strct of cpath 
-               | Fctr of string | Compttr of string * computation * CIntermediary.tempc list
+  type compred = Gettr of string * Intermediary.locality * computation 
+               | Strct of cpath 
+               | Fctr of  string * Intermediary.locality 
+               | Compttr of string * computation * Intermediary.tempc list
 
 
  (*-----------------------------------------------------------------------------
   *  Helper Funcions
   *-----------------------------------------------------------------------------*)
-
-  (* range operator *)
-  let range i j = 
-    let rec aux n acc =
-      if n < i then acc else aux (n-1) (n :: acc) in 
-    (aux j [])
 
   (* convert a path into a list of strings *)
   let rec convert_path = (function Pident id -> [Ident.name id]
@@ -121,96 +120,166 @@ struct
 end
 
 
+(*-----------------------------------------------------------------------------
+ *  Expression Compiler type
+ *-----------------------------------------------------------------------------*)
+module type EXPR_COMP =
+sig
+  module Intermediary : CINTERMEDIARY
+  type exprcomp = Omega(Intermediary).compred list * Omega(Intermediary).computation
+  val compile : Omega(Intermediary).omega -> Omega(Intermediary).cpath ->  MiniML.term -> exprcomp
+end
+
+
 (* 
  * ===  MODULE  ======================================================================
  *         Name:  ModComp
  *  Description:  The static modules compiler
  * =====================================================================================
  *)
-module type EXPR_COMP =
-sig
-  type exprcomp = Omega.compred list * Omega.computation
-  val compile : Omega.omega -> Omega.cpath ->  MiniML.term -> exprcomp
-end
-
 module ModComp(ExprComp : EXPR_COMP) =
 struct
-
-  open Omega 
+  
+  module Interm = ExprComp.Intermediary
+  module MOmega = Omega(ExprComp.Intermediary)
+  open MOmega 
   open MiniMLMod
 
- (* 
-  * ===  FUNCTION  ======================================================================
-  *     Name:  compile
-  *  Description:  converts the toplevel into an omega binding
-  * =====================================================================================
-  *)
-  let compile program = 
 
-    let functlist = ref [] in
+ (*-----------------------------------------------------------------------------
+  *  High Level Modules Compiler
+  *-----------------------------------------------------------------------------*)
+  module High =
+  struct
 
-    (* convert a sequence of structure definitions *)
-    let rec parse_struct env path strctls  = 
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  compile
+    *  Description:  converts the toplevel into an omega binding
+    * =====================================================================================
+    *)
+    let compile program = 
 
-      (* convert a module definition into a new environment *)
-      let rec parse_module env pth = function
-          Longident ident -> (match (lookup_path env (convert_path ident)) with 
-            | (Environment e) -> e
-            | _ -> raise (Cannot_compile_module "Did not retrieve environment from path lookup"))
-        | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
-        | Functor (id,ty,m) -> FB (pth,(Ident.name id),m,true)
-        | Apply (m1,m2) -> 
-          (match (parse_module env pth m1) with
-            | FB (_,id,m,_) -> let nenv = (parse_module env pth m2) in
-              (parse_module ((BMod (id,nenv))::env) pth m)
-            | _ -> raise (Cannot_compile_module "Needed Functor"))
-        | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
+      let functlist = ref [] in
+
+      (* convert a sequence of structure definitions *)
+      let rec parse_struct env path strctls  = 
+
+        (* convert a module definition into a new environment *)
+        let rec parse_module env pth = function
+            Longident ident -> (match (lookup_path env (convert_path ident)) with 
+              | (Environment e) -> e
+              | _ -> raise (Cannot_compile_module "Did not retrieve environment from path lookup"))
+          | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
+          | Functor (id,ty,m) -> FB (pth,(Ident.name id),m,true)
+          | Apply (m1,m2) -> 
+            (match (parse_module env pth m1) with
+              | FB (_,id,m,_) -> let nenv = (parse_module env pth m2) in
+                (parse_module ((BMod (id,nenv))::env) pth m)
+              | _ -> raise (Cannot_compile_module "Needed Functor"))
+          | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
+        in
+
+        (* recurse over the list of definitions *)
+        match strctls with [] -> []
+          | x::xs ->  match x with 
+              Type_str (id2,_,_) -> (parse_struct env path xs)
+            | Module_str (id2,mterm) ->
+              let name = (Ident.name id2) in
+              let nenv = (parse_module env (name::path) mterm) in
+              let value = BMod (name,nenv) in
+              value :: (parse_struct (value :: env) path xs)
+            | Value_str (id2,term) ->
+              let name = (Ident.name id2) in
+              let (flist,comp) = (ExprComp.compile env (name::path) term) in 
+              functlist := flist @ !functlist;
+              let data = BVal (name, path, (comp)) in 
+                data :: (parse_struct (data :: env) path xs) 
       in
-     (* and parse_functor_module env pth = function
-        |  
-      in *)
-
-      (* recurse over the list of definitions *)
-      match strctls with [] -> []
-        | x::xs ->  match x with 
-            Type_str (id2,_,_) -> (parse_struct env path xs)
-          | Module_str (id2,mterm) ->
-            let name = (Ident.name id2) in
-            let nenv = (parse_module env (name::path) mterm) in
-            let value = BMod (name,nenv) in
-            value :: (parse_struct (value :: env) path xs)
-          | Value_str (id2,term) ->
-            let name = (Ident.name id2) in
-            let (flist,comp) = (ExprComp.compile env (name::path) term) in 
-            functlist := flist @ !functlist;
-            let data = BVal (name, path, (comp)) in 
-              data :: (parse_struct (data :: env) path xs) 
-    in
         
-    (* top level *)
-    match program with Structure strt -> (!functlist,(parse_struct [] [] strt))
-    | _ ->  raise (Cannot_compile_module "Top level must be structure")
+      (* top level *)
+      match program with Structure strt -> (!functlist,(parse_struct [] [] strt))
+      | _ ->  raise (Cannot_compile_module "Top level must be structure")
 
 
- (* 
-  * ===  FUNCTION  ======================================================================
-  *     Name:  extract
-  *  Description: extract the compiler redices from the omega structure produced by st*
-  * =====================================================================================
-  *)
-  let rec extract path = function [] -> ([],[],[]) 
-    | str::ls -> (match str with
-      | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
-        and (a,b,c) = (extract path ls) in
-        ((Gettr (ptr,ENTRYPOINT,comp)) :: a, b, c)
-      | BMod (name, modt) -> (match modt with
-        | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  extract
+    *  Description: extract the compiler redices from the omega structure produced by st*
+    * =====================================================================================
+    *)
+    let rec extract path = function [] -> ([],[],[]) 
+      | str::ls -> (match str with
+        | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
           and (a,b,c) = (extract path ls) in
-          ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
-        | SB (pth,nbinding,false) -> (extract path ls)
-        | FB (pth,var,mm,_) -> let npth = (make_ptr pth) 
-          and (a,b,c) =  (extract path ls) in
-          (a, b, (Fctr npth) :: c)))
+          ((Gettr (ptr,Interm.ENTRYPOINT,comp)) :: a, b, c)
+        | BMod (name, modt) -> (match modt with
+          | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
+            and (a,b,c) = (extract path ls) in
+            ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
+          | SB (pth,nbinding,false) -> (extract path ls)
+          | FB (pth,var,mm,_) -> let npth = (make_ptr pth) 
+            and (a,b,c) =  (extract path ls) in
+            (a, b, (Fctr (npth,Interm.ENTRYPOINT)) :: c)))
+  end
+
+
+ (*-----------------------------------------------------------------------------
+  *  Low Level Modules Compiler (To the intermediary)
+  *-----------------------------------------------------------------------------*)
+  module Low =
+  struct
+
+    open Interm
+
+   (*-----------------------------------------------------------------------------
+    *  Helper Funcions
+    *-----------------------------------------------------------------------------*)
+
+    (* print the tuple computation *)
+    let rec computation = function (vlist,comp) -> 
+      let c = [("return "^(printc comp))] in
+      let v = match vlist with [] -> []
+        | _ -> [(printd VALUE)^ " " ^(String.concat "," (List.map printc  vlist))] in
+      v@c 
+
+    (* build funcdefi *)
+    let funcdef b = function
+      | Gettr (ptr,loc,comp) -> (loc,VALUE,ptr,[],b)
+      | Fctr (ptr,loc) -> (loc,VOID,ptr,[],b)
+      | _ -> raise (Cannot_convert_intermediary "funcdef failed")
+
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  lambda
+    *  Description: print a lambda function implementation
+    * =====================================================================================
+    *)
+    let rec lambda = function [] -> []
+      | Compttr (name,comp,setup) :: xs -> 
+          let args = [(BINDING,ENV);(VALUE,ARG)] in
+          let definition = (LOCAL,VALUE,name,args,false) in
+          let setupls : string list = (List.map printc setup)  in
+          let body = (format 1 (setupls @ (computation comp))) in
+          (String.concat "\n" (((printf definition)::body) @ func_end)) :: (lambda xs) 
+      | _ -> raise (Cannot_convert_intermediary "print_lambdas - only compiles Compttr")
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  getter
+    *  Description: print a getter
+    * =====================================================================================
+    *)
+    let rec getter = function [] -> []
+      | Gettr  (ptr,loc,comp) :: xs -> 
+        let definition = (loc,VALUE,ptr,[],false) in
+        let setup = (printd BINDING)^" "^(printconst ENV)^" = NULL" in
+        let body = (format 1 (setup :: (computation comp))) in
+        (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
+      | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
+
+  end
 
 end
  
