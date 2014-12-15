@@ -81,7 +81,7 @@ typedef enum Type_e {
 
 
 /*-----------------------------------------------------------------------------
- *  Secure Entrypoints 
+ *  General Entrypoints 
  *-----------------------------------------------------------------------------*/
 
 ENTRYPOINT DATA path_entry(char * path, int size);

@@ -26,10 +26,9 @@ exception Cannot_compile of string
  *-----------------------------------------------------------------------------*)
 module type CCOMPILER =
 sig
-    type compilertype = MiniMLMod.mod_type -> MiniMLMod.mod_term -> (string * string)
+    type compilertype = MiniMLMod.mod_type -> MiniMLMod.mod_term -> string -> (string * string)
     val compile : compilertype
 end
-
 
 (* 
  * ===  MODULE  ======================================================================
@@ -74,7 +73,8 @@ struct
     | Pdot (p,str) -> str :: (convert_path p)) 
   
   (* convert a list into a pointer *)
-  let make_entrypoint lst = (String.concat "_" (List.rev lst)) 
+  let make_entrypoint = function [] -> "toplevel" 
+    | lst -> (String.concat "_" (List.rev lst)) 
 
   let make_ptr lst = "_" ^ (make_entrypoint lst)
 

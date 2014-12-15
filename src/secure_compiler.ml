@@ -47,7 +47,7 @@ struct
   *  Types
   *-----------------------------------------------------------------------------*)
 
-  type compilertype = MiniMLMod.mod_type -> MiniMLMod.mod_term -> (string * string)
+  type compilertype = MiniMLMod.mod_type -> MiniMLMod.mod_term -> string -> (string * string)
 
   type typetrawl = Fail | SimpleType of simple_type | Modtype of mod_type 
                  | ManifestType of def_type option
@@ -101,13 +101,43 @@ struct
 
   (* sort assoc *)
   let sort_assocs als =
-    let cmp_ass a b = match (a,b) with
+    let cmp_ass a b = match (a,b) with 
       | (Call (_,n,pth),Call (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2))) 
       | (Share (_,n,pth),Share (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Call _, _)  -> 1
       | (Share _, _) -> -1
     in
     (List.sort cmp_ass als)
+
+  (* sort per path *)
+  let sort_assocspth als =
+    let ccmp a b =  
+      if ((List.length a) == (List.length b))
+      then (String.compare (make_ptr a) (make_ptr b))
+      else (Pervasives.compare (List.length a) (List.length b))
+    in
+    let cmp_ass a b = match (a,b) with
+      | (Call (_,_,p), Call (_,_,p2)) -> ccmp p p2
+      | (Share (_,_,p), Share (_,_,p2)) -> ccmp p p2
+      | (Call (_,_,p), Share (_,_,p2)) -> ccmp p p2
+      | (Share (_,_,p), Call(_,_,p2)) -> ccmp p p2
+    in
+    (List.sort cmp_ass als)
+
+  (* split associations into a sequence of path related assocs *)
+  let split_assocpth als =
+    let rec filtr (tar : string list) (curr : assoc list) : assoc list -> assoc list list  = function [] -> [curr]
+      | l :: ls -> match l with
+        | Call (_,_,p) as c when (make_ptr p) = (make_ptr tar) ->
+          (filtr tar (c::curr) ls)
+        | Call (_,_,p) as c -> curr :: (filtr p [c] ls)
+        | Share (_,_,p) as s when (make_ptr p) = (make_ptr tar) ->
+          (filtr tar (s::curr) ls)
+        | Share (_,_,p) as s -> curr :: (filtr p [s] ls)
+    in
+    (List.rev (filtr [] [] (sort_assocspth als)))
+          
+        
 
   (* compare statics *)
   let cmp_stat a b = match a with 
@@ -339,10 +369,10 @@ struct
  (* 
   * ===  FUNCTION  ======================================================================
   *     Name:  compile
-  *  Description:  converts the toplevel into a giant string
+  *  Description:  converts the toplevel into a tuple of 2 strings for object & header
   * =====================================================================================
   *)
-  let compile mty program =
+  let compile mty program headerf =
 
     (* ================================================= *)
     (* build the bootup function: where we set it all up *)
@@ -402,6 +432,29 @@ struct
       | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
     in
 
+    (* print_strc *)
+    let  print_strc ls = 
+      let rec process ss = function [] -> []
+        | ls :: lls -> 
+          let name = (make_ptr (match (List.hd ls) with
+            | Call (_,_,pth) -> pth
+            | Share (_,_,pth) -> pth))
+          in
+          let convert = function
+            | Call (_,str,pth) -> let strr = (make_ptr (str::pth)) in 
+                CallMember ((constd DATA),strr,[])
+            | Share (_,str,pth) -> let strr = (make_ptr pth) in
+                try let _ =  List.find (fun x -> x = strr) ss in
+                  CallMember ((TyCStruct strr),str,[]) 
+                with Not_found -> raise (Cannot_compile "undefined structure")
+          in
+          let defls = (List.map convert ls) in
+          (ToStructure (name,defls)) :: (process (name::ss) lls)
+      in
+      (* top level *)
+      (process [] ls)
+    in
+
     (* convert list of compiler redices into strings of function definitions *)
     let mapfd ls = (List.map printf 
                      (List.map (fun x -> (MC.Low.funcdef true x)) ls))
@@ -410,18 +463,27 @@ struct
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
     let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
+
+    (* build the header *)
+    let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))
+    and en_dls = (separate "Entry Points" (mapfd gentry))
+    and hedh = header  (List.map printc [(Include h_entry)]) in
+    let headerfile = (String.concat "\n"(hedh @ str_ls @ en_dls)) ^ "\n"  
+    in
+
+    (* build the object file *)
     let dec_ls = (separate "declarations" (mapfd gettr_lst))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (MC.Low.getter gentry))
-    and en_dls = (separate "Entry Points" (mapfd gentry))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
-    and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) in
+    and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) 
+    and objh =  header (List.map printc [(Include headerf) ; (Include h_mini)])
+    in
 
     (* the two files *)
-    let objectfile = ((String.concat "\n"  (header @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ pb_ls @ footer)) ^ "\n")
-    and headerfile = (String.concat "\n" en_dls) ^ "\n" in
-      (objectfile,headerfile)
+    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ pb_ls @ footer)) ^ "\n")
+    in (objectfile,headerfile)
   
 end
 

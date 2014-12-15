@@ -90,7 +90,7 @@ let main() =
     log_type mty;
 
     (* Step 4 : Compile *)
-    let (obj,header) = (spec.compiler mty scoped_prog) in
+    let (obj,header) = (spec.compiler mty scoped_prog (Filename.basename spec.header)) in
 
     (* Step 5 : Output *) 
     let obj_chan = open_out spec.obj in

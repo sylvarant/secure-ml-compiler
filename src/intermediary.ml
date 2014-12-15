@@ -29,7 +29,8 @@ sig
   type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
-    | TySignature of type_u list | TyAbstract of type_u |TyCString of string
+    | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
+    | TyCStruct of string
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -40,7 +41,9 @@ sig
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
-    | CLocal of locality
+    | CLocal of locality | Include of string | Comment of string
+    | ToStructure of string * tempc list | Member of type_u * string 
+    | CallMember of type_u * string * type_u list
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA
@@ -65,6 +68,8 @@ sig
 
   val constv : consts -> tempc
 
+  val constd : datastr -> type_u
+
   val printf : funcdef -> string
 
   val format : int -> string list -> string list
@@ -73,7 +78,7 @@ sig
 
   val func_end : string list
 
-  val header : string list
+  val header : string list -> string list
 
   val footer : string list
 
@@ -89,6 +94,8 @@ sig
   val var_prefix : string
   val c_boot : string
   val c_conv : string
+  val h_mini : string
+  val h_entry : string
 
 end
 
@@ -102,7 +109,8 @@ struct
   type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
-    | TySignature of type_u list | TyAbstract of type_u |TyCString of string
+    | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
+    | TyCStruct of string 
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -113,7 +121,9 @@ struct
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
     | InsertMeta of tempc * tempc * tempc * int * type_u
-    | CLocal of locality
+    | CLocal of locality | Include of string | Comment of string
+    | ToStructure of string * tempc list | Member of type_u * string  
+    | CallMember of type_u * string * type_u list
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -165,6 +175,8 @@ struct
   (* build cvar from const *)
   let constv v = CVar (printconst v)
 
+  let constd v = TyCType (printd v)
+
   (* range operator *)
   let range i j = 
     let rec aux n acc =
@@ -186,13 +198,13 @@ struct
   (* end of function *)
   let func_end = ("}\n"::[]) 
 
-  (* header *)
-  let header = ["// Compiled by lanren"; "#include \"miniml.h\"";  ""] 
-  
   (* separate name *)
   let separate name = function [] -> []
       | x::xs as ls -> let st = "----------------------" in
-        ["//"^ st ^ name ^ st ; ""] @ ls @ [""] 
+        ["//"^ st ^ " " ^ name ^ " " ^ st ; ""] @ ls @ [""] 
+  
+  (* header *)
+  let header ls = ["// Compiled by lanren"] @ ls @ [""] 
 
   (* footer *)
   let footer = ["// Include the entrypoints & binding code"; 
@@ -210,6 +222,8 @@ struct
   and var_prefix = (gen_rand 6)
   and c_boot = "bootup"
   and c_conv = "convertV"
+  and h_mini = "miniml.h"
+  and h_entry = "entry.h"
 
 
  (* 
@@ -235,6 +249,8 @@ struct
     | TyFunctor (n,a,b) -> "makeTFunctor("^(printty n)^","^(printty a)^","^(printty b)^")"
     | TyAbstract n -> "makeTAbstract("^(printty n)^")"
     | TyCString n -> "\""^n^"\""
+    | TyCType s -> s
+    | TyCStruct s -> "struct "^s
 
 
  (* 
@@ -276,9 +292,16 @@ struct
     | ToReturn a -> "return "^(printc a)
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
       | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
+    | ToStructure (s,ls) -> "struct "^s^" {"^ (String.concat " "  (List.map printc ls))^"}"
+    | Member (ty,str) -> (printty ty)^" "^str^";"
+    | CallMember (ret,n,arg) -> (printty ret)^" (*"^n^")("^(match arg with [] -> "void" 
+      | ls -> (String.concat "," (List.map printty arg)))^");"
     | CLocal a -> (printl a)
+    | Include a -> "#include \""^a^"\""
     | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
       (printc (CInt d))^","^(printty e)^")"
+
+
 
 end
 
