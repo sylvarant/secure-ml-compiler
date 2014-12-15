@@ -78,7 +78,6 @@ struct
 
   let make_ptr lst = "_" ^ (make_entrypoint lst)
 
-
   (* get_static *)
   let rec get_static = function
     | Static str -> str

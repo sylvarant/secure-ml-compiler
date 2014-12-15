@@ -53,7 +53,8 @@ struct
                  | ManifestType of def_type option
 
   type assoc = Call of val_type * string * string list
-             | Share of MiniMLMod.mod_type * string * string list
+             | Share of MiniMLMod.mod_type * string * string list * string list
+             | Fu of MiniMLMod.mod_type * string * string * string list * string list
  
 
  (*-----------------------------------------------------------------------------
@@ -103,9 +104,12 @@ struct
   let sort_assocs als =
     let cmp_ass a b = match (a,b) with 
       | (Call (_,n,pth),Call (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2))) 
-      | (Share (_,n,pth),Share (_,n2,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Share (_,n,_,pth),Share (_,n2,_,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Fu (_,n,_,_,pth),Fu (_,n2,_,_,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Call _, _)  -> 1
-      | (Share _, _) -> -1
+      | (Fu _, _) -> -1
+      | (Share _,Call _) -> -1
+      | (Share _,Fu _) -> 1
     in
     (List.sort cmp_ass als)
 
@@ -118,27 +122,33 @@ struct
     in
     let cmp_ass a b = match (a,b) with
       | (Call (_,_,p), Call (_,_,p2)) -> ccmp p p2
-      | (Share (_,_,p), Share (_,_,p2)) -> ccmp p p2
-      | (Call (_,_,p), Share (_,_,p2)) -> ccmp p p2
-      | (Share (_,_,p), Call(_,_,p2)) -> ccmp p p2
+      | (Share (_,_,_,p), Share (_,_,_,p2)) -> ccmp p p2
+      | (Fu (_,_,_,_,p), Fu (_,_,_,_,p2)) -> ccmp p p2
+      | (Call (_,_,p), Share (_,_,_,p2)) -> ccmp p p2
+      | (Call (_,_,p), Fu (_,_,_,_,p2)) -> ccmp p p2
+      | (Share (_,_,_,p), Call(_,_,p2)) -> ccmp p p2
+      | (Share (_,_,_,p), Fu (_,_,_,_,p2)) -> ccmp p p2
+      | (Fu (_,_,_,_,p), Share (_,_,_,p2)) -> ccmp p p2
+      | (Fu (_,_,_,_,p), Call (_,_,p2)) -> ccmp p p2
     in
     (List.sort cmp_ass als)
 
   (* split associations into a sequence of path related assocs *)
   let split_assocpth als =
-    let rec filtr (tar : string list) (curr : assoc list) : assoc list -> assoc list list  = function [] -> [curr]
+    let rec filtr (tar : string list) (curr : assoc list) : assoc list -> assoc list list = function [] -> curr :: []
       | l :: ls -> match l with
         | Call (_,_,p) as c when (make_ptr p) = (make_ptr tar) ->
-          (filtr tar (c::curr) ls)
+            (filtr tar (c::curr) ls)
         | Call (_,_,p) as c -> curr :: (filtr p [c] ls)
-        | Share (_,_,p) as s when (make_ptr p) = (make_ptr tar) ->
-          (filtr tar (s::curr) ls)
-        | Share (_,_,p) as s -> curr :: (filtr p [s] ls)
+        | Share (_,str,_,path) as s when (make_ptr path) = (make_ptr tar) ->
+            (filtr tar (s::curr) ls)
+        | Share (_,str,p,path) as s -> curr :: (filtr path [s] ls)
+        | Fu (_,str,_,_,path) as f when (make_ptr path) = (make_ptr tar) ->
+            (filtr tar (f::curr) ls)
+        | Fu (_,str,_,_,path) as f -> curr :: (filtr path [f] ls)
     in
     (List.rev (filtr [] [] (sort_assocspth als)))
           
-        
-
   (* compare statics *)
   let cmp_stat a b = match a with 
     ToStatic (_,x) -> (match b with 
@@ -336,8 +346,8 @@ struct
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else [] in 
-                ((Share (mty,name,pth)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,_,_,_) -> (Share (mty,name,pth)) :: (convert_assoc path ls)) 
+                ((Share (mty,name,pth,path)) :: recurse) @ (convert_assoc path ls)
+            | FB (pth,id,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) 
           | _ -> raise (Cannot_compile "Massive idiocy everywhere")
 
       in
@@ -394,7 +404,7 @@ struct
           and temp = InsertMeta ((to_binding pth),statptr,strr,1, (compile_simple_type progtype pth vty.body)) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
-        | Share (mty,strl,pth) :: xs -> 
+        | Share (mty,strl,pth,_) :: xs -> 
           let strr = CVar (make_ptr pth) 
           and bindpth = try (List.tl pth) with _ -> []
           and statptr = (CVar (var_prefix^"_"^strl^"_str")) in
@@ -403,6 +413,7 @@ struct
           let temp = InsertMeta ((to_binding bindpth),statptr,strr,0,tmpmty) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
+        | Fu _ :: xs -> (print_assoc xs)
       in
 
       (* print_strcts: convert structs into mallocs and bindings *)
@@ -433,31 +444,37 @@ struct
     in
 
     (* print_strc *)
-    let  print_strc ls = 
+    let  print_strc l = 
       let rec process ss = function [] -> []
         | ls :: lls -> 
-          let name = (make_ptr (match (List.hd ls) with
-            | Call (_,_,pth) -> pth
-            | Share (_,_,pth) -> pth))
-          in
-          let convert = function
-            | Call (_,str,pth) -> let strr = (make_ptr (str::pth)) in 
-                CallMember ((constd DATA),strr,[])
-            | Share (_,str,pth) -> let strr = (make_ptr pth) in
-                try let _ =  List.find (fun x -> x = strr) ss in
-                  CallMember ((TyCStruct strr),str,[]) 
-                with Not_found -> raise (Cannot_compile "undefined structure")
-          in
-          let defls = (List.map convert ls) in
-          (ToStructure (name,defls)) :: (process (name::ss) lls)
+          (try let first = (List.hd ls) in 
+            let name = (make_ptr (match first with
+              | Call (_,_,pth) -> pth
+              | Share (_,_,_,pth) -> pth
+              | Fu (_,_,_,_,pth) -> pth))
+            in
+            let convert = function
+              | Call (_,str,pth) ->  CallMember ((constd DATA),str,[])
+              | Share (_,str,pth,_) -> let strr = (make_ptr pth) in
+                  if (List.exists (fun x -> x = strr) ss) 
+                  then CallMember ((TyCStruct strr),str,[]) 
+                  else raise (Cannot_compile "undefined structure")
+              | Fu (_,str,_,pth,_) -> CallMember ((constd DATA),str,[]) (*TODO *)
+            in
+            let defls = (List.map convert ls) 
+            and mask = Member ((TyCType "int"),"mask")
+            and typ = Member ((constd DTYPE),"type")
+            in
+            (ToStructure (name, mask :: typ :: defls)) :: (process (name::ss) lls)
+          with Failure s -> (process ss lls))
       in
       (* top level *)
-      (process [] ls)
+      (process [] l)
     in
 
     (* convert list of compiler redices into strings of function definitions *)
     let mapfd ls = (List.map printf 
-                     (List.map (fun x -> (MC.Low.funcdef true x)) ls))
+      (List.map (fun x -> (MC.Low.funcdef true x)) ls))
     in
 
     (* Top Level *)

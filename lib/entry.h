@@ -79,6 +79,19 @@ typedef enum Type_e {
     TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE
 } TYPE_INFO;
 
+typedef struct Type_s {
+    TAG t;
+    union {
+        struct {
+            char * name;
+            struct Type_s * type;
+        };
+        struct {
+           struct Type_s * left; 
+           struct Type_s * right;
+        };
+    };
+} DTYPE;
 
 /*-----------------------------------------------------------------------------
  *  General Entrypoints 

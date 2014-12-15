@@ -46,7 +46,7 @@ sig
     | CallMember of type_u * string * type_u list
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE
   and consts = ENV | ARG | MOD | STR | TOP
   type args = (datastr * consts) list
   type funcdef = locality * datastr * string * args * bool
@@ -110,7 +110,7 @@ struct
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
-    | TyCStruct of string 
+    | TyCStruct of string  
 
   type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -127,7 +127,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE
 
   and consts = ENV | ARG | MOD | STR | TOP
 
@@ -163,6 +163,7 @@ struct
     | STRUCTURE -> "STRUCTURE"
     | VOID -> "void"
     | DATA -> "DATA"
+    | DTYPE -> "DTYPE"
 
   (* print constants *)
   let printconst = function
