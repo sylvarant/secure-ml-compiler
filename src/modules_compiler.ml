@@ -51,14 +51,14 @@ struct
   and strctbinding = BVal of string * cpath * computation 
                    | BMod of string * modbindtype 
 
-  and computation = Intermediary.tempc list * Intermediary.tempc 
+  and computation = Intermediary.tempc list * Intermediary.tempc list * Intermediary.tempc 
 
   and trawl = Static of string 
             | Environment of modbindtype
 
   and omega = strctbinding list
 
-  type compred = Gettr of string * Intermediary.datastr * Intermediary.locality * computation 
+  type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * computation 
                | Strct of cpath 
                | Fctr of  string * Intermediary.locality 
                | Compttr of string * computation * Intermediary.tempc list
@@ -214,7 +214,7 @@ struct
       | str::ls -> (match str with
         | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
           and (a,b,c) = (extract path ls) in
-          ((Gettr (ptr,Interm.VALUE,Interm.ENTRYPOINT,comp)) :: a, b, c)
+          ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,comp)) :: a, b, c)
         | BMod (name, modt) -> (match modt with
           | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
             and (a,b,c) = (extract path ls) in
@@ -239,16 +239,20 @@ struct
     *-----------------------------------------------------------------------------*)
 
     (* print the tuple computation *)
-    let rec computation = function (vlist,comp) -> 
+    let rec computation = function (vlist,sls,comp) -> 
       let c = [("return "^(printc comp))] in
+      let l = match sls with [] -> []
+        | _ -> (List.map printc sls)
+      in
       let v = match vlist with [] -> []
-        | _ -> [(printd VALUE)^ " " ^(String.concat "," (List.map printc  vlist))] in
-      v@c 
+        | _ -> [(printd VALUE)^ " " ^(String.concat "," (List.map printc vlist))] 
+      in
+        v@l@c 
 
     (* build funcdefi *)
     let funcdef b = function
       | Gettr (ptr,dtstr,loc,comp) -> (loc,dtstr,ptr,[],b)
-      | Fctr (ptr,loc) -> (loc,VOID,ptr,[],b)
+      | Fctr (ptr,loc) -> (loc,(constd VOID),ptr,[],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
 
@@ -261,7 +265,7 @@ struct
     let rec lambda = function [] -> []
       | Compttr (name,comp,setup) :: xs -> 
           let args = [(BINDING,ENV);(VALUE,ARG)] in
-          let definition = (LOCAL,VALUE,name,args,false) in
+          let definition = (LOCAL,(constd VALUE),name,args,false) in
           let setupls : string list = (List.map printc setup)  in
           let body = (format 1 (setupls @ (computation comp))) in
           (String.concat "\n" (((printf definition)::body) @ func_end)) :: (lambda xs) 

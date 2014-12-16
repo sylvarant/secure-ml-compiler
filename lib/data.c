@@ -137,6 +137,28 @@ LOCAL struct value_type convertD(DATA input)
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:    convertT
+ *  Description:    convert an internal type to an outside type
+ * =====================================================================================
+ */
+LOCAL DTYPE convertT(TYPE ty)
+{
+    DTYPE typ;
+    switch(ty.t)
+    {
+        default:{
+            typ.t = TYABSTRACT;
+            typ.abname = "test";
+            typ.type = NULL;
+            break;
+        }
+    }
+    return typ;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:    convert
  *  Description:    convert a pointer to an identifier for the outside world
  * =====================================================================================

@@ -201,6 +201,7 @@ LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TAG t,TYPE);
+LOCAL DTYPE convertT(TYPE);
 
 // type checking
 LOCAL TYPE get_type(VALUE);

@@ -103,7 +103,7 @@ let main() =
     prerr_string s; 
     prerr_newline(); 
     exit 1
-  | Cannot_compile s -> prerr_string s; 
+  | Expression_compiler.Cannot_compile s -> prerr_string s; 
     prerr_newline (); 
     exit 2
   | Parsing.Parse_error -> prerr_string "Syntax error at char ";
@@ -122,9 +122,6 @@ let main() =
   | Cannot_convert_intermediary str -> prerr_string str;
     prerr_newline (); 
     exit 6
-  | _ -> prerr_string "Not yet stream supported exception";
-      prerr_newline();
-      exit 7
 
 let _ = main()
 

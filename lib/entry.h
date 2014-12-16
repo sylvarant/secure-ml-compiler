@@ -80,15 +80,24 @@ typedef enum Type_e {
 } TYPE_INFO;
 
 typedef struct Type_s {
-    TAG t;
+    TYPE_INFO t;
     union {
         struct {
-            char * name;
+            char * abname;
             struct Type_s * type;
         };
         struct {
            struct Type_s * left; 
            struct Type_s * right;
+        };
+        struct {
+            char * fname;
+            struct Type_s * fleft; 
+            struct Type_s * fright;
+        };
+        struct {
+            int count;
+            struct Type_s ** list;
         };
     };
 } DTYPE;

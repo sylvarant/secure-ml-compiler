@@ -39,17 +39,17 @@ sig
     | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
-    | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
-    | InsertMeta of tempc * tempc * tempc * int * type_u
+    | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
+    | InsertMeta of tempc * tempc * tempc * int * type_u  
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
-    | CallMember of type_u * string * type_u list
+    | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
   and consts = ENV | ARG | MOD | STR | TOP
   type args = (datastr * consts) list
-  type funcdef = locality * datastr * string * args * bool
+  type funcdef = locality * type_u * string * args * bool
 
 
  (*-----------------------------------------------------------------------------
@@ -94,6 +94,7 @@ sig
   val var_prefix : string
   val c_boot : string
   val c_conv : string
+  val c_cont : string
   val h_mini : string
   val h_entry : string
 
@@ -119,21 +120,21 @@ struct
     | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
-    | ToStatic of tempc * string | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
-    | InsertMeta of tempc * tempc * tempc * int * type_u
+    | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
+    | InsertMeta of tempc * tempc * tempc * int * type_u 
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
-    | CallMember of type_u * string * type_u list
+    | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
 
   and consts = ENV | ARG | MOD | STR | TOP
 
   and args = (datastr * consts) list
 
-  and funcdef = locality * datastr * string * args * bool
+  and funcdef = locality * type_u * string * args * bool
 
 
  (*-----------------------------------------------------------------------------
@@ -164,6 +165,7 @@ struct
     | VOID -> "void"
     | DATA -> "DATA"
     | DTYPE -> "DTYPE"
+    | CHAR -> "char"
 
   (* print constants *)
   let printconst = function
@@ -189,12 +191,6 @@ struct
     let indent = (String.concat "" (List.map (fun x -> " ") (range 1 n))) in
       (List.map (fun x  -> if (not (x = "")) then (indent ^ x ^ ";") else "" ) ls) 
 
-  (* print functions *)
-  let printf = function
-    | (loc,ret,name,args,def) -> let par = (match args with
-        | [] -> "void"
-        | ls -> (String.concat "," (List.map (function (x,y) -> (printd x)^" "^(printconst y)) args))) in
-        ((printl loc)^" "^(printd ret)^" "^name^" "^"("^par^")"^(if def then ";" else"{"))
 
   (* end of function *)
   let func_end = ("}\n"::[]) 
@@ -223,6 +219,7 @@ struct
   and var_prefix = (gen_rand 6)
   and c_boot = "bootup"
   and c_conv = "convertV"
+  and c_cont = "convertT"
   and h_mini = "miniml.h"
   and h_entry = "entry.h"
 
@@ -288,7 +285,7 @@ struct
     | ToRight a -> "(*("^ (printc a) ^ ".p.right))"
     | Sizeof a -> "sizeof("^ (printd a)^")"
     | ToCast (a,b) -> "((" ^ (printd a) ^")"^(printc b)^")"
-    | ToStatic (a,b) -> "static char "^(printc (Assign ((Ptr a),(CString b))))
+    | ToStatic (a,b) -> "static "^(printty a)^" "^(printc b)
     | Emptyline -> ""
     | ToReturn a -> "return "^(printc a)
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
@@ -297,12 +294,19 @@ struct
     | Member (ty,str) -> (printty ty)^" "^str^";"
     | CallMember (ret,n,arg) -> (printty ret)^" (*"^n^")("^(match arg with [] -> "void" 
       | ls -> (String.concat "," (List.map printty arg)))^");"
+    | SetMember (stra,strb,a) -> stra^"."^strb^" = "^(printc a) 
     | CLocal a -> (printl a)
     | Include a -> "#include \""^a^"\""
     | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
       (printc (CInt d))^","^(printty e)^")"
 
 
+  (* print functions *)
+  let printf = function
+    | (loc,ret,name,args,def) -> let par = (match args with
+        | [] -> "void"
+        | ls -> (String.concat "," (List.map (function (x,y) -> (printd x)^" "^(printconst y)) args))) in
+        ((printl loc)^" "^(printty ret)^" "^name^" "^"("^par^")"^(if def then ";" else"{"))
 
 end
 

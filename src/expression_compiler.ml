@@ -117,15 +117,15 @@ struct
         let ptrstr = CVar (new_ptr()) in
         let malla = MALLOC (VALUE,ptrarg,(Sizeof VALUE)) in
         let assarg = Assign((Ptr ptrarg),(constv ARG)) in
-        let asstr = ToStatic(ptrstr,id) in
+        let asstr = ToStatic((constd CHAR),Assign((Ptr ptrstr),(CString id))) in
         let insert = (Insert((constv ENV),ptrstr,ptrarg)) in
-        let compttr = Compttr (name,(!vlist,compiled),[asstr; malla ; assarg; insert]) in
+        let compttr = Compttr (name,(!vlist,[],compiled),[asstr; malla ; assarg; insert]) in
         funclist := compttr :: !funclist in
 
     (* toplevel *)
     let var_list = ref [] in
     let computation = (mcompile var_list (desugar program)) in 
-    (!funclist,(!var_list,computation))
+    (!funclist,(!var_list,[],computation))
 
 end
 

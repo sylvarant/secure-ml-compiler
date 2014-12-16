@@ -151,8 +151,8 @@ struct
           
   (* compare statics *)
   let cmp_stat a b = match a with 
-    ToStatic (_,x) -> (match b with 
-      ToStatic(_,y) -> (String.compare x y)
+    ToStatic (_,Assign(_,CString id)) -> (match b with 
+      ToStatic(_,Assign(_,CString id2)) -> (String.compare id id2)
       | _ -> -1) 
     | _ -> -1 
 
@@ -353,26 +353,94 @@ struct
       in
 
       (* top level *)
-      convert_assoc [] (clear_input sign binding)
+      (Share (progtype,"this",[],[])) :: (convert_assoc [] (clear_input sign binding)) 
     in
 
-    (* update the gettrs *)
-    let rec entrypts = function [] -> []
-      | (Call(ty,name,pth) :: cs)  -> let eptr = (make_entrypoint (name::pth));  in
-          let ptr = make_ptr (name::pth) in
-          let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
-          let comp = (ToCall ((CVar c_conv),[ToCall((CVar ptr),[]) ; tycomp ])) in
-          Gettr(eptr,DATA,ENTRYPOINT,([],comp)) :: (entrypts cs)
-      | _ -> raise (Cannot_compile "Massive idiocy")
+
+    (* ================================================= *)
+    (* Compile the entrypoints                           *)
+    (* ================================================= *)
+    let compile_entrypoints assocs =
+
+      (* new_variables *)
+      let new_var = let count = ref (-1) in 
+        fun () -> incr count; (var_prefix^"_s_" ^ (string_of_int !count)) 
+      in
+
+      (* new mask *)
+      let new_mask = let count = ref (-1) in
+        (fun () -> incr count; !count) 
+      in
+
+      (* build structure assignment *)
+      let build_strc sty ty ls = 
+        let rec convert s = function [] -> []
+          | x :: xs -> match x with
+            | Call (_,str,pth) -> SetMember(s,str,CVar (make_entrypoint (str::pth))) :: (convert s xs)
+            | Share (_,str,[],[]) when str = "this" -> (convert s xs)
+            | Share (_,str,opth,pth) -> SetMember(s,str, CVar (make_entrypoint (str::pth))) :: (convert s xs)
+            | Fu (_,str,_,opth,pth) -> SetMember(s,str, CVar (make_entrypoint (str::pth))) :: (convert s xs)
+        in
+        let nv = new_var() in
+        let nm =  new_mask() in
+        let var = ToStatic (sty,(CVar nv)) in
+        let mask = SetMember (nv,"mask",(CInt nm)) in
+        let typ = SetMember (nv,"type",ToCall((CVar c_cont),[ty])) in
+        let set = (convert nv ls) in
+        let retv = CVar nv in
+        ([],[var;mask;typ]@set,retv)
+      in
+
+      (* convert assocs into Gettrs *)
+      let rec entrypts pls = function [] -> []
+        | x :: xs -> match x with
+          | (Call(ty,name,pth)) -> 
+            let eptr = (make_entrypoint (name::pth))  in
+            let ptr = make_ptr (name::pth) in
+            let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
+            let comp = (ToCall ((CVar c_conv),[ToCall((CVar ptr),[]) ; tycomp ])) in
+            Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+          | Share(mty,name,opth,pth)  -> 
+            let tail = (try (List.tl pls) with _ -> []) in
+            let memb = (try (List.hd pls) with _ -> []) in
+            let eptr = (make_entrypoint (name::pth)) in
+            let ptr = make_ptr (name::pth) in
+            let sty = (TyCStruct ptr) in
+            let otherc = (make_entrypoint opth) in 
+            if otherc = eptr  then 
+              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+              let compu = (build_strc sty modcomp memb) in
+              Gettr(eptr,sty,ENTRYPOINT,compu) :: (entrypts tail xs)
+            else if name = "this" then
+              let special = (TyCStruct (make_ptr [])) in
+              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+              let compu = (build_strc special modcomp memb) in
+              Gettr(name,special,ENTRYPOINT,compu) :: (entrypts tail xs)
+            else
+              let optr = make_ptr opth in
+              let comp = ToCall ((CVar otherc),[]) in
+              Gettr(eptr,(TyCStruct optr),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+          | Fu(mty,name,id,opth,pth) -> 
+            let eptr = (make_entrypoint (name::pth)) in
+            let otherc = (make_entrypoint opth) in 
+            if otherc = eptr then 
+              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],modcomp)) :: (entrypts pls xs)
+            else 
+              let comp = ToCall ((CVar otherc),[]) in
+              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+      in
+
+      (* top level *)
+      (entrypts (split_assocpth assocs) assocs)
     in
 
     (* top level *)
     let (gettrs,strcts,fctrs) = (MC.High.extract [] binding) 
-    and assocs = (extract_assoc progtype binding) in 
-    let calls_s = (List.filter (function Call _ -> true | _ -> false) (sort_assocs assocs)) in
+    and assocs  = List.rev (sort_assocspth (extract_assoc progtype binding)) in 
     let gettr_s = (sort_compred gettrs) in
     let ngettrs = List.map (function Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)) gettr_s in
-    let gentry  = entrypts calls_s in
+    let gentry  = compile_entrypoints assocs in
       (gentry,ngettrs,strcts,fctrs,assocs)
 
 
@@ -400,15 +468,16 @@ struct
         | Call (vty,strl,pth) :: xs -> 
           let strr = CVar (make_ptr (strl::pth)) in
           let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
-          let static = ToStatic(statptr,strl) 
+          let static = ToStatic((constd CHAR),Assign(Ptr statptr,(CString strl)))
           and temp = InsertMeta ((to_binding pth),statptr,strr,1, (compile_simple_type progtype pth vty.body)) in
           let (lss,lsb) = (print_assoc xs) in
           (static::lss,temp::lsb) 
+        | Share (_,str,[],[]) :: xs when str = "this" -> (print_assoc xs)
         | Share (mty,strl,pth,_) :: xs -> 
           let strr = CVar (make_ptr pth) 
           and bindpth = try (List.tl pth) with _ -> []
           and statptr = (CVar (var_prefix^"_"^strl^"_str")) in
-          let static = ToStatic(statptr,strl) 
+          let static = ToStatic((constd CHAR),Assign(Ptr statptr,(CString strl)))
           and tmpmty = TyModule ((TyCString strl),(compile_mty_type progtype pth mty)) in
           let temp = InsertMeta ((to_binding bindpth),statptr,strr,0,tmpmty) in
           let (lss,lsb) = (print_assoc xs) in
@@ -453,15 +522,17 @@ struct
               | Share (_,_,_,pth) -> pth
               | Fu (_,_,_,_,pth) -> pth))
             in
-            let convert = function
-              | Call (_,str,pth) ->  CallMember ((constd DATA),str,[])
-              | Share (_,str,pth,_) -> let strr = (make_ptr pth) in
+            let rec convert = function [] -> []
+              | x :: xs -> match x with
+                | Call (_,str,pth) ->  CallMember ((constd DATA),str,[]) :: (convert xs)
+                | Share (_,str,_,_) when str = "this" -> (convert xs)
+                | Share (_,str,pth,_) -> let strr = (make_ptr pth) in
                   if (List.exists (fun x -> x = strr) ss) 
-                  then CallMember ((TyCStruct strr),str,[]) 
+                  then CallMember ((TyCStruct strr),str,[]) :: (convert xs)
                   else raise (Cannot_compile "undefined structure")
-              | Fu (_,str,_,pth,_) -> CallMember ((constd DATA),str,[]) (*TODO *)
+                | Fu (_,str,_,pth,_) -> CallMember ((constd DATA),str,[]) :: (convert xs)
             in
-            let defls = (List.map convert ls) 
+            let defls = convert ls 
             and mask = Member ((TyCType "int"),"mask")
             and typ = Member ((constd DTYPE),"type")
             in
@@ -471,7 +542,7 @@ struct
       (* top level *)
       (process [] l)
     in
-
+    
     (* convert list of compiler redices into strings of function definitions *)
     let mapfd ls = (List.map printf 
       (List.map (fun x -> (MC.Low.funcdef true x)) ls))
@@ -483,7 +554,7 @@ struct
 
     (* build the header *)
     let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))
-    and en_dls = (separate "Entry Points" (mapfd gentry))
+    and en_dls = (separate "Entry Points" (mapfd gentry) )
     and hedh = header  (List.map printc [(Include h_entry)]) in
     let headerfile = (String.concat "\n"(hedh @ str_ls @ en_dls)) ^ "\n"  
     in
