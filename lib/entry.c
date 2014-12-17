@@ -63,6 +63,33 @@ LOCAL char * nextId(char ** str)
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:    path_call
+ *  Description:    call up a structure
+ * =====================================================================================
+ */
+LOCAL STRUCTURE path_call(STRUCTURE s,char * path,int size)
+{
+    if(path[size] != '\0') mistakeFromOutside(); // buffer check
+    STRUCTURE ret = { .mod = NULL };
+    return ret;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    path_callv
+ *  Description:    call up a value
+ * =====================================================================================
+ */
+LOCAL VALUE path_callv(BINDING * binding,char * path,int size)
+{
+    if(path[size] != '\0') mistakeFromOutside(); // buffer check
+    return makeBoolean(0); 
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:    path_entry
  *  Description:    entry point for paths
  * =====================================================================================
@@ -119,7 +146,7 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
     unify_types(required,given); 
      
     // when typechecks have succeeded apply the argument to the closure
-    VALUE result = closure.c.lam(closure.c.env,argument.val);
+    VALUE result = closure.c.lam(closure.c.mod,closure.c.env,argument.val);
     return convertV(result,*(meta->type.a.right)); 
 
 }

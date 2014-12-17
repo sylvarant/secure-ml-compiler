@@ -45,16 +45,20 @@ struct
 
   type cpath = string list
 
-  and modbindtype = FB of cpath * string * MiniMLMod.mod_term * bool
+  and modbindtype = FB of cpath * string * MiniMLMod.mod_term * modbindtype * bool
                   | SB of cpath * strctbinding list * bool
+                  | AR of string * string list option
 
   and strctbinding = BVal of string * cpath * computation 
                    | BMod of string * modbindtype 
+                   | BArg of string  (* functor argument *)
 
   and computation = Intermediary.tempc list * Intermediary.tempc list * Intermediary.tempc 
 
+  (* the results of look ups into the omega environement *)
   and trawl = Static of string 
             | Environment of modbindtype
+            | Dynamic of string * string list option
 
   and omega = strctbinding list
 
@@ -65,7 +69,7 @@ struct
 
 
  (*-----------------------------------------------------------------------------
-  *  Helper Funcions
+  *  Helper Functions
   *-----------------------------------------------------------------------------*)
 
   (* convert a path into a list of strings *)
@@ -77,6 +81,10 @@ struct
     | lst -> (String.concat "_" (List.rev lst)) 
 
   let make_ptr lst = "_" ^ (make_entrypoint lst)
+
+  (* the difference between a ptr and a path is the path is the . *)
+  let make_path = function [] -> raise (Omega_miss "Not a path")
+    | lst  -> (String.concat "." (List.rev lst))
 
   (* get_static *)
   let rec get_static = function
@@ -94,8 +102,9 @@ struct
 
     (* note that this is not the original one *)
     let set_origin = function 
-      | FB (a,b,c,_) -> FB(a,b,c,false)
+      | FB (a,b,c,d,_) -> FB(a,b,c,d,false)
       | SB (a,b,_) -> SB(a,b,false)
+      | AR _  as a -> a
     in
 
     (* look up x in the env *)
@@ -103,20 +112,25 @@ struct
       let find_binding = (function
       | BVal (nn,_,_) when (nn = x) -> true
       | BMod (nn,_) when (nn = x) -> true
+      | BArg nn when (nn = x) -> true
       | _ ->  false) in
       try (List.find (find_binding) nenv)
-      with Not_found -> raise (Omega_miss "Identifier not found") in
+      with Not_found -> raise (Omega_miss "Identifier not found") 
+    in
 
     (* When it comes to values all that matters is that they exist *)
     let extract = function
         | BVal (nn,pth,_) -> Static (make_ptr (nn::pth))
-        | BMod (_,e) -> (Environment (set_origin e)) in
+        | BMod (_,e) -> (Environment (set_origin e)) 
+        | BArg nn -> (Dynamic (nn,None))
+    in
 
     (* toplevel *)
     match path with  | [] -> raise (Omega_miss "Empty path given to lookup")
       | x::[] -> (extract (get_binding x env)) 
-      | x::xs -> match (lookup_path env xs) with
+      | x::xs as ls -> match (lookup_path env xs) with
         | Environment( SB (_,nenv,_)) -> (lookup_path nenv (x::[]))
+        | Dynamic (nn,None) -> Dynamic (nn, Some (List.rev (List.tl (List.rev ls))))
         | _ -> raise (Cannot_compile "Wrong tree structure") 
 
 end
@@ -171,15 +185,18 @@ struct
         let rec parse_module env pth = function
             Longident ident -> (match (lookup_path env (convert_path ident)) with 
               | (Environment e) -> e
+              | Dynamic (n,ls) -> AR (n,ls)
               | _ -> raise (Cannot_compile_module "Did not retrieve environment from path lookup"))
           | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
-          | Functor (id,ty,m) -> FB (pth,(Ident.name id),m,true)
+          | Functor (id,ty,m) -> let bind = BArg (Ident.name id) in
+            let mb = (parse_module (bind::env) ("Functor"::pth) m) in (* compile functor cont with an arg *)
+              FB (pth,(Ident.name id),m,mb,true)
           | Apply (m1,m2) -> 
             (match (parse_module env pth m1) with
-              | FB (_,id,m,_) -> let nenv = (parse_module env pth m2) in
+              | FB (_,id,m,_,_) -> let nenv = (parse_module env pth m2) in
                 (parse_module ((BMod (id,nenv))::env) pth m)
               | _ -> raise (Cannot_compile_module "Needed Functor"))
-          | Constraint (m,ty) -> (parse_module env pth m) (* TODO fix ! *)
+          | Constraint (m,ty) -> (parse_module env pth m) 
         in
 
         (* recurse over the list of definitions *)
@@ -212,15 +229,17 @@ struct
     *)
     let rec extract path = function [] -> ([],[],[]) 
       | str::ls -> (match str with
+        | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
         | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
           and (a,b,c) = (extract path ls) in
           ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,comp)) :: a, b, c)
         | BMod (name, modt) -> (match modt with
+          | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
           | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
             and (a,b,c) = (extract path ls) in
             ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
           | SB (pth,nbinding,false) -> (extract path ls)
-          | FB (pth,var,mm,_) -> let npth = (make_ptr pth) 
+          | FB (pth,var,mm,mb,_) -> let npth = (make_ptr pth) 
             and (a,b,c) =  (extract path ls) in
             (a, b, (Fctr (npth,Interm.ENTRYPOINT)) :: c)))
   end
@@ -264,7 +283,7 @@ struct
     *)
     let rec lambda = function [] -> []
       | Compttr (name,comp,setup) :: xs -> 
-          let args = [(BINDING,ENV);(VALUE,ARG)] in
+          let args = [(BINDING,MOD);(BINDING,ENV);(VALUE,ARG)] in
           let definition = (LOCAL,(constd VALUE),name,args,false) in
           let setupls : string list = (List.map printc setup)  in
           let body = (format 1 (setupls @ (computation comp))) in
@@ -280,8 +299,10 @@ struct
     let rec getter = function [] -> []
       | Gettr  (ptr,dtstr,loc,comp) :: xs -> 
         let definition = (loc,dtstr,ptr,[],false) in
-        let setup = (printd BINDING)^" "^(printconst ENV)^" = NULL" in
-        let body = (format 1 (setup :: (computation comp))) in
+        let env = (printd BINDING)^" "^(printconst ENV)^" = NULL" 
+        and md = (printd BINDING)^" "^(printconst MOD)^"= NULL" in
+        let setup = [env ; md] in
+        let body = (format 1 (setup @ (computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
       | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
 

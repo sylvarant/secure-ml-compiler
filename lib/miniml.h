@@ -115,8 +115,9 @@ SCM_(Boolean)
 _SCM
 
 SCM_(Closure)
+    BINDING * mod;
     BINDING * env;
-    union Value_u (*lam)(BINDING *,union Value_u); 
+    union Value_u (*lam)(BINDING*,BINDING *,union Value_u); 
 _SCM
 
 SCM_(Pair)
@@ -176,7 +177,7 @@ struct value_type{
  *-----------------------------------------------------------------------------*/
 
 typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)(BINDING *,VALUE);
+typedef VALUE (* Lambda)(BINDING *,BINDING *,VALUE);
 typedef VALUE (* Gettr)(void);
 typedef STRUCTURE* (* Funct)(STRUCTURE *);
 
@@ -203,6 +204,8 @@ LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);
+LOCAL STRUCTURE path_call(STRUCTURE,char*,int);
+LOCAL VALUE path_callv(BINDING *,char*,int);
 
 // type checking
 LOCAL TYPE get_type(VALUE);
@@ -292,12 +295,13 @@ LOCAL VALUE makeBoolean(unsigned int b)
  *  Description:  create a closure
  * =====================================================================================
  */
-LOCAL VALUE makeClosure(BINDING * env, Lambda lambda)
+LOCAL VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
 {
     VALUE v;
     v.c.t = CLOSURE;
     v.c.lam = lambda;
     v.c.env = env;
+    v.c.mod = mod;
     return v;
 }
 

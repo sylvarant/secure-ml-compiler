@@ -41,6 +41,8 @@ struct
   *  Exceptions
   *-----------------------------------------------------------------------------*)
   exception Found of string list
+  exception FailSort 
+  exception Cannot_Sec_Compile of string
 
 
  (*-----------------------------------------------------------------------------
@@ -77,6 +79,8 @@ struct
   (* sort bindings *)
   let sort_bindings bls = 
     let cmp_binding a b = match (a,b) with
+      | (BArg _,_) -> raise FailSort
+      | (_,BArg _) -> raise FailSort
       | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
       | (BMod (name1,_) , BMod(name2,_)) -> (String.compare name1 name2)
       | (BVal _, _) -> -1
@@ -343,12 +347,13 @@ struct
           | (BVal (name,_,_) , Value_sig (_, vty)) ->  
             (Call (vty,name,path))::(convert_assoc path ls) 
           | (BMod (name, modt), Module_sig(_,mty)) -> (match modt with 
+            | AR _ -> raise (Cannot_Sec_Compile "Cannot convert AR modbinding")
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else [] in 
                 ((Share (mty,name,pth,path)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,id,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) 
-          | _ -> raise (Cannot_compile "Massive idiocy everywhere")
+            | FB (pth,id,_,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) 
+          | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
       in
 
@@ -446,12 +451,22 @@ struct
       (entrypts (split_assocpth assocs) assocs)
     in
 
+    (* update_compred *)
+    let update_compred ls = 
+      let update = function
+        | Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)
+        | Fctr(p,_) -> Fctr(p,LOCAL) 
+        | _ -> raise (Cannot_Sec_Compile "updating the wrong redices")
+      in
+      (List.map update ls)
+    in
+
     (* top level *)
     let (gettrs,strcts,fctrs) = (MC.High.extract [] binding) 
     and assocs  = List.rev (sort_assocspth (extract_assoc progtype binding)) in 
     let gettr_s = (sort_compred gettrs) in
-    let ngettrs = List.map (function Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)) gettr_s in
-    let nfctrs = List.map (function Fctr(p,_) -> Fctr(p,LOCAL)) fctrs in
+    let ngettrs = update_compred gettr_s in
+    let nfctrs = update_compred fctrs in
     let gentry  = compile_entrypoints assocs in
       (gentry,ngettrs,strcts,nfctrs,assocs)
 

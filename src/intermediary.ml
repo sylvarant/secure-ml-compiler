@@ -36,7 +36,7 @@ sig
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
-    | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
+    | ToClosure of tempc * tempc * tempc | Get of tempc * tempc | CString of string | CastMAX of tempc
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
@@ -48,7 +48,7 @@ sig
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
   and consts = ENV | ARG | MOD | STR | TOP
-  and calls = BOOT | CONV | CONT | STRCPY 
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
   and headers = MINI | ENTRY
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool
@@ -117,7 +117,7 @@ struct
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
-    | ToClosure of tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
+    | ToClosure of tempc * tempc * tempc  | Get of tempc * tempc | CString of string | CastMAX of tempc
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
@@ -132,7 +132,7 @@ struct
 
   and consts = ENV | ARG | MOD | STR | TOP
 
-  and calls = BOOT | CONV | CONT | STRCPY 
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
 
   and headers = MINI | ENTRY
 
@@ -190,6 +190,8 @@ struct
     | BOOT -> "bootup"
     | CONV -> "convertV"
     | CONT -> "convertT"
+    | PATH -> "path_call"
+    | PATHV -> "path_callv"
 
   (* build cvar from const *)
   let constv v = CVar (printconst v)
@@ -288,7 +290,7 @@ struct
     | ToMod a -> (printc a)^".c.mod"
     | CastMAX a -> "(MAX) "^(printc a)
     | Insert (a,b,c) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^")"
-    | ToClosure (a,b) -> "makeClosure("^(printc a)^","^(printc b)^")"
+    | ToClosure (a,b,c) -> "makeClosure("^(printc a)^","^(printc b)^","^(printc c)^")"
     | Get (a,b) -> "getValue("^(printc a)^","^(printc b)^")" 
     | MALLOC (a,b,c) -> (printd a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
     | Ptr a -> "*"^(printc a) 
@@ -313,6 +315,7 @@ struct
     | Include a -> "#include \""^a^"\""
     | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
       (printc (CInt d))^","^(printty e)^")"
+    | Comment a -> "/* "^a^"*/"
 
 
   (* print functions *)

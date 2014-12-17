@@ -85,6 +85,9 @@ struct
         | Longident lpath -> let cpath = (convert_path lpath) in 
            (try (match (lookup_path env cpath) with
               | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[]))) 
+              | Dynamic (nn, Some ls) -> let path = CString (make_path ls)
+                and size = CInt (List.length ls) in
+                  (ToCall ((constc PATHV),[ (constv MOD); path ; size])) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
            with _ -> (Get ((constv ENV),(CString (make_entrypoint cpath)))))
         | Constant x -> ToInt (CInt x)
@@ -94,12 +97,13 @@ struct
         | Apply (l,r) -> let tmp = new_var() in 
            varlist := (CVar tmp) :: !varlist;
            let tcv = (CVar tmp) in
-           ToComma(Assign( tcv, (convert l)),ToCast (VALUE,(ToCall ((ToLambda tcv),[(ToEnv tcv); (convert r)]))))
+           let args = [(ToMod tcv);(ToEnv tcv); (convert r)] in
+           ToComma(Assign( tcv, (convert l)),ToCast (VALUE,(ToCall ((ToLambda tcv),args))))
         | Function(id,ty,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))  in
           (*let convert_ty = (parse_type ty) in*)
           (makef lamname idn e);
-          ToClosure((constv ENV),(*convert_ty,*)(CVar lamname)) (* TODO pain point *)
+          ToClosure((constv MOD),(constv ENV),(*convert_ty,*)(CVar lamname)) 
         | Prim (s,ls) when (List.length ls) == 2 -> let left = ToIValue(convert (List.hd ls)) in 
           let right = ToIValue((convert (List.hd (List.tl ls)))) in
           let operation = ToOper(s,left,right) in
