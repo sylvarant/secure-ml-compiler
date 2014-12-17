@@ -178,6 +178,7 @@ struct value_type{
 typedef void* (* PrimOp) (void*,void*);
 typedef VALUE (* Lambda)(BINDING *,VALUE);
 typedef VALUE (* Gettr)(void);
+typedef STRUCTURE* (* Funct)(STRUCTURE *);
 
 /*-----------------------------------------------------------------------------
  * Global variables for the secure component

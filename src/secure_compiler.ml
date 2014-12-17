@@ -372,6 +372,11 @@ struct
         (fun () -> incr count; !count) 
       in
 
+      (* new mask *)
+      let new_maskf = let count = ref (-1) in
+        (fun () -> incr count; !count) 
+      in
+
       (* build structure assignment *)
       let build_strc sty ty ls = 
         let rec convert s = function [] -> []
@@ -385,7 +390,7 @@ struct
         let nm =  new_mask() in
         let var = ToStatic (sty,(CVar nv)) in
         let mask = SetMember (nv,"mask",(CInt nm)) in
-        let typ = SetMember (nv,"type",ToCall((CVar c_cont),[ty])) in
+        let typ = SetMember (nv,"type",ToCall((constc CONT),[ty])) in
         let set = (convert nv ls) in
         let retv = CVar nv in
         ([],[var;mask;typ]@set,retv)
@@ -398,7 +403,7 @@ struct
             let eptr = (make_entrypoint (name::pth))  in
             let ptr = make_ptr (name::pth) in
             let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
-            let comp = (ToCall ((CVar c_conv),[ToCall((CVar ptr),[]) ; tycomp ])) in
+            let comp = (ToCall ((constc CONV),[ToCall((CVar ptr),[]) ; tycomp ])) in
             Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
           | Share(mty,name,opth,pth)  -> 
             let tail = (try (List.tl pls) with _ -> []) in
@@ -424,8 +429,14 @@ struct
             let eptr = (make_entrypoint (name::pth)) in
             let otherc = (make_entrypoint opth) in 
             if otherc = eptr then 
-              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],modcomp)) :: (entrypts pls xs)
+              (*let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in*)
+              let nv = new_var() in
+              let nm = new_maskf() in
+              let var = ToStatic((constd DATA),(CVar nv)) in
+              let tag = SetMember (nv,"t",(CVar "FUNCTOR")) 
+              and mask = SetMember (nv,"identifier",(CInt nm)) 
+              and retv = CVar nv in
+              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[var;tag;mask],retv)) :: (entrypts pls xs)
             else 
               let comp = ToCall ((CVar otherc),[]) in
               Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
@@ -440,8 +451,9 @@ struct
     and assocs  = List.rev (sort_assocspth (extract_assoc progtype binding)) in 
     let gettr_s = (sort_compred gettrs) in
     let ngettrs = List.map (function Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)) gettr_s in
+    let nfctrs = List.map (function Fctr(p,_) -> Fctr(p,LOCAL)) fctrs in
     let gentry  = compile_entrypoints assocs in
-      (gentry,ngettrs,strcts,fctrs,assocs)
+      (gentry,ngettrs,strcts,nfctrs,assocs)
 
 
  (* 
@@ -495,7 +507,7 @@ struct
       in
         
       (* top level *)
-      let def = ToDef ((CVar "int"),(CVar c_boot),[]) in
+      let def = ToDef ((CVar "int"),(constc BOOT),[]) in
       let strdecl = (match (print_strcts strls) with 
         | (a,b) -> (a @ [Emptyline] @ b)) in
       let (statics,bindings) = (print_assoc assocs) in
@@ -555,7 +567,7 @@ struct
     (* build the header *)
     let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))
     and en_dls = (separate "Entry Points" (mapfd gentry) )
-    and hedh = header  (List.map printc [(Include h_entry)]) in
+    and hedh = header  (List.map printc [(consth ENTRY)]) in
     let headerfile = (String.concat "\n"(hedh @ str_ls @ en_dls)) ^ "\n"  
     in
 
@@ -566,7 +578,7 @@ struct
     and en_ls = (separate "Entry Points" (MC.Low.getter gentry))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
     and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) 
-    and objh =  header (List.map printc [(Include headerf) ; (Include h_mini)])
+    and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in
 
     (* the two files *)

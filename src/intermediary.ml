@@ -48,6 +48,8 @@ sig
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
   and consts = ENV | ARG | MOD | STR | TOP
+  and calls = BOOT | CONV | CONT | STRCPY 
+  and headers = MINI | ENTRY
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool
 
@@ -64,13 +66,17 @@ sig
 
   val printd : datastr -> string
 
-  val printconst : consts -> string
+  val printf : funcdef -> string
 
+  val printconst : consts -> string
+  
   val constv : consts -> tempc
 
   val constd : datastr -> type_u
 
-  val printf : funcdef -> string
+  val constc : calls -> tempc
+
+  val consth : headers -> tempc
 
   val format : int -> string list -> string list
 
@@ -90,13 +96,7 @@ sig
   *-----------------------------------------------------------------------------*)
 
   val int_op : string list
-  val c_strcpy : string
   val var_prefix : string
-  val c_boot : string
-  val c_conv : string
-  val c_cont : string
-  val h_mini : string
-  val h_entry : string
 
 end
 
@@ -131,6 +131,10 @@ struct
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
 
   and consts = ENV | ARG | MOD | STR | TOP
+
+  and calls = BOOT | CONV | CONT | STRCPY 
+
+  and headers = MINI | ENTRY
 
   and args = (datastr * consts) list
 
@@ -175,10 +179,26 @@ struct
     | STR -> "my_str"
     | TOP -> "toplevel"
 
+  (* print headers *)
+  let printh = function
+    | MINI -> "miniml.h"
+    | ENTRY -> "entry.h"
+
+  (* print functions to be used from the headers *)
+  let printcalls = function
+    | STRCPY -> "str_cpy"
+    | BOOT -> "bootup"
+    | CONV -> "convertV"
+    | CONT -> "convertT"
+
   (* build cvar from const *)
   let constv v = CVar (printconst v)
 
   let constd v = TyCType (printd v)
+
+  let constc v = CVar (printcalls v)
+
+  let consth v = Include (printh v)
 
   (* range operator *)
   let range i j = 
@@ -215,13 +235,7 @@ struct
   *-----------------------------------------------------------------------------*)
 
   let int_op = ["+"; "-"; "/"; "*"]
-  and c_strcpy = "str_cpy"
   and var_prefix = (gen_rand 6)
-  and c_boot = "bootup"
-  and c_conv = "convertV"
-  and c_cont = "convertT"
-  and h_mini = "miniml.h"
-  and h_entry = "entry.h"
 
 
  (* 
