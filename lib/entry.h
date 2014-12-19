@@ -54,7 +54,7 @@ extern void * malloc(size_t);
  *-----------------------------------------------------------------------------*/
 
 typedef enum Tag_e {
-    INT, BOOLEAN, CLOSURE, PAIR, MODULE, FUNCTOR, ABSTRACT
+    INT, BOOLEAN, CLOSURE, PAIR, STRUCTURE, FUNCTOR, ABSTRACT
 } TAG;
 
 typedef struct Data_s{

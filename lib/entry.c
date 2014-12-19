@@ -63,11 +63,11 @@ LOCAL char * nextId(char ** str)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    path_call
- *  Description:    call up a structure
+ *         Name:  path_call
+ *  Description:  call up a structure
  * =====================================================================================
  */
-LOCAL STRUCTURE path_call(STRUCTURE s,char * path,int size)
+LOCAL MODULE path_call(MODULE s,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
     STRUCTURE ret = { .mod = NULL };
@@ -77,8 +77,8 @@ LOCAL STRUCTURE path_call(STRUCTURE s,char * path,int size)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    path_callv
- *  Description:    call up a value
+ *         Name:  path_callv
+ *  Description:  call up a value
  * =====================================================================================
  */
 LOCAL VALUE path_callv(BINDING * binding,char * path,int size)
@@ -90,8 +90,8 @@ LOCAL VALUE path_callv(BINDING * binding,char * path,int size)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    path_entry
- *  Description:    entry point for paths
+ *         Name:  path_entry
+ *  Description:  entry point for paths
  * =====================================================================================
  */
 ENTRYPOINT DATA path_entry(char * path, int size)

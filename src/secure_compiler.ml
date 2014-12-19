@@ -57,6 +57,8 @@ struct
   type assoc = Call of val_type * string * string list
              | Share of MiniMLMod.mod_type * string * string list * string list
              | Fu of MiniMLMod.mod_type * string * string * string list * string list
+
+  type methods = EntryPoint of string * type_u * computation * bool
  
 
  (*-----------------------------------------------------------------------------
@@ -82,7 +84,7 @@ struct
       | (BArg _,_) -> raise FailSort
       | (_,BArg _) -> raise FailSort
       | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
-      | (BMod (name1,_) , BMod(name2,_)) -> (String.compare name1 name2)
+      | (BMod (name1,_,_) , BMod(name2,_,_)) -> (String.compare name1 name2)
       | (BVal _, _) -> -1
       | (BMod _, _) -> 1
     in
@@ -91,9 +93,9 @@ struct
   (* sort compiler redices *)
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
-      | (Gettr(str,_,_,_),Gettr(str2,_,_,_)) -> (String.compare str str2)
+      | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
       | (Strct pth , Strct pth2) -> (String.compare (make_ptr pth) (make_ptr pth2))
-      | (Fctr (str,_),Fctr (str2,_)) -> (String.compare str str2)
+      | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
       | (Gettr _, _)     -> 1
       | (_, Gettr _)     -> -1
@@ -326,7 +328,7 @@ struct
             (*Printf.eprintf "%s == %s \n" (Ident.name id1) name) ;*)
             (b,s) :: (filter_shares ss bs) 
           | (Value_sig _, BVal _ ) -> (filter_shares (s::ss) bs)
-          | (Module_sig (id1,mty), BMod (name,_)) when (Ident.name id1) = name ->
+          | (Module_sig (id1,mty), BMod (name,_,_)) when (Ident.name id1) = name ->
             (b,s) :: (filter_shares ss bs)
           | (Module_sig _, BMod _) -> (filter_shares (s::ss) bs)
           | (Module_sig (id1,_),BVal _) -> (filter_shares (s::ss) bs)
@@ -346,13 +348,13 @@ struct
         | (bind,ty)::ls -> match (bind,ty) with
           | (BVal (name,_,_) , Value_sig (_, vty)) ->  
             (Call (vty,name,path))::(convert_assoc path ls) 
-          | (BMod (name, modt), Module_sig(_,mty)) -> (match modt with 
+          | (BMod (name,_, modt), Module_sig(_,mty)) -> (match modt with 
             | AR _ -> raise (Cannot_Sec_Compile "Cannot convert AR modbinding")
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else [] in 
                 ((Share (mty,name,pth,path)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,id,_,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) 
+            | FB (pth,id,_,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) (* TODO get FB share *)
           | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
       in
@@ -365,7 +367,7 @@ struct
     (* ================================================= *)
     (* Compile the entrypoints                           *)
     (* ================================================= *)
-    let compile_entrypoints assocs =
+    let compile_entrypoints assocs gettrls =
 
       (* new_variables *)
       let new_var = let count = ref (-1) in 
@@ -380,6 +382,19 @@ struct
       (* new mask *)
       let new_maskf = let count = ref (-1) in
         (fun () -> incr count; !count) 
+      in
+
+      (* needs module *)
+      let needsmodule ptr = 
+        let predicate = function
+          | Gettr (str1,_,_,_,_) when str1 = ptr -> true
+          | _ -> false
+        in
+        try    
+          match (List.find predicate gettrls) with
+          | Gettr (_,_,_,Some _,_) -> true
+          | _ -> false
+        with _ -> (raise (Cannot_Sec_Compile "Gettr not found"))
       in
 
       (* build structure assignment *)
@@ -402,34 +417,35 @@ struct
       in
 
       (* convert assocs into Gettrs *)
-      let rec entrypts pls = function [] -> []
+      let rec entrypts (pls : assoc list list) : assoc list -> methods list = function [] -> []
         | x :: xs -> match x with
           | (Call(ty,name,pth)) -> 
             let eptr = (make_entrypoint (name::pth))  in
             let ptr = make_ptr (name::pth) in
             let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
-            let comp = (ToCall ((constc CONV),[ToCall((CVar ptr),[]) ; tycomp ])) in
-            Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+            let comp = (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ])) 
+            and needs = (needsmodule ptr) in
+            EntryPoint(eptr,(constd DATA),([],[],comp),needs) :: (entrypts pls xs)
           | Share(mty,name,opth,pth)  -> 
             let tail = (try (List.tl pls) with _ -> []) in
             let memb = (try (List.hd pls) with _ -> []) in
             let eptr = (make_entrypoint (name::pth)) in
-            let ptr = make_ptr (name::pth) in
+            let ptr = make_str (name::pth) in
             let sty = (TyCStruct ptr) in
             let otherc = (make_entrypoint opth) in 
             if otherc = eptr  then 
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
               let compu = (build_strc sty modcomp memb) in
-              Gettr(eptr,sty,ENTRYPOINT,compu) :: (entrypts tail xs)
+              EntryPoint(eptr,sty,compu,false) :: (entrypts tail xs)
             else if name = "this" then
-              let special = (TyCStruct (make_ptr [])) in
+              let special = (TyCStruct (make_str [])) in
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
               let compu = (build_strc special modcomp memb) in
-              Gettr(name,special,ENTRYPOINT,compu) :: (entrypts tail xs)
+              EntryPoint(name,special,compu,false) :: (entrypts tail xs)
             else
-              let optr = make_ptr opth in
+              let optr = make_str opth in
               let comp = ToCall ((CVar otherc),[]) in
-              Gettr(eptr,(TyCStruct optr),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+              EntryPoint(eptr,(TyCStruct optr),([],[],comp),false) :: (entrypts pls xs)
           | Fu(mty,name,id,opth,pth) -> 
             let eptr = (make_entrypoint (name::pth)) in
             let otherc = (make_entrypoint opth) in 
@@ -441,10 +457,10 @@ struct
               let tag = SetMember (nv,"t",(CVar "FUNCTOR")) 
               and mask = SetMember (nv,"identifier",(CInt nm)) 
               and retv = CVar nv in
-              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[var;tag;mask],retv)) :: (entrypts pls xs)
+              EntryPoint(eptr,(constd DATA),([],[var;tag;mask],retv),false) :: (entrypts pls xs)
             else 
               let comp = ToCall ((CVar otherc),[]) in
-              Gettr(eptr,(constd DATA),ENTRYPOINT,([],[],comp)) :: (entrypts pls xs)
+              EntryPoint(eptr,(constd DATA),([],[],comp),false) :: (entrypts pls xs)
       in
 
       (* top level *)
@@ -454,20 +470,20 @@ struct
     (* update_compred *)
     let update_compred ls = 
       let update = function
-        | Gettr(str,dtstr,_,comp) -> Gettr(str,dtstr,LOCAL,comp)
-        | Fctr(p,_) -> Fctr(p,LOCAL) 
+        | Gettr(str,dtstr,_,mask,comp) -> Gettr(str,dtstr,LOCAL,mask,comp)
+        | Fctr(p,_,c) -> Fctr(p,LOCAL,c) 
         | _ -> raise (Cannot_Sec_Compile "updating the wrong redices")
       in
       (List.map update ls)
     in
 
     (* top level *)
-    let (gettrs,strcts,fctrs) = (MC.High.extract [] binding) 
+    let (gettrs,strcts,fctrs) = (MC.High.extract_red binding) 
     and assocs  = List.rev (sort_assocspth (extract_assoc progtype binding)) in 
     let gettr_s = (sort_compred gettrs) in
     let ngettrs = update_compred gettr_s in
     let nfctrs = update_compred fctrs in
-    let gentry  = compile_entrypoints assocs in
+    let gentry = compile_entrypoints assocs ngettrs in
       (gentry,ngettrs,strcts,nfctrs,assocs)
 
 
@@ -515,7 +531,7 @@ struct
       (* print_strcts: convert structs into mallocs and bindings *)
       let rec print_strcts = function [] -> ([],[])
         | (Strct pth) :: xs -> (let ptr = (make_ptr pth) in
-          let decl = MALLOC (STRUCTURE,(CVar ptr),(Sizeof STRUCTURE)) in
+          let decl = MALLOC (MODULE,(CVar ptr),(Sizeof MODULE)) in
           let (dls,bls) = (print_strcts xs) in
             ((decl :: dls), bls)) 
         | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
@@ -533,18 +549,30 @@ struct
 
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
-      | (Fctr (name,loc)) as f :: xs -> let definition = printf (MC.Low.funcdef false f) in
+      | (Fctr (name,loc,comp)) as f :: xs -> let definition = printf (MC.Low.funcdef false f) in
         let body = (format 1 ["return;"]) in 
         (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
       | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
     in
+
+
+    (* print entrypoints *)
+    let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
+      let args = if (mask) then [ (MODULE,STR) ] else [] in
+      let definition = (ENTRYPOINT,typ,name,args,false) in
+      let md = (printd BINDING)^" "^(printconst MOD)^" = "^
+        (if (mask) then (printconst MOD) else "NULL") in
+      let body = (format 1 ( md :: (MC.Low.computation comp))) in
+        (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
+    in
+
 
     (* print_strc *)
     let  print_strc l = 
       let rec process ss = function [] -> []
         | ls :: lls -> 
           (try let first = (List.hd ls) in 
-            let name = (make_ptr (match first with
+            let name = (make_str (match first with
               | Call (_,_,pth) -> pth
               | Share (_,_,_,pth) -> pth
               | Fu (_,_,_,_,pth) -> pth))
@@ -553,7 +581,7 @@ struct
               | x :: xs -> match x with
                 | Call (_,str,pth) ->  CallMember ((constd DATA),str,[]) :: (convert xs)
                 | Share (_,str,_,_) when str = "this" -> (convert xs)
-                | Share (_,str,pth,_) -> let strr = (make_ptr pth) in
+                | Share (_,str,pth,_) -> let strr = (make_str pth) in
                   if (List.exists (fun x -> x = strr) ss) 
                   then CallMember ((TyCStruct strr),str,[]) :: (convert xs)
                   else raise (Cannot_compile "undefined structure")
@@ -575,13 +603,20 @@ struct
       (List.map (fun x -> (MC.Low.funcdef true x)) ls))
     in
 
+    (* map entry point definitions *)
+    let mapentrydef ls = (List.map printf 
+      (List.map (function EntryPoint(name,typ,comp,mask) ->
+        let args = if (mask) then [ (MODULE,STR) ] else [] in
+        (ENTRYPOINT,typ,name,args,true)) ls))
+    in
+
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
     let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
 
     (* build the header *)
     let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))
-    and en_dls = (separate "Entry Points" (mapfd gentry) )
+    and en_dls = (separate "Entry Points" (mapentrydef gentry))
     and hedh = header  (List.map printc [(consth ENTRY)]) in
     let headerfile = (String.concat "\n"(hedh @ str_ls @ en_dls)) ^ "\n"  
     in
@@ -590,7 +625,7 @@ struct
     let dec_ls = (separate "declarations" (mapfd gettr_lst))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
-    and en_ls = (separate "Entry Points" (MC.Low.getter gentry))
+    and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
     and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) 
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])

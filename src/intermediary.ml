@@ -46,7 +46,7 @@ sig
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
   and headers = MINI | ENTRY
@@ -128,7 +128,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE
 
   and consts = ENV | ARG | MOD | STR | TOP
 
@@ -170,6 +170,7 @@ struct
     | DATA -> "DATA"
     | DTYPE -> "DTYPE"
     | CHAR -> "char"
+    | MODULE -> "MODULE"
 
   (* print constants *)
   let printconst = function

@@ -137,13 +137,34 @@ typedef union Value_u {
  * Modules
  *-----------------------------------------------------------------------------*/
 
-typedef struct Structure{
-    BINDING * mod;
-}STRUCTURE;
+typedef enum acc_e { BVAL , BMOD } ACC;
+
+typedef struct module_s{
+    int t; 
+    TAG type;
+    int stamp; 
+    BINDING * strls;
+    union content {
+        struct structure {
+            int count;
+            char ** names;
+            ACC * accs; 
+            union field_t {
+                struct module_s * module;
+                void (*gettr)(struct module_s);
+            } * fields;
+        }s;
+        struct functor {
+            void (*Functor) (void);      
+        }f;
+    }c;
+}MODULE;
+
+typedef union field_t FIELD;
 
 
 /*-----------------------------------------------------------------------------
- * Type tracking 
+ * Type tracking of structure - DEPRECATED
  *-----------------------------------------------------------------------------*/
 
 typedef struct Meta_s
@@ -178,8 +199,9 @@ struct value_type{
 
 typedef void* (* PrimOp) (void*,void*);
 typedef VALUE (* Lambda)(BINDING *,BINDING *,VALUE);
-typedef VALUE (* Gettr)(void);
-typedef STRUCTURE* (* Funct)(STRUCTURE *);
+typedef VALUE (* Gettr)(MODULE);
+typedef MODULE (* Functor)(BINDING*,MODULE);
+
 
 /*-----------------------------------------------------------------------------
  * Global variables for the secure component
@@ -204,8 +226,9 @@ LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);
-LOCAL STRUCTURE path_call(STRUCTURE,char*,int);
-LOCAL VALUE path_callv(BINDING *,char*,int);
+LOCAL MODULE path_module(MODULE,char*,int);
+LOCAL VALUE path_value(MODULE,char*,int);
+LOCAL MODULE emptyModule(void);
 
 // type checking
 LOCAL TYPE get_type(VALUE);
@@ -496,6 +519,19 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned 
 LOCAL VALUE getValue(BINDING * binding,void * key) 
 {
     return *((VALUE *)getBinding(binding,key,cmp_char));
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  emptyModule
+ *  Description:  return an empty module (for testing purposes)
+ * =====================================================================================
+ */
+LOCAL MODULE emptyModule(void)
+{
+   MODULE m;  
+   return m;
 }
 
 #endif

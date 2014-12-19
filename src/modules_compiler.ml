@@ -45,12 +45,14 @@ struct
 
   type cpath = string list
 
+  type mask = int
+
   and modbindtype = FB of cpath * string * MiniMLMod.mod_term * modbindtype * bool
                   | SB of cpath * strctbinding list * bool
-                  | AR of string * string list option
+                  | AR of string * string list option * modbindtype option
 
   and strctbinding = BVal of string * cpath * computation 
-                   | BMod of string * modbindtype 
+                   | BMod of string * cpath * modbindtype 
                    | BArg of string  (* functor argument *)
 
   and computation = Intermediary.tempc list * Intermediary.tempc list * Intermediary.tempc 
@@ -62,9 +64,9 @@ struct
 
   and omega = strctbinding list
 
-  type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * computation 
+  type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * mask option * computation 
                | Strct of cpath 
-               | Fctr of  string * Intermediary.locality 
+               | Fctr of  string * Intermediary.locality * computation
                | Compttr of string * computation * Intermediary.tempc list
 
 
@@ -81,6 +83,8 @@ struct
     | lst -> (String.concat "_" (List.rev lst)) 
 
   let make_ptr lst = "_" ^ (make_entrypoint lst)
+
+  let make_str lst = "str" ^ (make_ptr lst)
 
   (* the difference between a ptr and a path is the path is the . *)
   let make_path = function [] -> raise (Omega_miss "Not a path")
@@ -111,7 +115,7 @@ struct
     let get_binding x nenv = 
       let find_binding = (function
       | BVal (nn,_,_) when (nn = x) -> true
-      | BMod (nn,_) when (nn = x) -> true
+      | BMod (nn,_,_) when (nn = x) -> true
       | BArg nn when (nn = x) -> true
       | _ ->  false) in
       try (List.find (find_binding) nenv)
@@ -121,7 +125,7 @@ struct
     (* When it comes to values all that matters is that they exist *)
     let extract = function
         | BVal (nn,pth,_) -> Static (make_ptr (nn::pth))
-        | BMod (_,e) -> (Environment (set_origin e)) 
+        | BMod (_,_,e) -> (Environment (set_origin e)) 
         | BArg nn -> (Dynamic (nn,None))
     in
 
@@ -185,7 +189,7 @@ struct
         let rec parse_module env pth = function
             Longident ident -> (match (lookup_path env (convert_path ident)) with 
               | (Environment e) -> e
-              | Dynamic (n,ls) -> AR (n,ls)
+              | Dynamic (n,ls) -> AR (n,ls,None)
               | _ -> raise (Cannot_compile_module "Did not retrieve environment from path lookup"))
           | Structure strls -> let parsed = (parse_struct env pth strls) in SB (pth,parsed,true)
           | Functor (id,ty,m) -> let bind = BArg (Ident.name id) in
@@ -194,8 +198,10 @@ struct
           | Apply (m1,m2) -> 
             (match (parse_module env pth m1) with
               | FB (_,id,m,_,_) -> let nenv = (parse_module env pth m2) in
-                (parse_module ((BMod (id,nenv))::env) pth m)
-              | _ -> raise (Cannot_compile_module "Needed Functor"))
+                (parse_module ((BMod (id,path,nenv))::env) pth m)
+              | AR (n,ls,None) -> let nm = (parse_module env pth m2) in 
+                (AR (n,ls, (Some nm)))
+              | _ -> raise (Cannot_compile_module "Needed Functor or AR hole"))
           | Constraint (m,ty) -> (parse_module env pth m) 
         in
 
@@ -206,13 +212,13 @@ struct
             | Module_str (id2,mterm) ->
               let name = (Ident.name id2) in
               let nenv = (parse_module env (name::path) mterm) in
-              let value = BMod (name,nenv) in
+              let value = BMod (name,path,nenv) in
               value :: (parse_struct (value :: env) path xs)
             | Value_str (id2,term) ->
               let name = (Ident.name id2) in
               let (flist,comp) = (ExprComp.compile env (name::path) term) in 
               functlist := flist @ !functlist;
-              let data = BVal (name, path, (comp)) in 
+              let data = BVal (name, path,comp) in 
                 data :: (parse_struct (data :: env) path xs) 
       in
         
@@ -220,28 +226,102 @@ struct
       match program with Structure strt -> (!functlist,(parse_struct [] [] strt))
       | _ ->  raise (Cannot_compile_module "Top level must be structure")
 
-
    (* 
     * ===  FUNCTION  ======================================================================
     *     Name:  extract
     *  Description: extract the compiler redices from the omega structure produced by st*
     * =====================================================================================
     *)
-    let rec extract path = function [] -> ([],[],[]) 
-      | str::ls -> (match str with
-        | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
-        | BVal (name, _, comp) -> let ptr = make_ptr (name::path) 
-          and (a,b,c) = (extract path ls) in
-          ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,comp)) :: a, b, c)
-        | BMod (name, modt) -> (match modt with
-          | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
-          | SB (pth,nbinding,true) ->  let (aa,bb,cc) = (extract (name::path) nbinding)  
-            and (a,b,c) = (extract path ls) in
-            ( aa @ a, (Strct pth) :: bb @ b, cc @ c) 
-          | SB (pth,nbinding,false) -> (extract path ls)
-          | FB (pth,var,mm,mb,_) -> let npth = (make_ptr pth) 
-            and (a,b,c) =  (extract path ls) in
-            (a, b, (Fctr (npth,Interm.ENTRYPOINT)) :: c)))
+    let extract_red ls = 
+
+      (* new functor name *)
+      let new_fctr = let count = ref (-1) in
+        fun () -> incr count; (("Fctr_"^(string_of_int !count)),!count) in
+
+      (* fnctr list -- similar to lab *)
+      let fctr_list = ref [] in
+
+      (* extract general redices *)
+      let rec extract = function [] -> ([],[]) 
+        | str::ls -> (match str with
+          | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
+          | BVal (name,path, comp) -> let ptr = make_ptr (name::path) 
+            and (a,b) = (extract ls) in
+            ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,None,comp)) :: a, b)
+          | BMod (name,path, modt) -> (match modt with
+            | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
+            | SB (pth,nbinding,true) ->  let (aa,bb) = (extract nbinding)  
+              and (a,b) = (extract ls) in
+              (aa @ a, (Strct pth) :: bb @ b) 
+            | SB (_,_,false) -> (extract ls)
+            | FB (pth,var,mm,mb,true) -> let npth = (make_ptr pth) 
+              and (postfix,id) = new_fctr() in
+              (*let comp = (compile_fctr ("Functor"::pth) (Some id) mb)*) (*TODO*)
+              let cmp =([],[],Interm.ToCall ((Interm.CVar "emptyModule"),[]))
+              and fcpth = npth ^ postfix  in
+              fctr_list := (Fctr (fcpth,Interm.LOCAL,cmp)) :: !fctr_list;
+              (extract ls) 
+            | FB (_,_,_,_,false) -> (extract ls)))
+      in
+
+      (* compile a functor *) (*TODO*)
+     (* and rec compile_fctr path fctr mb = 
+
+        (* special gettrs *)
+        let gettrls = ref [] in
+
+        let rec parse : modbindtype -> tempc = function
+          | AR(n,ls,None) -> let pp = CString (make_path ls)
+            and i = CInt (List.length ls) in
+            and get = (GetStr ((constv STR),(CString n))) in
+            (ToCall ((constc PATH),[get ; pp ; i ]))
+          | AR(n,ls,Some mb) -> let ar = (parse AR(n,ls,None)) 
+            and arg = (parse mb) in
+            (* functor call *)
+          | FB (pth,var,_,mb,false) -> (* *)
+          | FB (pth,var,_,mb,true) ->
+          | SB (pth,nbinding,false) -> ToCall ((CVar (make_ptr pth)),[])
+          | SB (pth,nbinding,true) -> let ls = (parse_str nbinding) in
+               
+        and rec parse_str = function [] -> []
+          | BArg _ -> raise (Cannot_compile_module "This shouldn't be here")
+          | BVal (name,path, comp) -> let value = (Interm.constd Interm.VALUE) in
+            let nn = (make_ptr (name::path))
+            let get = Gettr (nn,value,fctr,comp) in
+            gettrls := get::gettrls;
+            Insert( ,(CString name),(CVar nn))  
+          | BMod (name,path,modt) -> let value = (Interm.constd Interm.VALUE) in
+            let nn = (make_ptr (name::path)) in
+            let content = parse modt 
+
+        let parse_toplevel : modbindtype -> computation = function
+          | AR _ as a -> let ar = (parse a)
+            
+            (*([],[],ToCall( CVar set_stamp ,[i;call])) *)
+          | FB (pth,var,_,mb,false) -> (*call this functor with arg *)
+          | FB (pth,var,_,mb,true) -> (* compile and add to fctrs *)
+          | SB (pth,nbinding,false) -> (* return the structure - but how did I get it ? *) 
+
+            
+        (* compile the module binding *)
+        let rec comp_mod = function
+          | AR (n,ls) -> let pp = CString (make_path ls)
+            and i = CInt (List.length ls) 
+          | SB (pth,nbinding,true) -> 
+          | SB (pth,nbinding,false) ->
+          | FB (pth,var,) ->
+
+        (* compile the str list *)
+        and rec comp_strl = function [] -> []
+          | x :: xs -> (match x with
+            | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
+
+
+      in*)
+
+      (* toplevel *)
+      let (gls,stls) = (extract ls) in (gls,stls,!fctr_list)
+
   end
 
 
@@ -268,10 +348,10 @@ struct
       in
         v@l@c 
 
-    (* build funcdefi *)
+    (* build funcdefi *) 
     let funcdef b = function
-      | Gettr (ptr,dtstr,loc,comp) -> (loc,dtstr,ptr,[],b)
-      | Fctr (ptr,loc) -> (loc,(constd VOID),ptr,[],b)
+      | Gettr (ptr,dtstr,loc,_,_) -> (LOCAL,dtstr,ptr,[(BINDING,MOD)],b)
+      | Fctr (ptr,loc,_) -> (loc,(constd VOID),ptr,[],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
 
@@ -297,11 +377,12 @@ struct
     * =====================================================================================
     *)
     let rec getter = function [] -> []
-      | Gettr  (ptr,dtstr,loc,comp) :: xs -> 
-        let definition = (loc,dtstr,ptr,[],false) in
+      | Gettr  (ptr,dtstr,loc,maskc,comp) :: xs -> 
+        let args = [ (BINDING,MOD) ] in
+        let definition = (loc,dtstr,ptr,args,false) in
         let env = (printd BINDING)^" "^(printconst ENV)^" = NULL" 
-        and md = (printd BINDING)^" "^(printconst MOD)^"= NULL" in
-        let setup = [env ; md] in
+        (*and md = (printd BINDING)^" "^(printconst MOD)^" = "^(printconst MOD)*) in
+        let setup = [env] in
         let body = (format 1 (setup @ (computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
       | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
