@@ -75,8 +75,5 @@
 
 union Value_u;
 
-/*typedef struct max_s{
-    void * weight[3];
-} MAX;*/
-
 #endif
+

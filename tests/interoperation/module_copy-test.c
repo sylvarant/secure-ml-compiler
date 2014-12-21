@@ -10,18 +10,19 @@
  */
 
 #include "unit.h"
-#include "entry.h"
+
+#include "module_copy.h"
 
 int tests_run = 0;
 int tests_set = 2;
 
 TEST(getModule)
-    DATA temp = path_entry(PATH(One));
-    CHECK("Did not fetch the One module",temp.t == MODULE);
+    struct str_One temp = One();
+    CHECK("Did not fetch the One module",temp.mask == 0);
 DONE
 
 TEST(getValue)
-    DATA temp = path_entry(PATH(Two.value));
+    DATA temp = Two_value();
     CHECK("Did not fetch Pair form Two.value",temp.t == PAIR);
     CHECK("Pair left hand side is not INT",temp.left->t == INT);
     CHECK("Pair right hand side is not BOOLEAN",temp.right->t == BOOLEAN);

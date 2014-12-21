@@ -10,13 +10,14 @@
  */
 
 #include "unit.h"
-#include "entry.h"
+
+#include "ascription.h"
 
 int tests_run = 0;
-int tests_set = 3;
+int tests_set = 2;
 
 TEST(testpublic)
-    DATA temp = path_entry(PATH(Main.public));
+    DATA temp = Main_public();
     CHECK("Did not fetch a Closure from public",temp.t == CLOSURE);
     DATA arg = { .t = INT, .value = 3};
     DATA res = closure_entry(temp.identifier,arg);
@@ -24,18 +25,20 @@ TEST(testpublic)
 DONE
 
 TEST(testinnerf)
-    DATA temp = path_entry(PATH(Main.Inner.innerf));
+    DATA temp = Main_Inner_innerf();
     CHECK("Did not fetch 20 from innerf",temp.value == 20);
 DONE
 
+/* DEPRECATED
 CRASH(crashsecret)
     DATA temp = path_entry(PATH(Main.IgnoreMe.secret));
 RECOVER
+*/
 
 LIST
     RUN(testpublic);
     RUN(testinnerf);
-    RUN(crashsecret);
+ //   RUN(crashsecret);
 DONE
 
 INCLUDE_MAIN

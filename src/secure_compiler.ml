@@ -541,9 +541,7 @@ struct
       let def = ToDef ((CVar "int"),(constc BOOT),[]) in
       let strdecl = (match (print_strcts strls) with 
         | (a,b) -> (a @ [Emptyline] @ b)) in
-      let (statics,bindings) = (print_assoc assocs) in
-      let final_sts =  (List.sort_uniq cmp_stat statics) in
-      let body_ls = (List.map printc (final_sts @ [Emptyline] @ strdecl @ bindings @ [Emptyline;(ToReturn (CInt 1))])) in
+      let body_ls = (List.map printc ( [Emptyline] @ strdecl @  [Emptyline;(ToReturn (CInt 1))])) in
       ( (printc def) :: (format 1 body_ls) @ func_end) 
     in
 

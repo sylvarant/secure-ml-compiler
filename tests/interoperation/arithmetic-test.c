@@ -10,18 +10,19 @@
  */
 
 #include "unit.h"
-#include "entry.h"
+
+#include "arithmetic.h"
 
 int tests_run = 0;
 int tests_set = 4;
 
 TEST(getaddClosure)
-    DATA temp = path_entry(PATH(add));
+    DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
 DONE
 
 TEST(applyClosure)
-    DATA temp = path_entry(PATH(add));
+    DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = INT, .value = 5 };
     DATA res = closure_entry(temp.identifier,input);
@@ -29,12 +30,12 @@ TEST(applyClosure)
 DONE
 
 TEST(getcompClosure)
-    DATA temp = path_entry(PATH(comp));
+    DATA temp = comp();
     CHECK("Did not fetch a Closure from comp",temp.t == CLOSURE);
 DONE
 
 CRASH(crashCloApply)
-    DATA temp = path_entry(PATH(add));
+    DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = BOOLEAN, .value = 5 };
     DATA res = closure_entry(temp.identifier,input);

@@ -10,18 +10,19 @@
  */
 
 #include "unit.h"
-#include "entry.h"
+
+#include "inner.h"
 
 int tests_run = 0;
 int tests_set = 2;
 
 TEST(getModule)
-    DATA temp = path_entry(PATH(Outer));
-    CHECK("Did not fetch Outer module",temp.t == MODULE);
+    struct str_Outer temp = Outer();
+    CHECK("Did not fetch Outer module",temp.mask == 1);
 DONE
 
 TEST(getValue)
-    DATA temp = path_entry(PATH(Outer.value));
+    DATA temp = Outer_Inner_hell();
     CHECK("Did not fetch Integer",temp.t == BOOLEAN);
     CHECK("Did not fetch value ",temp.value == 1);
 DONE

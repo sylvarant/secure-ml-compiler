@@ -70,8 +70,7 @@ LOCAL char * nextId(char ** str)
 LOCAL MODULE path_call(MODULE s,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
-    STRUCTURE ret = { .mod = NULL };
-    return ret;
+    return emptyModule();
 }
 
 
@@ -85,43 +84,6 @@ LOCAL VALUE path_callv(BINDING * binding,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
     return makeBoolean(0); 
-}
-
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  path_entry
- *  Description:  entry point for paths
- * =====================================================================================
- */
-ENTRYPOINT DATA path_entry(char * path, int size)
-{
-    check_state();
-  
-    if(path[size] != '\0') mistakeFromOutside(); // buffer check
-
-    // get the correct meta value by browsing through the maps
-    BINDING * map = toplevel; 
-    char * remainder = path;
-    META * meta = NULL;
-    while(*remainder != '\0')
-    {
-        char * x_i = nextId(&remainder);
-        meta = (META *) getBinding(map,x_i,cmp_char); 
-        if(meta == NULL ||(meta->call && *remainder != '\0')) mistakeFromOutside();
-        struct Structure * temp =  meta->value;
-        map = temp->mod;
-        FREE(x_i);
-    }
-
-    // return call or structure
-    if(meta->call)
-    {
-        VALUE v = ((meta->gettr)()); 
-        return convertV(v,meta->type);
-    }
-    
-    return convert(meta->value,MODULE,meta->type);
 }
 
 

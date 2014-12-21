@@ -21,7 +21,7 @@
  *  Preprocessing
  *-----------------------------------------------------------------------------*/
 #define SCM_(TYPE) struct V(TYPE) { \
-                          TAG t;
+                          TERMTAG t;
 
 #define _SCM }; 
 
@@ -141,7 +141,7 @@ typedef enum acc_e { BVAL , BMOD } ACC;
 
 typedef struct module_s{
     int t; 
-    TAG type;
+    MODTAG type;
     int stamp; 
     BINDING * strls;
     union content {
@@ -224,7 +224,7 @@ LOCAL int getAdressAbs(void);
 LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
-LOCAL DATA convert(void *,TAG t,TYPE);
+LOCAL DATA convert(void *,TERMTAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODULE path_module(MODULE,char*,int);
 LOCAL VALUE path_value(MODULE,char*,int);

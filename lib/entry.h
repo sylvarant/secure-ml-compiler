@@ -53,12 +53,12 @@ extern void * malloc(size_t);
  *  Data Sharing
  *-----------------------------------------------------------------------------*/
 
-typedef enum Tag_e {
-    INT, BOOLEAN, CLOSURE, PAIR, STRUCTURE, FUNCTOR, ABSTRACT
-} TAG;
+typedef enum Termtag_e {
+    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT 
+} TERMTAG;
 
 typedef struct Data_s{
-    TAG t;   
+    TERMTAG t;   
     union {
         void * bytes;
         int value; 
@@ -72,11 +72,11 @@ typedef struct Data_s{
 
 
 /*-----------------------------------------------------------------------------
- *  Signature Sharing
+ *  Type Sharing
  *-----------------------------------------------------------------------------*/
 typedef enum Type_e {
-    TYINT, TYBOOLEAN, TYARROW, TYSTAR, TYMODULE, TYVALUE, 
-    TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE
+    TYINT, TYBOOLEAN, TYARROW, TYSTAR, 
+    TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE, TYMODULE, TYVALUE, 
 } TYPE_INFO;
 
 typedef struct Type_s {
@@ -102,12 +102,31 @@ typedef struct Type_s {
     };
 } DTYPE;
 
+
+/*-----------------------------------------------------------------------------
+ *  Module Sharing
+ *-----------------------------------------------------------------------------*/
+typedef enum Modtag_e{
+    STRUCTURE, FUNCTOR 
+} MODTAG;
+
+typedef struct Moduledata_s{
+    MODTAG t;
+    DTYPE type;
+    int identifier;
+    struct {
+        char ** names; 
+        void ** fcalls;
+    };
+} MODDATA;
+
+
 /*-----------------------------------------------------------------------------
  *  General Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT DATA path_entry(char * path, int size);
-ENTRYPOINT DATA closure_entry(int id,DATA d);
-
+ENTRYPOINT DATA closure_entry(int,DATA);
+ENTRYPOINT DATA functor_entry(int,MODDATA);
 
 #endif
+

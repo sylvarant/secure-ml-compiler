@@ -84,7 +84,7 @@ struct
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
            (try (match (lookup_path env cpath) with
-              | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[]))) 
+              | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[(constv MOD)]))) 
               | Dynamic (nn, Some ls) -> let path = CString (make_path ls)
                 and size = CInt (List.length ls) in
                   (ToCall ((constc PATHV),[ (constv MOD); path ; size])) 

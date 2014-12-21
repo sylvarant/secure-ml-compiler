@@ -159,22 +159,6 @@ LOCAL DTYPE convertT(TYPE ty)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    convert
- *  Description:    convert a pointer to an identifier for the outside world
- * =====================================================================================
- */
-LOCAL DATA convert(void * p, TAG t,TYPE ty)
-{
-    DATA d;
-    d.t = t;
-    d.identifier = getAdress();
-    insertBigBinding(&exchange,(char *)d.bytes,p,0,ty);    
-    return d;
-}
-
-
-/* 
- * ===  FUNCTION  ======================================================================
  *         Name:    unify_types
  *  Description:    type unification, C-style
  * =====================================================================================
