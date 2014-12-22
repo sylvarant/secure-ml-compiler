@@ -18,7 +18,7 @@ int tests_set = 2;
 
 TEST(getModule)
     struct str_One temp = One();
-    CHECK("Did not fetch the One module",temp.mask == 0);
+    CHECK("Did not fetch the One module",temp.mask == 1);
 DONE
 
 TEST(getValue)

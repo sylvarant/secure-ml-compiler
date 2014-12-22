@@ -60,14 +60,69 @@ LOCAL char * nextId(char ** str)
     return result; 
 }
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  get_module
+ *  Description:  return a module member 
+ * =====================================================================================
+ */
+MODULE get_module(MODULE m,char * str)
+{
+    if(m.type != STRUCTURE) mistakeFromOutside();  
+
+    for(int i = 0; i < m.c.s.count; i++)
+    {
+        if(cmp_char(m.c.s.names[i],str) == 0)
+        {
+            switch(m.c.s.accs[i])
+            {
+                case BMOD :{ 
+                    return *((m.c.s.fields[i]).module);
+                }
+                default : mistakeFromOutside();
+            }
+        }
+    }
+    mistakeFromOutside();
+    return emptyModule(); // for gcc warning purposes
+}
+
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  path_call
- *  Description:  call up a structure
+ *         Name:  get_value
+ *  Description:  return a value member 
  * =====================================================================================
  */
-LOCAL MODULE path_call(MODULE s,char * path,int size)
+VALUE get_value(MODULE top,MODULE m,char * str)
+{
+    if(m.type != STRUCTURE) mistakeFromOutside();  
+
+    for(int i = 0; i < m.c.s.count; i++)
+    {
+        if(cmp_char(m.c.s.names[i],str) == 0)
+        {
+            switch(m.c.s.accs[i])
+            {
+                case BVAL :{ 
+                    return ((m.c.s.fields[i]).gettr(top));
+                }
+                default : mistakeFromOutside();
+            }
+        }
+    }
+    mistakeFromOutside();
+    return makeBoolean(0); // for gcc warning purposes
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  path_module
+ *  Description:  call up a module
+ * =====================================================================================
+ */
+LOCAL MODULE path_module(MODULE s,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
     return emptyModule();
@@ -76,11 +131,11 @@ LOCAL MODULE path_call(MODULE s,char * path,int size)
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  path_callv
+ *         Name:  path_value
  *  Description:  call up a value
  * =====================================================================================
  */
-LOCAL VALUE path_callv(BINDING * binding,char * path,int size)
+LOCAL VALUE path_value(BINDING * binding,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
     return makeBoolean(0); 

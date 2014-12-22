@@ -140,7 +140,7 @@ typedef union Value_u {
 typedef enum acc_e { BVAL , BMOD } ACC;
 
 typedef struct module_s{
-    int t; 
+    int mass; 
     MODTAG type;
     int stamp; 
     BINDING * strls;
@@ -151,7 +151,7 @@ typedef struct module_s{
             ACC * accs; 
             union field_t {
                 struct module_s * module;
-                void (*gettr)(struct module_s);
+                VALUE (*gettr)(struct module_s);
             } * fields;
         }s;
         struct functor {
@@ -226,9 +226,12 @@ LOCAL DATA convertV(VALUE,TYPE);
 LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TERMTAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);
+LOCAL VALUE get_value(MODULE top,MODULE m,char * str);
+LOCAL MODULE get_module(MODULE m,char * str); 
 LOCAL MODULE path_module(MODULE,char*,int);
-LOCAL VALUE path_value(MODULE,char*,int);
+LOCAL VALUE path_value(BINDING *,char*,int);
 LOCAL MODULE emptyModule(void);
+LOCAL DTYPE emptyType(void);
 
 // type checking
 LOCAL TYPE get_type(VALUE);
@@ -532,6 +535,19 @@ LOCAL MODULE emptyModule(void)
 {
    MODULE m;  
    return m;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  emptyType
+ *  Description:  return an empty type (for testing purposes)
+ * =====================================================================================
+ */
+LOCAL DTYPE emptyType(void)
+{
+   DTYPE d;  
+   return d;
 }
 
 #endif

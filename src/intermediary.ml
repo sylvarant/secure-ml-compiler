@@ -46,7 +46,7 @@ sig
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
   and headers = MINI | ENTRY
@@ -128,7 +128,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA
 
   and consts = ENV | ARG | MOD | STR | TOP
 
@@ -171,6 +171,7 @@ struct
     | DTYPE -> "DTYPE"
     | CHAR -> "char"
     | MODULE -> "MODULE"
+    | MODDATA -> "MODDATA"
 
   (* print constants *)
   let printconst = function
@@ -191,8 +192,8 @@ struct
     | BOOT -> "bootup"
     | CONV -> "convertV"
     | CONT -> "convertT"
-    | PATH -> "path_call"
-    | PATHV -> "path_callv"
+    | PATH -> "path_module"
+    | PATHV -> "path_value"
 
   (* build cvar from const *)
   let constv v = CVar (printconst v)
