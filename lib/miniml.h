@@ -140,7 +140,7 @@ typedef union Value_u {
 typedef enum acc_e { BVAL , BMOD } ACC;
 
 typedef struct module_s{
-    int mass; 
+    int mask; 
     MODTAG type;
     int stamp; 
     BINDING * strls;
@@ -151,7 +151,7 @@ typedef struct module_s{
             ACC * accs; 
             union field_t {
                 struct module_s * module;
-                VALUE (*gettr)(struct module_s);
+                VALUE (*gettr)(BINDING *);
             } * fields;
         }s;
         struct functor {
@@ -238,7 +238,6 @@ LOCAL TYPE get_type(VALUE);
 LOCAL void unify_types(TYPE,TYPE);
 
 // created by the compiler
-LOCAL int bootup(void);
 
 
 /*-----------------------------------------------------------------------------
@@ -257,18 +256,6 @@ LOCAL void mistakeFromOutside(void)
     exit(2); 
 }
 
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  check_state
- *  Description:  check the current load state
- * =====================================================================================
- */
-LOCAL void check_state(void)
-{
-    if(!LOADED){ 
-        if(bootup()) LOADED = 1;
-    }
-}
 
 /* 
  * ===  FUNCTION  ======================================================================

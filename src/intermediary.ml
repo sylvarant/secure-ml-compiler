@@ -46,10 +46,11 @@ sig
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
   and headers = MINI | ENTRY
+  and accs = BVAL | BMOD
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool
 
@@ -68,9 +69,13 @@ sig
 
   val printf : funcdef -> string
 
+  val printa : accs -> string
+
   val printconst : consts -> string
   
   val constv : consts -> tempc
+
+  val consta : accs -> tempc
 
   val constd : datastr -> type_u
 
@@ -128,13 +133,15 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
 
   and consts = ENV | ARG | MOD | STR | TOP
 
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
 
   and headers = MINI | ENTRY
+
+  and accs = BVAL | BMOD
 
   and args = (datastr * consts) list
 
@@ -170,6 +177,8 @@ struct
     | DATA -> "DATA"
     | DTYPE -> "DTYPE"
     | CHAR -> "char"
+    | ACC -> "ACC"
+    | FIELD -> "FIELD"
     | MODULE -> "MODULE"
     | MODDATA -> "MODDATA"
 
@@ -186,6 +195,11 @@ struct
     | MINI -> "miniml.h"
     | ENTRY -> "entry.h"
 
+  (* print accessors *)
+  let printa = function
+    | BVAL -> "BVAL"
+    | BMOD -> "BMOD"
+
   (* print functions to be used from the headers *)
   let printcalls = function
     | STRCPY -> "str_cpy"
@@ -201,6 +215,8 @@ struct
   let constd v = TyCType (printd v)
 
   let constc v = CVar (printcalls v)
+
+  let consta v = CVar (printa v)
 
   let consth v = Include (printh v)
 

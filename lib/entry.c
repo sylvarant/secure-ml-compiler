@@ -105,7 +105,7 @@ VALUE get_value(MODULE top,MODULE m,char * str)
             switch(m.c.s.accs[i])
             {
                 case BVAL :{ 
-                    return ((m.c.s.fields[i]).gettr(top));
+                    return ((m.c.s.fields[i]).gettr(top.strls));
                 }
                 default : mistakeFromOutside();
             }
@@ -150,8 +150,6 @@ LOCAL VALUE path_value(BINDING * binding,char * path,int size)
  */
 ENTRYPOINT DATA closure_entry(int id, DATA d)
 {
-    check_state();  
-
     // fetch and type check
     struct value_type argument = convertD(d);
     union safe_cast key = {.value = id};

@@ -94,7 +94,7 @@ struct
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
       | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
-      | (Strct pth , Strct pth2) -> (String.compare (make_ptr pth) (make_ptr pth2))
+      | (Strct (n,pth,_,_,_) , Strct (n2,pth2,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
       | (Gettr _, _)     -> 1
@@ -492,56 +492,6 @@ struct
   *)
   let compile mty program headerf =
 
-    (* ================================================= *)
-    (* build the bootup function: where we set it all up *)
-    (* ================================================= *)
-    let boot_up strls assocs progtype =
-
-      (* create the insertion binding *)
-      let to_binding = function [] -> (constv TOP)
-        | x :: xs as ls -> let ptr = (make_ptr ls) in
-          (CVar (ptr ^ "->mod" )) 
-      in
-       
-      (* add print the associated binding *)
-      let rec print_assoc = function [] -> ([],[])
-        | Call (vty,strl,pth,rpth) :: xs -> 
-          let strr = CVar (make_ptr (strl::pth)) in
-          let statptr = (CVar (var_prefix^"_"^strl^"_str")) in
-          let static = ToStatic((constd CHAR),Assign(Ptr statptr,(CString strl)))
-          and temp = InsertMeta ((to_binding pth),statptr,strr,1, (compile_simple_type progtype pth vty.body)) in
-          let (lss,lsb) = (print_assoc xs) in
-          (static::lss,temp::lsb) 
-        | Share (_,str,[],[]) :: xs when str = "this" -> (print_assoc xs)
-        | Share (mty,strl,pth,_) :: xs -> 
-          let strr = CVar (make_ptr pth) 
-          and bindpth = try (List.tl pth) with _ -> []
-          and statptr = (CVar (var_prefix^"_"^strl^"_str")) in
-          let static = ToStatic((constd CHAR),Assign(Ptr statptr,(CString strl)))
-          and tmpmty = TyModule ((TyCString strl),(compile_mty_type progtype pth mty)) in
-          let temp = InsertMeta ((to_binding bindpth),statptr,strr,0,tmpmty) in
-          let (lss,lsb) = (print_assoc xs) in
-          (static::lss,temp::lsb) 
-        | Fu _ :: xs -> (print_assoc xs)
-      in
-
-      (* print_strcts: convert structs into mallocs and bindings *)
-      let rec print_strcts = function [] -> ([],[])
-        | (Strct pth) :: xs -> (let ptr = (make_ptr pth) in
-          let decl = MALLOC (MODULE,(CVar ptr),(Sizeof MODULE)) in
-          let (dls,bls) = (print_strcts xs) in
-            ((decl :: dls), bls)) 
-        | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
-      in
-        
-      (* top level *)
-      let def = ToDef ((CVar "int"),(constc BOOT),[]) in
-      let strdecl = (match (print_strcts strls) with 
-        | (a,b) -> (a @ [Emptyline] @ b)) in
-      let body_ls = (List.map printc ( [Emptyline] @ strdecl @  [Emptyline;(ToReturn (CInt 1))])) in
-      ( (printc def) :: (format 1 body_ls) @ func_end) 
-    in
-
     (* print fnctrs TODO *)
     let rec print_fctrs = function [] -> []
       | (Fctr (name,loc,comp)) as f :: xs -> let definition = printf (MC.Low.funcdef false f) in
@@ -560,7 +510,6 @@ struct
       let body = (format 1 ( md :: (MC.Low.computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
     in
-
 
     (* print_strc *)
     let  print_strc l = 
@@ -617,17 +566,18 @@ struct
     in
 
     (* build the object file *)
-    let dec_ls = (separate "declarations" (mapfd gettr_lst))
+    let dec_ls = (separate "Declarations" (mapfd gettr_lst))
+    and pb_ls = (separate "Static Structures" (MC.Low.structure (List.rev strct_list)))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
     and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
-    and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) 
+   (* and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) *)
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in
 
     (* the two files *)
-    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ pb_ls @ footer)) ^ "\n")
+    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ footer)) ^ "\n")
     in (objectfile,headerfile)
   
 end

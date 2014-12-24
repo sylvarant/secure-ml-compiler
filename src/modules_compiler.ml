@@ -65,7 +65,7 @@ struct
   and omega = strctbinding list
 
   type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * mask option * computation 
-               | Strct of cpath 
+               | Strct of string * cpath * string list * Intermediary.accs list * string list
                | Fctr of  string * Intermediary.locality * computation
                | Compttr of string * computation * Intermediary.tempc list
 
@@ -85,6 +85,8 @@ struct
   let make_ptr lst = "_" ^ (make_entrypoint lst)
 
   let make_str lst = "str" ^ (make_ptr lst)
+
+  let make_var lst = "var"^ (make_ptr lst)
 
   (* the difference between a ptr and a path is the path is the . *)
   let make_path = function [] -> raise (Omega_miss "Not a path")
@@ -241,6 +243,18 @@ struct
       (* fnctr list -- similar to lab *)
       let fctr_list = ref [] in
 
+      (* quickly extract first level associations and ptrs *)
+      let quick ls =
+        let convert = function 
+          | BArg  _ -> raise (Cannot_compile_module "Cannot convert BArg")
+          | BVal (name,path,_) -> ((name,Interm.BVAL),(make_ptr (name::path)))
+          | BMod (name,path,_) -> ((name,Interm.BMOD),(make_ptr (name::path)))
+        in
+        let (l,ptr) = (List.split (List.map convert ls)) in
+        let (n,a) = (List.split l) in
+        (n,a,ptr)
+      in
+
       (* extract general redices *)
       let rec extract = function [] -> ([],[]) 
         | str::ls -> (match str with
@@ -251,8 +265,9 @@ struct
           | BMod (name,path, modt) -> (match modt with
             | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
             | SB (pth,nbinding,true) ->  let (aa,bb) = (extract nbinding)  
+              and (names,assocs,ptrs) = (quick nbinding)
               and (a,b) = (extract ls) in
-              (aa @ a, (Strct pth) :: bb @ b) 
+              (aa @ a, Strct (name,path,names,assocs,ptrs) :: bb @ b)
             | SB (_,_,false) -> (extract ls)
             | FB (pth,var,mm,mb,true) -> let npth = (make_ptr pth) 
               and (postfix,id) = new_fctr() in
@@ -386,6 +401,33 @@ struct
         let body = (format 1 (setup @ (computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
       | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  structure
+    *  Description: print a structure
+    * =====================================================================================
+    *)
+    let rec structure : compred list -> string list  = function [] -> []
+        | Strct (n,pth,names,assocs,ptrs) :: xs -> let ptr = (make_ptr pth) in
+          let convs = (List.map (function BVAL -> ".gettr = " | BMOD -> ".module = &") assocs) in
+          let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
+          and achars = String.concat "," (List.map printa assocs)
+          and fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
+          let nptr = ("char"^(make_var (n::pth)))
+          and aptr = ("acc"^(make_var (n::pth)))
+          and fptr = ("field"^(make_var (n::pth))) in
+          let nls = (printd CHAR)^"* "^nptr^"[] = {"^nchars^"}"
+          and als = (printd ACC)^" "^aptr^"[] = {"^achars^"}"
+          and fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}"
+          and cnt = ".count="^(string_of_int (List.length names)) in
+          let str = ".c.s={"^(String.concat "," [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr])^"}" in
+          let decl = ((printd MODULE)^" "^(make_ptr (n::pth))^" = {"^  
+            (String.concat "," [".mask = "^(string_of_int 2);".type = STRUCTURE";".stamp = 0"; str])^"}") in
+          let setup = [nls ; als ; fls ; decl ] in
+          let body = (format 0 setup) in
+            (String.concat "\n" (body@[""])) :: (structure xs)
+        | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
 
   end
 
