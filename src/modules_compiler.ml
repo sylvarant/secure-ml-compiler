@@ -65,7 +65,7 @@ struct
   and omega = strctbinding list
 
   type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * mask option * computation 
-               | Strct of string * cpath * string list * Intermediary.accs list * string list
+               | Strct of string * cpath * string list * Intermediary.accs list * string list 
                | Fctr of  string * Intermediary.locality * computation
                | Compttr of string * computation * Intermediary.tempc list
 
@@ -97,6 +97,9 @@ struct
     | Static str -> str
     | _ -> raise (Omega_miss "Environment instead of Static")
 
+  (* convert between Modules and Fields *)
+  let convert_mod ls = 
+    (List.map (function BVAL -> ".gettr = " | BMOD -> ".module = &") ls)
 
  (* 
   * ===  FUNCTION  ======================================================================
@@ -240,6 +243,10 @@ struct
       let new_fctr = let count = ref (-1) in
         fun () -> incr count; (("Fctr_"^(string_of_int !count)),!count) in
 
+      (* new module *)
+      let new_module = let count = ref (-1) in
+        fun () -> incr count; !count in
+
       (* fnctr list -- similar to lab *)
       let fctr_list = ref [] in
 
@@ -248,7 +255,7 @@ struct
         let convert = function 
           | BArg  _ -> raise (Cannot_compile_module "Cannot convert BArg")
           | BVal (name,path,_) -> ((name,Interm.BVAL),(make_ptr (name::path)))
-          | BMod (name,path,_) -> ((name,Interm.BMOD),(make_ptr (name::path)))
+          | BMod (name,path,_) -> ((name,Interm.BMOD),(make_str (name::path)))
         in
         let (l,ptr) = (List.split (List.map convert ls)) in
         let (n,a) = (List.split l) in
@@ -264,75 +271,92 @@ struct
             ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,None,comp)) :: a, b)
           | BMod (name,path, modt) -> (match modt with
             | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
-            | SB (pth,nbinding,true) ->  let (aa,bb) = (extract nbinding)  
+            | SB (_,nbinding,true) ->  let (aa,bb) = (extract nbinding)  
               and (names,assocs,ptrs) = (quick nbinding)
               and (a,b) = (extract ls) in
               (aa @ a, Strct (name,path,names,assocs,ptrs) :: bb @ b)
-            | SB (_,_,false) -> (extract ls)
+            | SB (pth,_,false) ->  let (a,b) = (extract ls) in
+              (a,Strct (name,path,pth,[],[]) :: b)
             | FB (pth,var,mm,mb,true) -> let npth = (make_ptr pth) 
               and (postfix,id) = new_fctr() in
-              (*let comp = (compile_fctr ("Functor"::pth) (Some id) mb)*) (*TODO*)
-              let cmp =([],[],Interm.ToCall ((Interm.CVar "emptyModule"),[]))
-              and fcpth = npth ^ postfix  in
-              fctr_list := (Fctr (fcpth,Interm.LOCAL,cmp)) :: !fctr_list;
-              (extract ls) 
-            | FB (_,_,_,_,false) -> (extract ls)))
-      in
+              let comp = (compile_fctr ("Functor"::pth) (Some id) mb) 
+              (*let cmp =([],[],Interm.ToCall ((Interm.CVar "emptyModule"),[])) *)
+              and fcpth = npth ^ postfix  
+              and (a,b) = (extract ls) in
+              fctr_list := (Fctr (fcpth,Interm.LOCAL,comp)) :: !fctr_list;
+              (a,Strct(name,path,[],[],fcpth::[]) :: b)
+            | FB (pth,_,_,_,false) -> let (a,b) = extract ls in 
+              (a,Strct(name,path,pth,[],[]))))
 
-      (* compile a functor *) (*TODO*)
-     (* and rec compile_fctr path fctr mb = 
+
+      (* ================================================= *)
+      (* Compile the functor                               *)
+      (* ================================================= *)
+      and compile_fctr path fctr mb = 
 
         (* special gettrs *)
         let gettrls = ref [] in
+        let setup_list = ref [] in
+
+        (* decouple a triple list *)
+        let decouple ls = let (l,ptr) = (List.split (List.map convert ls)) in
+            let (n,a) = (List.split l) 
+        in
 
         let rec parse : modbindtype -> tempc = function
           | AR(n,ls,None) -> let pp = CString (make_path ls)
-            and i = CInt (List.length ls) in
+            and i = CInt (List.length ls) 
             and get = (GetStr ((constv STR),(CString n))) in
             (ToCall ((constc PATH),[get ; pp ; i ]))
           | AR(n,ls,Some mb) -> let ar = (parse AR(n,ls,None)) 
             and arg = (parse mb) in
-            (* functor call *)
-          | FB (pth,var,_,mb,false) -> (* *)
-          | FB (pth,var,_,mb,true) ->
-          | SB (pth,nbinding,false) -> ToCall ((CVar (make_ptr pth)),[])
-          | SB (pth,nbinding,true) -> let ls = (parse_str nbinding) in
+            (ToCall(ToFunctor(ar),[arg])) (* functor call *)
+          | FB (pth,var,_,mb,true) -> let npth = (make_ptr pth) 
+            and (postfix,id) = new_fctr() in
+            let comp = (compile_fctr ("Functor"::pth) (Some id) mb) in 
+            and fcpth = npth ^ postfix in 
+            fctr_list := (Fctr (fcpth,Interm.LOCAL,comp)) :: !fctr_list;
+            let c = ToCall ((CVar "makeContentF"),[(CVar fcpth)]) in
+              ToCall(CVar "makeModule",[CInt (-1); (CVar "FUNCTOR"); (CInt fctr); (CVar "NULL"); c])
+          | FB (pth,var,_,mb,false) -> (CVar (make_str pth)) 
+          | SB (pth,nbinding,true) -> let (names,assocs,ptrs) = decouple (parse_str nbinding path) in
+            (* the names list *)
+            let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names) in
+            let nptr = ("char"^(make_var (n::pth))) in
+            let nls = (printd CHAR)^"* "^nptr^"[] = {"^nchars^"}" in
+            (* the accosiations *)
+            let achars = String.concat "," (List.map printa assocs) in
+            let aptr = ("acc"^(make_var (n::pth))) in
+            let als = (printd ACC)^" "^aptr^"[] = {"^achars^"}" in
+            (* the Fields *)
+            let convs = convert_mod assocs in
+            let fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
+            let fptr = ("field"^(make_var (n::pth))) in
+            let fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}" in
+            (* update setup *)
+            setup_list := (CVar nls) :: (CVar als) :: (CVar fls) :: !setup_list;
+            (* make the content and module *)
+            let c = ToCall (CVar "makeContentS",[CInt (List.length names); CVar nptr; CVar aptr; CVar fptr]) in
+              ToCall(CVar "makeModule",[CInt (-1); (CVar "STRUCTURE"); (CInt 0); (CVar "NULL"); c ])
+          | SB (pth,nbinding,false) -> (CVar (make_str pth))
                
-        and rec parse_str = function [] -> []
-          | BArg _ -> raise (Cannot_compile_module "This shouldn't be here")
-          | BVal (name,path, comp) -> let value = (Interm.constd Interm.VALUE) in
-            let nn = (make_ptr (name::path))
-            let get = Gettr (nn,value,fctr,comp) in
-            gettrls := get::gettrls;
-            Insert( ,(CString name),(CVar nn))  
-          | BMod (name,path,modt) -> let value = (Interm.constd Interm.VALUE) in
-            let nn = (make_ptr (name::path)) in
-            let content = parse modt 
+        and rec parse_str path = function [] -> []
+          | x :: xs -> match x with
+            | BArg _ -> raise (Cannot_compile_module "This shouldn't be here")
+            | BVal (name,path, comp) -> let value = (Interm.constd Interm.VALUE) in
+              let nn = (make_ptr (name::path))
+              let get = Gettr (nn,value,fctr,comp,Some fctr) in
+              gettrls := get::gettrls;
+              ((name,Interm.BVAL),nn) :: (parse_str xs)
+          | BMod (name,path,modt) ->  let modu = parse modt in
+              let varn = (make_var "module" (name::path)) in
+              let setup  = MALLOC ((constd MODULE), CVar varn,Sizeof(constd MODULE)) in
+              let assign = ASSIGN (Ptr(CVar varn),modu) in
+              ((name,Interm.BMOD),varn) :: (parse_str xs)
 
-        let parse_toplevel : modbindtype -> computation = function
-          | AR _ as a -> let ar = (parse a)
-            
-            (*([],[],ToCall( CVar set_stamp ,[i;call])) *)
-          | FB (pth,var,_,mb,false) -> (*call this functor with arg *)
-          | FB (pth,var,_,mb,true) -> (* compile and add to fctrs *)
-          | SB (pth,nbinding,false) -> (* return the structure - but how did I get it ? *) 
-
-            
-        (* compile the module binding *)
-        let rec comp_mod = function
-          | AR (n,ls) -> let pp = CString (make_path ls)
-            and i = CInt (List.length ls) 
-          | SB (pth,nbinding,true) -> 
-          | SB (pth,nbinding,false) ->
-          | FB (pth,var,) ->
-
-        (* compile the str list *)
-        and rec comp_strl = function [] -> []
-          | x :: xs -> (match x with
-            | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
-
-
-      in*)
+        (* toplevel *)
+        ([],!setup_list,(parse mb))
+      in
 
       (* toplevel *)
       let (gls,stls) = (extract ls) in (gls,stls,!fctr_list)
@@ -366,7 +390,7 @@ struct
     (* build funcdefi *) 
     let funcdef b = function
       | Gettr (ptr,dtstr,loc,_,_) -> (LOCAL,dtstr,ptr,[(BINDING,MOD)],b)
-      | Fctr (ptr,loc,_) -> (loc,(constd VOID),ptr,[],b)
+      | Fctr (ptr,loc,_) -> (loc,(constd MODULE),ptr,[(MODULE,STR)],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
 
@@ -409,25 +433,48 @@ struct
     * =====================================================================================
     *)
     let rec structure : compred list -> string list  = function [] -> []
-        | Strct (n,pth,names,assocs,ptrs) :: xs -> let ptr = (make_ptr pth) in
-          let convs = (List.map (function BVAL -> ".gettr = " | BMOD -> ".module = &") assocs) in
-          let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
-          and achars = String.concat "," (List.map printa assocs)
-          and fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
-          let nptr = ("char"^(make_var (n::pth)))
-          and aptr = ("acc"^(make_var (n::pth)))
-          and fptr = ("field"^(make_var (n::pth))) in
-          let nls = (printd CHAR)^"* "^nptr^"[] = {"^nchars^"}"
-          and als = (printd ACC)^" "^aptr^"[] = {"^achars^"}"
-          and fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}"
-          and cnt = ".count="^(string_of_int (List.length names)) in
-          let str = ".c.s={"^(String.concat "," [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr])^"}" in
-          let decl = ((printd MODULE)^" "^(make_ptr (n::pth))^" = {"^  
-            (String.concat "," [".mask = "^(string_of_int 2);".type = STRUCTURE";".stamp = 0"; str])^"}") in
-          let setup = [nls ; als ; fls ; decl ] in
-          let body = (format 0 setup) in
-            (String.concat "\n" (body@[""])) :: (structure xs)
-        | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
+      | Strct (n,pth, p::ps as opth,[],[]) -> let name = (make_str (n::pth)) 
+        and original = (make_str opth) in
+        let decl = (printd MODULE)^" "^name^" = "^original in
+        let body = (format 0 [decl]) in
+          (String.concat "\n" (body::[""])) :: (structure xs)
+      | Strct (n,pth,[],[],fctr::[]) -> let name = (make_str (n::pth))    
+        let fc = "c.f={.Functor ="^fctr^"}" in
+        let decl = ((printd MODULE)^" "^name^" = {"^
+          (String.concat "," [".mask = "^(string_of_int 2);".type = FUNCTOR";".stamp = 0"; fc])^"}") in
+        let body = (format 0 [decl]) in 
+          (String.concat "\n" (body@[""])) :: (structure xs)
+      | Strct (n,pth,names,assocs,ptrs) :: xs -> let name = (make_str (n::pth)) in
+        let convs = convert_mod assocs in
+        let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
+        and achars = String.concat "," (List.map printa assocs)
+        and fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
+        let nptr = ("char"^(make_var (n::pth)))
+        and aptr = ("acc"^(make_var (n::pth)))
+        and fptr = ("field"^(make_var (n::pth))) in
+        let nls = (printd CHAR)^"* "^nptr^"[] = {"^nchars^"}"
+        and als = (printd ACC)^" "^aptr^"[] = {"^achars^"}"
+        and fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}"
+        and cnt = ".count="^(string_of_int (List.length names)) in
+        let str = ".c.s={"^(String.concat "," [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr])^"}" in
+        let decl = ((printd MODULE)^" "^name^" = {"^  
+          (String.concat "," [".mask = "^(string_of_int (-1));".type = STRUCTURE";".stamp = 0"; str])^"}") in
+        let setup = [nls ; als ; fls ; decl ] in
+        let body = (format 0 setup) in
+          (String.concat "\n" (body@[""])) :: (structure xs)
+      | _ -> raise (Cannot_compile "print_strcts only prints Strct") 
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  functor
+    *  Description: print a functor method
+    * =====================================================================================
+    *)
+    let rec lambdaf = function [] -> []
+      | (Fctr (name,loc,comp)) as f :: xs -> let definition = printf (funcdef false f) 
+        and body = (format 1 (computation comp)) in 
+        (String.concat "\n" ( (definition::body) @ func_end)) :: (lambdaf xs) 
+      | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
 
   end
 

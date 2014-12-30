@@ -492,15 +492,6 @@ struct
   *)
   let compile mty program headerf =
 
-    (* print fnctrs TODO *)
-    let rec print_fctrs = function [] -> []
-      | (Fctr (name,loc,comp)) as f :: xs -> let definition = printf (MC.Low.funcdef false f) in
-        let body = (format 1 ["return;"]) in 
-        (String.concat "\n" ( (definition::body) @ func_end)) :: (print_fctrs xs) 
-      | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
-    in
-
-
     (* print entrypoints *)
     let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
       let args = if (mask) then [ (MODULE,STR) ] else [] in
@@ -571,7 +562,7 @@ struct
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
-    and fc_ls = (separate "Functors" (print_fctrs (List.rev fctr_list)))
+    and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctr_list)))
    (* and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) *)
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in

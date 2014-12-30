@@ -155,12 +155,13 @@ typedef struct module_s{
             } * fields;
         }s;
         struct functor {
-            void (*Functor) (void);      
+            module_s (*Functor) (BINDING*,module_s *);      
         }f;
     }c;
 }MODULE;
 
 typedef union field_t FIELD;
+typedef union content CONTENT;
 
 
 /*-----------------------------------------------------------------------------
@@ -535,6 +536,57 @@ LOCAL DTYPE emptyType(void)
 {
    DTYPE d;  
    return d;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeContentF
+ *  Description:  return a Module Content for a functor
+ * =====================================================================================
+ */
+LOCAL CONTENT makeContentF(Functor f)
+{
+    CONTENT ret;
+    ret.f.Functor = f;
+    return ret; 
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeContentS
+ *  Description:  return a Module Content for a structure
+ * =====================================================================================
+ */
+LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * ls)
+{
+    CONTENT ret;
+    ret.s.count = c;
+    ret.s.names = MALLOC(c);
+    str_cpy(ret.s.names,n,c);
+    ret.s.accs = MALLOC(c * sizeof(ACC));
+    for(int i = 0; i < c; i++) ret.s.accs[i] = a[i]; 
+    ret.s.fields = MALLOC(c * sizeof(FIELD));
+    for(int i = 0; i < c; i++) ret.s.fields[i] = ls[i]; 
+    return ret;     
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  makeModule
+ *
+ *  Description:  return a Module
+ * =====================================================================================
+ */
+LOCAL MODULE makeModule(int m, MODTAG t, int s, BINDING * ls,CONTENT c)
+{
+    MODULE ret;
+    ret.mask = m;
+    ret.type = t;
+    ret.stamp = s;
+    ret.strls = ls;
+    ret.c = c;
+    return ret;
 }
 
 #endif

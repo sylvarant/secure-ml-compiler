@@ -44,6 +44,7 @@ sig
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
+    | ToFunctor of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
@@ -130,6 +131,7 @@ struct
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
+    | ToFunctor of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -325,6 +327,7 @@ struct
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
       | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
     | ToStructure (s,ls) -> "struct "^s^" {"^ (String.concat " "  (List.map printc ls))^"}"
+    | ToFunctor a -> "("^(printc a)^").f.Functor"
     | Member (ty,str) -> (printty ty)^" "^str^";"
     | CallMember (ret,n,arg) -> (printty ret)^" (*"^n^")("^(match arg with [] -> "void" 
       | ls -> (String.concat "," (List.map printty arg)))^");"
