@@ -155,7 +155,7 @@ typedef struct module_s{
             } * fields;
         }s;
         struct functor {
-            module_s (*Functor) (BINDING*,module_s *);      
+            struct module_s (*Functor) (BINDING*,struct module_s);      
         }f;
     }c;
 }MODULE;
@@ -515,6 +515,18 @@ LOCAL VALUE getValue(BINDING * binding,void * key)
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:  getModule
+ *  Description:  helper function for grabbing values
+ * =====================================================================================
+ */
+LOCAL MODULE getModule(BINDING * binding,void * key)
+{
+    return *((MODULE *)getBinding(binding,key,cmp_char));
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:  emptyModule
  *  Description:  return an empty module (for testing purposes)
  * =====================================================================================
@@ -563,7 +575,7 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * ls)
     CONTENT ret;
     ret.s.count = c;
     ret.s.names = MALLOC(c);
-    str_cpy(ret.s.names,n,c);
+    for(int i = 0; i < c; i++) ret.s.names[i] = n[i];
     ret.s.accs = MALLOC(c * sizeof(ACC));
     for(int i = 0; i < c; i++) ret.s.accs[i] = a[i]; 
     ret.s.fields = MALLOC(c * sizeof(FIELD));

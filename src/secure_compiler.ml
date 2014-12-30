@@ -557,7 +557,7 @@ struct
     in
 
     (* build the object file *)
-    let dec_ls = (separate "Declarations" (mapfd gettr_lst))
+    let dec_ls = (separate "Declarations" (mapfd (gettr_lst@fctr_list)))
     and pb_ls = (separate "Static Structures" (MC.Low.structure (List.rev strct_list)))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))

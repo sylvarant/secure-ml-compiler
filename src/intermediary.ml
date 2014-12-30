@@ -44,7 +44,7 @@ sig
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
-    | ToFunctor of tempc
+    | ToFunctor of tempc | GetStr of tempc * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
@@ -131,7 +131,7 @@ struct
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
-    | ToFunctor of tempc
+    | ToFunctor of tempc | GetStr of tempc * tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -312,6 +312,7 @@ struct
     | Insert (a,b,c) -> "insertBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^")"
     | ToClosure (a,b,c) -> "makeClosure("^(printc a)^","^(printc b)^","^(printc c)^")"
     | Get (a,b) -> "getValue("^(printc a)^","^(printc b)^")" 
+    | GetStr (a,b) -> "getModule("^(printc a)^","^(printc b)^")"
     | MALLOC (a,b,c) -> (printd a)^" "^(printc (Ptr b))^" = malloc("^(printc c)^")"
     | Ptr a -> "*"^(printc a) 
     | Adress a -> "&"^(printc a)
