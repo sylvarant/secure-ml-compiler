@@ -224,6 +224,7 @@ LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
+LOCAL MODDATA convertM(MODULE,TYPE);
 LOCAL struct value_type convertD(DATA);
 LOCAL DATA convert(void *,TERMTAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);

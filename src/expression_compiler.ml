@@ -86,7 +86,7 @@ struct
            (try (match (lookup_path env cpath) with
               | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[(constv MOD)]))) 
               | Dynamic (nn, Some ls) -> let path = CString (make_path ls)
-                and size = CInt (List.length ls) in
+                and size = CInt (String.length (make_path ls)) in
                   (ToCall ((constc PATHV),[ (constv MOD); path ; size])) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
            with _ -> (Get ((constv ENV),(CString (make_entrypoint cpath)))))

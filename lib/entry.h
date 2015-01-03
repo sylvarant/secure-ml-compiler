@@ -83,7 +83,7 @@ typedef struct Type_s {
     TYPE_INFO t;
     union {
         struct {
-            char * abname;
+            char * name;
             struct Type_s * type;
         };
         struct {
@@ -126,7 +126,7 @@ typedef struct Moduledata_s{
  *-----------------------------------------------------------------------------*/
 
 ENTRYPOINT DATA closure_entry(int,DATA);
-ENTRYPOINT DATA functor_entry(int,MODDATA);
+ENTRYPOINT MODDATA functor_entry(int,MODDATA);
 
 #endif
 

@@ -79,7 +79,7 @@ struct
     | Pdot (p,str) -> str :: (convert_path p)) 
   
   (* convert a list into a pointer *)
-  let make_entrypoint = function [] -> "toplevel" 
+  let make_entrypoint = function [] -> "this" 
     | lst -> (String.concat "_" (List.rev lst)) 
 
   let make_ptr lst = "_" ^ (make_entrypoint lst)
@@ -293,6 +293,7 @@ struct
               (a,Strct(name,path,pth,[],[])::b)))
 
 
+
       (* ================================================= *)
       (* Compile the functor                               *)
       (* ================================================= *)
@@ -367,7 +368,10 @@ struct
       in
 
       (* toplevel *)
-      let (gls,stls) = (extract ls) in (gls,stls,!fctr_list)
+      let (gls,stls) = (extract ls) in 
+      let (names,assocs,ptrs) = (quick ls) in
+      let this = Strct("this",[],names,assocs,ptrs) in
+        (gls,(this::stls),!fctr_list)
 
   end
 

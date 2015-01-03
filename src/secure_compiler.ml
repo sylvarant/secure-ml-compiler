@@ -54,9 +54,9 @@ struct
   type typetrawl = Fail | SimpleType of simple_type | Modtype of mod_type 
                  | ManifestType of def_type option
 
-  type assoc = Call of val_type * string * string list * cpath
+  type assoc = Call of val_type * string * string list * cpath * bool
              | Share of MiniMLMod.mod_type * string * string list * string list
-             | Fu of MiniMLMod.mod_type * string * string * string list * string list
+             | Provide of MiniMLMod.mod_type * string * string * string list * string list
 
   type methods = EntryPoint of string * type_u * computation * bool
  
@@ -109,13 +109,13 @@ struct
   (* sort assoc *)
   let sort_assocs als =
     let cmp_ass a b = match (a,b) with 
-      | (Call (_,n,pth,_),Call (_,n2,pth2,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2))) 
+      | (Call (_,n,pth,_,_),Call (_,n2,pth2,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2))) 
       | (Share (_,n,_,pth),Share (_,n2,_,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
-      | (Fu (_,n,_,_,pth),Fu (_,n2,_,_,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Provide (_,n,_,_,pth),Provide (_,n2,_,_,pth2)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Call _, _)  -> 1
-      | (Fu _, _) -> -1
+      | (Provide _, _) -> -1
       | (Share _,Call _) -> -1
-      | (Share _,Fu _) -> 1
+      | (Share _,Provide _) -> 1
     in
     (List.sort cmp_ass als)
 
@@ -127,15 +127,15 @@ struct
       else (Pervasives.compare (List.length a) (List.length b))
     in
     let cmp_ass a b = match (a,b) with
-      | (Call (_,_,p,_), Call (_,_,p2,_)) -> ccmp p p2
+      | (Call (_,_,p,_,_), Call (_,_,p2,_,_)) -> ccmp p p2
       | (Share (_,_,_,p), Share (_,_,_,p2)) -> ccmp p p2
-      | (Fu (_,_,_,_,p), Fu (_,_,_,_,p2)) -> ccmp p p2
-      | (Call (_,_,p,_), Share (_,_,_,p2)) -> ccmp p p2
-      | (Call (_,_,p,_), Fu (_,_,_,_,p2)) -> ccmp p p2
-      | (Share (_,_,_,p), Call(_,_,p2,_)) -> ccmp p p2
-      | (Share (_,_,_,p), Fu (_,_,_,_,p2)) -> ccmp p p2
-      | (Fu (_,_,_,_,p), Share (_,_,_,p2)) -> ccmp p p2
-      | (Fu (_,_,_,_,p), Call (_,_,p2,_)) -> ccmp p p2
+      | (Provide (_,_,_,_,p), Provide (_,_,_,_,p2)) -> ccmp p p2
+      | (Call (_,_,p,_,_), Share (_,_,_,p2)) -> ccmp p p2
+      | (Call (_,_,p,_,_), Provide (_,_,_,_,p2)) -> ccmp p p2
+      | (Share (_,_,_,p), Call(_,_,p2,_,_)) -> ccmp p p2
+      | (Share (_,_,_,p), Provide (_,_,_,_,p2)) -> ccmp p p2
+      | (Provide (_,_,_,_,p), Share (_,_,_,p2)) -> ccmp p p2
+      | (Provide (_,_,_,_,p), Call (_,_,p2,_,_)) -> ccmp p p2
     in
     (List.sort cmp_ass als)
 
@@ -143,15 +143,15 @@ struct
   let split_assocpth als =
     let rec filtr (tar : string list) (curr : assoc list) : assoc list -> assoc list list = function [] -> curr :: []
       | l :: ls -> match l with
-        | Call (_,_,p,_) as c when (make_ptr p) = (make_ptr tar) ->
+        | Call (_,_,p,_,_) as c when (make_ptr p) = (make_ptr tar) ->
             (filtr tar (c::curr) ls)
-        | Call (_,_,p,_) as c -> curr :: (filtr p [c] ls)
+        | Call (_,_,p,_,_) as c -> curr :: (filtr p [c] ls)
         | Share (_,str,_,path) as s when (make_ptr path) = (make_ptr tar) ->
             (filtr tar (s::curr) ls)
         | Share (_,str,p,path) as s -> curr :: (filtr path [s] ls)
-        | Fu (_,str,_,_,path) as f when (make_ptr path) = (make_ptr tar) ->
+        | Provide (_,str,_,_,path) as f when (make_ptr path) = (make_ptr tar) ->
             (filtr tar (f::curr) ls)
-        | Fu (_,str,_,_,path) as f -> curr :: (filtr path [f] ls)
+        | Provide (_,str,_,_,path) as f -> curr :: (filtr path [f] ls)
     in
     (List.rev (filtr [] [] (sort_assocspth als)))
           
@@ -347,16 +347,37 @@ struct
       let rec convert_assoc path = function [] -> []
         | (bind,ty)::ls -> match (bind,ty) with
           | (BVal (name,pth,_) , Value_sig (_, vty)) ->
-            (Call (vty,name,path,pth))::(convert_assoc path ls) 
+            (Call (vty,name,path,pth,false))::(convert_assoc path ls) 
           | (BMod (name,_, modt), Module_sig(_,mty)) -> (match modt with 
             | AR _ -> raise (Cannot_Sec_Compile "Cannot convert AR modbinding")
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else (convert_assoc (name::path) (clear_input mty nbinding))  in 
                 ((Share (mty,name,pth,path)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,id,_,_,_) -> (Fu (mty,name,id,pth,path)) :: (convert_assoc path ls)) (* TODO get FB share *)
+            | FB (pth,id,_,mb,_) -> (convert_fassoc name path mty) @ (convert_assoc path ls)) 
           | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
+      (* convert a functor into bindings based on result type alone *)
+      and convert_fassoc name path mty = 
+
+        (* parse the signature spec *)
+        let rec parse_sigls path = function [] -> []
+          | x :: xs -> match x with
+            | Value_sig (id, vty) -> let nm = Ident.name id in  
+              Call(vty,nm,path,path,true) :: (parse_sigls path xs)
+            | Module_sig (id,mty) -> let nm = Ident.name id in
+                (parse_mty nm path mty) @ (parse_sigls path xs)
+            | Type_sig _ -> (parse_sigls path xs)
+
+        (* parse the module type *)
+        and parse_mty name path mty = match mty with
+          | Functor_type (id,_,rmty) -> 
+              Provide (mty,name,(Ident.name id),path,path) :: (parse_mty "Functor" (name::path) rmty)
+          | Signature sigls ->  (*Share(mty,name,path,path) ::*) (parse_sigls (name::path) sigls) (* I don't think we share the structure *)
+        in
+
+        (* top level*)
+        (parse_mty name path mty)
       in
 
       (* top level *)
@@ -401,10 +422,10 @@ struct
       let build_strc sty ty ls = 
         let rec convert s = function [] -> []
           | x :: xs -> match x with
-            | Call (_,str,pth,_) -> SetMember(s,str,CVar (make_entrypoint (str::pth))) :: (convert s xs)
+            | Call (_,str,pth,_,_) -> SetMember(s,str,CVar (make_entrypoint (str::pth))) :: (convert s xs)
             | Share (_,str,[],[]) when str = "this" -> (convert s xs)
             | Share (_,str,opth,pth) -> SetMember(s,str, CVar (make_entrypoint (str::pth))) :: (convert s xs)
-            | Fu (_,str,_,opth,pth) -> SetMember(s,str, CVar (make_entrypoint (str::pth))) :: (convert s xs)
+            | Provide (_,str,_,opth,pth) -> SetMember(s,str, CVar (make_entrypoint (str::pth))) :: (convert s xs)
         in
         let nv = new_var() in
         let nm =  new_mask() in
@@ -419,39 +440,39 @@ struct
       (* convert assocs into Gettrs *)
       let rec entrypts (pls : assoc list list) : assoc list -> methods list = function [] -> []
         | x :: xs -> match x with
-          | (Call(ty,name,pth,rpth)) -> 
+          | (Call(ty,name,pth,rpth,needs)) -> 
             let eptr = (make_entrypoint (name::pth))  in
             let ptr = make_ptr (name::rpth) in
             let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
-            let comp = (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ])) 
-            and needs = (needsmodule ptr) in
+            let comp = (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ])) in
             EntryPoint(eptr,(constd DATA),([],[],comp),needs) :: (entrypts pls xs)
           | Share(mty,name,opth,pth)  -> 
+            let make_comp p m = ([],[],ToCall ((CVar "convertM"), [CVar p ; m])) in
             let tail = (try (List.tl pls) with _ -> []) in
             let memb = (try (List.hd pls) with _ -> []) in
             let eptr = (make_entrypoint (name::pth)) in
             let ptr = make_str (name::pth) in
-            let sty = (TyCStruct ptr) in
             if name = "this" then
-              let special = (TyCStruct (make_str [])) in
+              let special = (make_str []) in
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-              let compu = (build_strc special modcomp memb) in
-              EntryPoint(name,special,compu,false) :: (entrypts tail xs)
+              let compu = (make_comp special modcomp) in
+              EntryPoint(name,(constd MODDATA),compu,false) :: (entrypts tail xs)
             else
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-              let compu = (build_strc sty modcomp memb) in
-              EntryPoint(eptr,sty,compu,false) :: (entrypts tail xs)
-          | Fu(mty,name,id,opth,pth) -> 
+              let compu = (make_comp ptr modcomp) in
+              EntryPoint(eptr,(constd MODDATA),compu,false) :: (entrypts tail xs)
+          | Provide(mty,name,id,opth,pth) -> 
             let eptr = (make_entrypoint (name::pth)) in
             let otherc = (make_entrypoint opth) in 
-            if otherc = eptr then 
+            if opth = pth then 
               (*let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in*)
               let nv = new_var() in
               let nm = new_maskf() in
+              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
               let var = ToStatic((constd MODDATA),(CVar nv)) in
               let tag = SetMember (nv,"t",(CVar "FUNCTOR")) 
               and id = SetMember (nv,"identifier",(CInt nm)) 
-              and typ = SetMember (nv,"type",(ToCall(CVar "emptyType",[]))) 
+              and typ = SetMember (nv,"type",(ToCall(CVar "convertT",[modcomp]))) 
               and retv = CVar nv in
               let setup = [ var;tag;id;typ] in
               EntryPoint(eptr,(constd MODDATA),([],setup,retv),false) :: (entrypts pls xs)
@@ -494,7 +515,7 @@ struct
 
     (* print entrypoints *)
     let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
-      let args = if (mask) then [ (MODULE,STR) ] else [] in
+      let args = if (mask) then [ (MODDATA,STR) ] else [] in
       let definition = (ENTRYPOINT,typ,name,args,false) in
       let md = (printd BINDING)^" "^(printconst MOD)^" = "^
         (if (mask) then (printconst MOD) else "NULL") in
@@ -502,47 +523,16 @@ struct
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
     in
 
-    (* print_strc *)
-    let  print_strc l = 
-      let rec process ss = function [] -> []
-        | ls :: lls -> 
-          (try let first = (List.hd ls) in 
-            let name = (make_str (match first with
-              | Call (_,_,pth,_) -> pth
-              | Share (_,_,_,pth) -> pth
-              | Fu (_,_,_,_,pth) -> pth))
-            in
-            let rec convert = function [] -> []
-              | x :: xs -> match x with
-                | Call (_,str,pth,_) ->  CallMember ((constd DATA),str,[]) :: (convert xs)
-                | Share (_,str,_,_) when str = "this" -> (convert xs)
-                | Share (_,str,pth,path) -> let strr = (make_str (str::path)) in
-                  if (List.exists (fun x -> x = strr) ss) 
-                  then CallMember ((TyCStruct strr),str,[]) :: (convert xs)
-                  else raise (Cannot_compile "undefined structure")
-                | Fu (_,str,_,pth,_) -> CallMember ((constd MODDATA),str,[]) :: (convert xs)
-            in
-            let defls = convert ls 
-            and mask = Member ((TyCType "int"),"mask")
-            and typ = Member ((constd DTYPE),"type")
-            in
-            (ToStructure (name, mask :: typ :: defls)) :: (process (name::ss) lls)
-          with Failure s -> (process ss lls))
-      in
-      (* top level *)
-      (process [] l)
-    in
-    
-    (* convert list of compiler redices into strings of function definitions *)
-    let mapfd ls = (List.map printf 
-      (List.map (fun x -> (MC.Low.funcdef true x)) ls))
-    in
-
     (* map entry point definitions *)
     let mapentrydef ls = (List.map printf 
       (List.map (function EntryPoint(name,typ,comp,mask) ->
-        let args = if (mask) then [ (MODULE,STR) ] else [] in
+        let args = if (mask) then [ (MODDATA,STR) ] else [] in
         (ENTRYPOINT,typ,name,args,true)) ls))
+    in
+
+    (* convert list of compiler redices into strings of function definitions *)
+    let mapfd ls = (List.map printf 
+      (List.map (fun x -> (MC.Low.funcdef true x)) ls))
     in
 
     (* Top Level *)
@@ -550,10 +540,10 @@ struct
     let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
 
     (* build the header *)
-    let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))
-    and en_dls = (separate "Entry Points" (mapentrydef gentry))
+    (*let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))*)
+    let en_dls = (separate "Entry Points" (mapentrydef gentry))
     and hedh = header  (List.map printc [(consth ENTRY)]) in
-    let headerfile = (String.concat "\n"(hedh @ str_ls @ en_dls)) ^ "\n"  
+    let headerfile = (String.concat "\n"(hedh @ en_dls)) ^ "\n"  
     in
 
     (* build the object file *)

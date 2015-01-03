@@ -166,3 +166,15 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
 
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    functor_entry
+ *  Description:    entry point for functor application
+ * =====================================================================================
+ */
+ENTRYPOINT MODDATA functor_entry(int id,MODDATA d){
+  MODDATA ret;
+  return ret;
+}
+

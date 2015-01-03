@@ -12,8 +12,6 @@
  */
 
 
-
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:    convertV
@@ -136,6 +134,30 @@ LOCAL struct value_type convertD(DATA input)
     return result;
 }
 
+// helper function
+LOCAL char * outsidestring(char * s)
+{
+    char * input = s;
+    int i = 0;
+    while(*s++ != '\0'){i++;}
+    char * ret = OUTERM(i);
+    for(int j = 0; j < i; j++) ret[j] = input[i];
+    return ret;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    convertM
+ *  Description:    convert an inside Module into a MODDATA for the outside 
+ * =====================================================================================
+ */
+LOCAL MODDATA convertM(MODULE m,TYPE ty)
+{
+    MODDATA ret;
+    return ret;
+}
+
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -148,9 +170,52 @@ LOCAL DTYPE convertT(TYPE ty)
     DTYPE typ;
     switch(ty.t)
     {
-        default:{
+        case T(ABSTRACT) :{
             typ.t = TYABSTRACT;
-            typ.abname = "test";
+            typ.name = outsidestring(ty.aa.name);
+            typ.type = NULL;
+            break;
+        }
+
+        case T(INT) :{
+            typ.t = TYINT;
+            break;
+        }
+
+        case T(BOOLEAN) :{
+            typ.t = TYBOOLEAN;
+            break;
+        }
+
+        case T(ARROW) :{
+            typ.t = TYARROW;
+            typ.left = OUTERM(sizeof(DTYPE));
+            typ.right = OUTERM(sizeof(DTYPE));
+            *typ.left = convertT(ty.a.left);
+            *typ.right = convertT(ty.a.right);
+            break;
+        }
+
+        case T(STAR) :{
+            typ.t = TYSTAR;
+            typ.left = OUTERM(sizeof(DTYPE));
+            typ.right = OUTERM(sizeof(DTYPE));
+            *typ.left = convertT(ty.s.left);
+            *typ.right = convertT(ty.s.right);
+            break;
+        }
+
+        case T(VALUE) :{
+            typ.t = TYVALUE; 
+            typ.name = outsidestring(ty.v.name);
+            typ.type = OUTERM(sizeof(DTYPE));
+            *typ.type = convertT(ty.v.type);
+            break;
+        }
+
+        case T(IGNORE):{
+            typ.t = TYABSTRACT;
+            typ.name = outsidestring("ignore");
             typ.type = NULL;
             break;
         }
