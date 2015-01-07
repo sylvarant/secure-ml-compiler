@@ -175,6 +175,9 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
  */
 ENTRYPOINT MODDATA functor_entry(int id,MODDATA d){
   MODDATA ret;
+  union safe_cast key = {.value = id};
+  struct module_type * mt = getBinding(exchange,key.bytes,cmp_int);
+
   return ret;
 }
 

@@ -47,7 +47,7 @@ sig
     | ToFunctor of tempc | GetStr of tempc * tempc 
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
   and headers = MINI | ENTRY
@@ -135,7 +135,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
 
   and consts = ENV | ARG | MOD | STR | TOP
 
@@ -181,6 +181,7 @@ struct
     | CHAR -> "char"
     | ACC -> "ACC"
     | FIELD -> "FIELD"
+    | ENTRY -> "ENTRY"
     | MODULE -> "MODULE"
     | MODDATA -> "MODDATA"
 

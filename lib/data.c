@@ -155,6 +155,28 @@ LOCAL char * outsidestring(char * s)
 LOCAL MODDATA convertM(MODULE m,TYPE ty)
 {
     MODDATA ret;
+    ret.t = m.type; 
+    ret.type = convertT(ty);
+    struct structure s = m.c.s;
+    if(m.type == STRUCTURE){
+        int count = 0;
+        for(int i = 0; i < s.count; i++){
+            if(s.entries[i].bytes != NULL) count++;
+        }
+        ret.names = OUTERM(sizeof(char*)*count);
+        ret.fcalls = OUTERM(sizeof(void*)*count);
+        for(int i = 0; i < count; i++){
+            ret.names[i] = outsidestring(s.names[i]); 
+            ret.fcalls[i] = s.entries[i].bytes;
+        }
+    }
+    struct module_type * ptr = MALLOC(sizeof(struct module_type));
+    ptr->m = m;
+    ptr->ty = ty;
+    union safe_cast key; 
+    key.value = getAdress();
+    ret.identifier = key.value;
+    insertBinding(&exchange,key.bytes,(void *)ptr);
     return ret;
 }
 
@@ -191,8 +213,8 @@ LOCAL DTYPE convertT(TYPE ty)
             typ.t = TYARROW;
             typ.left = OUTERM(sizeof(DTYPE));
             typ.right = OUTERM(sizeof(DTYPE));
-            *typ.left = convertT(ty.a.left);
-            *typ.right = convertT(ty.a.right);
+            *typ.left = convertT(*(ty.a.left));
+            *typ.right = convertT(*(ty.a.right));
             break;
         }
 
@@ -200,8 +222,8 @@ LOCAL DTYPE convertT(TYPE ty)
             typ.t = TYSTAR;
             typ.left = OUTERM(sizeof(DTYPE));
             typ.right = OUTERM(sizeof(DTYPE));
-            *typ.left = convertT(ty.s.left);
-            *typ.right = convertT(ty.s.right);
+            *typ.left = convertT(*(ty.s.left));
+            *typ.right = convertT(*(ty.s.right));
             break;
         }
 
@@ -209,7 +231,51 @@ LOCAL DTYPE convertT(TYPE ty)
             typ.t = TYVALUE; 
             typ.name = outsidestring(ty.v.name);
             typ.type = OUTERM(sizeof(DTYPE));
-            *typ.type = convertT(ty.v.type);
+            *typ.type = convertT(*(ty.v.type));
+            break;
+        }
+
+        case T(MODULE) :{
+            typ.t = TYMODULE; 
+            typ.name = outsidestring(ty.m.name);
+            typ.type = OUTERM(sizeof(DTYPE));
+            *typ.type = convertT(*(ty.v.type));
+            break;
+        }
+
+        case T(DECLARATION) :{
+            typ.t = TYDECLARATION; 
+            typ.name = outsidestring(ty.d.name);
+            typ.type = OUTERM(sizeof(DTYPE));
+            *typ.type = convertT(*(ty.v.type));
+            break;
+        }
+
+        case T(FUNCTOR) :{
+            typ.t = TYDECLARATION; 
+            typ.fname = outsidestring(ty.f.name);
+            typ.fleft = OUTERM(sizeof(DTYPE));
+            typ.fright = OUTERM(sizeof(DTYPE));
+            *typ.fleft = convertT(*(ty.f.left));
+            *typ.fright = convertT(*(ty.f.right));
+            break;
+        }
+
+        case T(SIGNATURE) :{
+            typ.t = TYSIGNATURE;
+            struct T(Signature) * it = &(ty.ss);
+            int count = 1;
+            while(it->next != NULL){
+                count++;
+                it = it->next;
+            }
+            typ.count = count;
+            typ.list = OUTERM(sizeof(DTYPE) * count);
+            it = &(ty.ss);
+            for(int i = 0; i < count; i++){
+                typ.list[i] = convertT(*(it->type));
+                it = it->next;
+            }
             break;
         }
 

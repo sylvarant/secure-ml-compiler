@@ -94,8 +94,8 @@ struct
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
       | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
-      | (Strct (n,pth,_,_,_) , Strct (n2,pth2,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
-      | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
+      | (Strct (_,n,pth,_,_,_,_) , Strct (_,n2,pth2,_,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Fctr (str,_,_, _),Fctr (str2,_,_, _)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
       | (Gettr _, _)     -> 1
       | (_, Gettr _)     -> -1
@@ -138,6 +138,7 @@ struct
       | (Provide (_,_,_,_,p), Call (_,_,p2,_,_)) -> ccmp p p2
     in
     (List.sort cmp_ass als)
+     
 
   (* split associations into a sequence of path related assocs *)
   let split_assocpth als =
@@ -205,7 +206,7 @@ struct
 
     (* establish the target *) 
     let target = (match (List.rev pth) with [] -> raise (Cannot_compile "Empty path to complete") | x::_ -> x) in
-
+    
     (* search declarations *)
     let rec full_decl (topl : string list) (sigls : specification list) (ns : string list) : unit = match sigls with 
        | [] -> ()
@@ -216,6 +217,8 @@ struct
          | Module_sig (id,mod_type) -> let name = (Ident.name id) in
            if (((List.length ns) > 0) && (name = (List.hd ns))) 
            then ((full_mty (name::topl) mod_type (List.tl ns)); (full_decl topl xs ns))  (* Recurse *)
+           else if (List.length ns == 0)
+           then ((full_mty (name::topl) mod_type []); (full_decl topl xs ns))  (* Recurse *)
            else (full_decl topl xs ns)
          | _ -> (full_decl topl xs ns)
 
@@ -264,7 +267,7 @@ struct
       let fullpath = 
         (try (gen_full_path progtype (convert_path path) pth); 
            raise (Cannot_compile "Couldn't gen. path")
-         with Found topl -> topl
+         with Found topl -> (*(Printf.eprintf "found %s \n" (String.concat "." topl)*) topl
          | Cannot_compile _ as a -> raise a) in
         (*(raise (Cannot_compile ("Before obtain "^(String.concat "." fullpath)))); *)
       (obtainbase fullpath)
@@ -373,7 +376,8 @@ struct
         and parse_mty name path mty = match mty with
           | Functor_type (id,_,rmty) -> 
               Provide (mty,name,(Ident.name id),path,path) :: (parse_mty "Functor" (name::path) rmty)
-          | Signature sigls ->  (*Share(mty,name,path,path) ::*) (parse_sigls (name::path) sigls) (* I don't think we share the structure *)
+          | Signature sigls ->  (*Share(mty,name,path,path) ::*) (parse_sigls (name::path) sigls) 
+            (* I don't think we share the structure *)
         in
 
         (* top level*)
@@ -489,7 +493,7 @@ struct
     let update_compred ls = 
       let update = function
         | Gettr(str,dtstr,_,mask,comp) -> Gettr(str,dtstr,LOCAL,mask,comp)
-        | Fctr(p,_,c) -> Fctr(p,LOCAL,c) 
+        | Fctr(p,_,c,e) -> Fctr(p,LOCAL,c,e) 
         | _ -> raise (Cannot_Sec_Compile "updating the wrong redices")
       in
       (List.map update ls)
@@ -530,6 +534,31 @@ struct
         (ENTRYPOINT,typ,name,args,true)) ls))
     in
 
+    (* is a real entrypoint *)
+    let convert_entry enls str =
+      (* is an entrypoint *)
+      let isentry ptr = 
+        let predicate = function
+          | EntryPoint (str1,_,_,_) when str1 = ptr -> true
+          | _ -> false
+        in 
+        (List.exists predicate enls) 
+      in
+      (* convert non entry point to NULL *)
+      let conv_e = (function 
+        | x when (isentry x) -> x  
+        | _ -> "NULL") 
+      in
+      match str with
+      | Strct (t,a,b,c,d,e,ls) -> let nls = (List.map conv_e ls) in 
+          Strct (t,a,b,c,d,e,nls)
+      | Fctr (a,b,c,ls) -> let rec conv = function [] -> []
+          | ys::(x::xs)::bls -> ys::(x :: (List.map conv_e xs)) :: (conv bls) 
+        in
+        let nls = (conv ls) in
+        Fctr (a,b,c,nls)
+    in
+
     (* convert list of compiler redices into strings of function definitions *)
     let mapfd ls = (List.map printf 
       (List.map (fun x -> (MC.Low.funcdef true x)) ls))
@@ -538,6 +567,12 @@ struct
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
     let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
+
+
+    (* filter out the unnecessary entry points *)
+    let n_strlist = (List.map (fun x -> (convert_entry gentry x)) strct_list)
+    and n_fctrlist = (List.map (fun x -> (convert_entry gentry x)) fctr_list)
+    in
 
     (* build the header *)
     (*let str_ls = (separate "Structs" (format 0 (List.map printc (print_strc (split_assocpth assocs)))))*)
@@ -548,11 +583,11 @@ struct
 
     (* build the object file *)
     let dec_ls = (separate "Declarations" (mapfd (gettr_lst@fctr_list)))
-    and pb_ls = (separate "Static Structures" (MC.Low.structure (List.rev strct_list)))
+    and pb_ls = (separate "Static Structures" (MC.Low.structure n_strlist))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
-    and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctr_list)))
+    and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev n_fctrlist)))
    (* and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) *)
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in

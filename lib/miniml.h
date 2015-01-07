@@ -153,6 +153,12 @@ typedef struct module_s{
                 struct module_s * module;
                 VALUE (*gettr)(BINDING *);
             } * fields;
+            union entry_t {
+                void * bytes;
+                DATA (*entry_v)(void);
+                DATA (*entry_v2)(MODDATA);
+                MODDATA (*entry_m) (void);
+            } * entries;
         }s;
         struct functor {
             struct module_s (*Functor) (BINDING*,struct module_s);      
@@ -161,6 +167,7 @@ typedef struct module_s{
 }MODULE;
 
 typedef union field_t FIELD;
+typedef union entry_t ENTRY;
 typedef union content CONTENT;
 
 
@@ -193,6 +200,10 @@ struct value_type{
     TYPE ty;
 };
 
+struct module_type{
+    MODULE m;
+    TYPE ty;
+};
 
 /*-----------------------------------------------------------------------------
  * Function Pointers
@@ -571,7 +582,7 @@ LOCAL CONTENT makeContentF(Functor f)
  *  Description:  return a Module Content for a structure
  * =====================================================================================
  */
-LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * ls)
+LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
 {
     CONTENT ret;
     ret.s.count = c;
@@ -580,7 +591,9 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * ls)
     ret.s.accs = MALLOC(c * sizeof(ACC));
     for(int i = 0; i < c; i++) ret.s.accs[i] = a[i]; 
     ret.s.fields = MALLOC(c * sizeof(FIELD));
-    for(int i = 0; i < c; i++) ret.s.fields[i] = ls[i]; 
+    for(int i = 0; i < c; i++) ret.s.fields[i] = fs[i]; 
+    ret.s.entries = MALLOC(c * sizeof(ENTRY));
+    for(int i = 0; i < c; i++) ret.s.entries[i] = es[i];
     return ret;     
 }
 

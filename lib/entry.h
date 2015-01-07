@@ -97,7 +97,7 @@ typedef struct Type_s {
         };
         struct {
             int count;
-            struct Type_s ** list;
+            struct Type_s * list;
         };
     };
 } DTYPE;
