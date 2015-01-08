@@ -17,8 +17,8 @@ int tests_run = 0;
 int tests_set = 2;
 
 TEST(getModule)
-    struct str_One temp = One();
-    CHECK("Did not fetch the One module",temp.mask == 1);
+    MODDATA temp = One();
+    CHECK("Did not fetch the One module",temp.identifier == 1);
 DONE
 
 TEST(getValue)

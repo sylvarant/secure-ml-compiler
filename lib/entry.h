@@ -60,7 +60,7 @@ typedef enum Termtag_e {
 typedef struct Data_s{
     TERMTAG t;   
     union {
-        void * bytes;
+        void * byte;
         int value; 
         int identifier;
         struct {
@@ -115,6 +115,7 @@ typedef struct Moduledata_s{
     DTYPE type;
     int identifier;
     struct {
+        int count;
         char ** names; 
         void ** fcalls;
     };

@@ -29,7 +29,7 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
         d.identifier = getAdressAbs();
         VALUE * value = MALLOC(sizeof(VALUE)); 
         *value = input;
-        insertBigBinding(&abstract_exchange,d.bytes,value,0,ty);
+        insertBigBinding(&abstract_exchange,d.byte,value,0,ty);
         return d;
     }
 
@@ -52,7 +52,7 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
             d.identifier = getAdressClo(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
-            insertBigBinding(&closure_exchange,d.bytes,value,0,ty);
+            insertBigBinding(&closure_exchange,d.byte,value,0,ty);
             d.t = CLOSURE;
             break;
         }
@@ -102,7 +102,7 @@ LOCAL struct value_type convertD(DATA input)
         }
 
         case CLOSURE:{
-            META * meta = (META *) getBinding(closure_exchange,input.bytes,cmp_int);
+            META * meta = (META *) getBinding(closure_exchange,input.byte,cmp_int);
             VALUE temp = *((VALUE *) meta->value);
             result.val = temp;
             result.ty = meta->type;
@@ -110,7 +110,7 @@ LOCAL struct value_type convertD(DATA input)
         }
 
         case ABSTRACT:{
-            META * meta = (META *) getBinding(abstract_exchange,input.bytes,cmp_int);
+            META * meta = (META *) getBinding(abstract_exchange,input.byte,cmp_int);
             VALUE temp = *((VALUE *) meta->value);
             result.val = temp;
             result.ty = meta->type;
@@ -138,10 +138,10 @@ LOCAL struct value_type convertD(DATA input)
 LOCAL char * outsidestring(char * s)
 {
     char * input = s;
-    int i = 0;
-    while(*s++ != '\0'){i++;}
-    char * ret = OUTERM(i);
-    for(int j = 0; j < i; j++) ret[j] = input[i];
+    int count = 0;
+    while(*s++ != '\0'){count++;}
+    char * ret = OUTERM(count);
+    for(int j = 0; j < count; j++) ret[j] = input[j];
     return ret;
 }
 
@@ -161,13 +161,15 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
     if(m.type == STRUCTURE){
         int count = 0;
         for(int i = 0; i < s.count; i++){
-            if(s.entries[i].bytes != NULL) count++;
+            if((s.entries[i]).byte != NULL) count++;
         }
+        ret.count = count;
         ret.names = OUTERM(sizeof(char*)*count);
         ret.fcalls = OUTERM(sizeof(void*)*count);
         for(int i = 0; i < count; i++){
             ret.names[i] = outsidestring(s.names[i]); 
-            ret.fcalls[i] = s.entries[i].bytes;
+            //DEBUG_PRINT("name == %s of %s\n",ret.names[i],s.names[i]);
+            ret.fcalls[i] = s.entries[i].byte;
         }
     }
     struct module_type * ptr = MALLOC(sizeof(struct module_type));
@@ -176,8 +178,27 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
     union safe_cast key; 
     key.value = getAdress();
     ret.identifier = key.value;
-    insertBinding(&exchange,key.bytes,(void *)ptr);
+    insertBinding(&exchange,key.byte,(void *)ptr);
     return ret;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    convertMD
+ *  Description:    convert MODDATA into a Module 
+ * =====================================================================================
+ */
+LOCAL struct module_type * convertMD(MODDATA d)
+{
+    if(d.identifier > 0){
+        union safe_cast key;
+        key.value = d.identifier;
+        struct module_type * m = getBinding(exchange,key.byte,cmp_int);
+        return m;
+    }
+
+    mistakeFromOutside(); 
+    return NULL;
 }
 
 

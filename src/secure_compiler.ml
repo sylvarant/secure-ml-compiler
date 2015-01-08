@@ -54,11 +54,11 @@ struct
   type typetrawl = Fail | SimpleType of simple_type | Modtype of mod_type 
                  | ManifestType of def_type option
 
-  type assoc = Call of val_type * string * string list * cpath * bool
+  type assoc = Call of val_type * string * string list * cpath * (int * string) option
              | Share of MiniMLMod.mod_type * string * string list * string list
              | Provide of MiniMLMod.mod_type * string * string * string list * string list
 
-  type methods = EntryPoint of string * type_u * computation * bool
+  type methods = EntryPoint of string * type_u * computation * (int * string) option
  
 
  (*-----------------------------------------------------------------------------
@@ -350,24 +350,24 @@ struct
       let rec convert_assoc path = function [] -> []
         | (bind,ty)::ls -> match (bind,ty) with
           | (BVal (name,pth,_) , Value_sig (_, vty)) ->
-            (Call (vty,name,path,pth,false))::(convert_assoc path ls) 
+            (Call (vty,name,path,pth,None))::(convert_assoc path ls) 
           | (BMod (name,_, modt), Module_sig(_,mty)) -> (match modt with 
             | AR _ -> raise (Cannot_Sec_Compile "Cannot convert AR modbinding")
             | SB (pth, nbinding,unique) -> let recurse = if unique 
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else (convert_assoc (name::path) (clear_input mty nbinding))  in 
                 ((Share (mty,name,pth,path)) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,id,_,mb,_) -> (convert_fassoc name path mty) @ (convert_assoc path ls)) 
+            | FB (pth,var,_,mb,id,_) -> (convert_fassoc var id name path mty) @ (convert_assoc path ls)) 
           | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
       (* convert a functor into bindings based on result type alone *)
-      and convert_fassoc name path mty = 
+      and convert_fassoc var mask name path mty = 
 
         (* parse the signature spec *)
         let rec parse_sigls path = function [] -> []
           | x :: xs -> match x with
             | Value_sig (id, vty) -> let nm = Ident.name id in  
-              Call(vty,nm,path,path,true) :: (parse_sigls path xs)
+              Call(vty,nm,path,path,Some (mask,var)) :: (parse_sigls path xs)
             | Module_sig (id,mty) -> let nm = Ident.name id in
                 (parse_mty nm path mty) @ (parse_sigls path xs)
             | Type_sig _ -> (parse_sigls path xs)
@@ -460,29 +460,18 @@ struct
               let special = (make_str []) in
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
               let compu = (make_comp special modcomp) in
-              EntryPoint(name,(constd MODDATA),compu,false) :: (entrypts tail xs)
+              EntryPoint(name,(constd MODDATA),compu,None) :: (entrypts tail xs)
             else
               let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
               let compu = (make_comp ptr modcomp) in
-              EntryPoint(eptr,(constd MODDATA),compu,false) :: (entrypts tail xs)
+              EntryPoint(eptr,(constd MODDATA),compu,None) :: (entrypts tail xs)
           | Provide(mty,name,id,opth,pth) -> 
             let eptr = (make_entrypoint (name::pth)) in
-            let otherc = (make_entrypoint opth) in 
-            if opth = pth then 
-              (*let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in*)
-              let nv = new_var() in
-              let nm = new_maskf() in
-              let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-              let var = ToStatic((constd MODDATA),(CVar nv)) in
-              let tag = SetMember (nv,"t",(CVar "FUNCTOR")) 
-              and id = SetMember (nv,"identifier",(CInt nm)) 
-              and typ = SetMember (nv,"type",(ToCall(CVar "convertT",[modcomp]))) 
-              and retv = CVar nv in
-              let setup = [ var;tag;id;typ] in
-              EntryPoint(eptr,(constd MODDATA),([],setup,retv),false) :: (entrypts pls xs)
-            else 
-              let comp = ToCall ((CVar otherc),[]) in
-              EntryPoint(eptr,(constd MODDATA),([],[],comp),false) :: (entrypts pls xs)
+            let ptr = make_str (name::pth) in
+            let make_comp p m = ([],[],ToCall ((CVar "convertM"), [CVar p ; m])) in
+            let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+            let compu = (make_comp ptr modcomp) in
+              EntryPoint(eptr,(constd MODDATA),compu,None) :: (entrypts pls xs)
       in
 
       (* top level *)
@@ -519,18 +508,31 @@ struct
 
     (* print entrypoints *)
     let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
-      let args = if (mask) then [ (MODDATA,STR) ] else [] in
+      let args = match mask with 
+        | Some _ -> [ (MODDATA,STR) ]  
+        | None -> [] 
+      in
       let definition = (ENTRYPOINT,typ,name,args,false) in
-      let md = (printd BINDING)^" "^(printconst MOD)^" = "^
-        (if (mask) then (printconst MOD) else "NULL") in
-      let body = (format 1 ( md :: (MC.Low.computation comp))) in
+      let md = (printd BINDING)^" "^(printconst MOD)^" = NULL" in
+      let check = match mask with 
+        | None -> [] 
+        | Some (i,v) -> 
+          let sv = printc (CVar "union safe_cast s")
+          and sc = printc (Assign ((CVar "s.value"),ToIdent (constv STR)))
+          and gc = (ToCall((CVar "getBinding"),[(CVar "exchange");ToByte (CVar "s"); (constc CMP_INT)])) in 
+          let gt = printc (Assign ((CVar "struct module_type * m"),gc))
+          and cm = printc (ToCall((CVar "checkModule"),[(CVar "m->m") ; CInt i])) 
+          and up = printc (Assign((constv MOD),(CVar "m->m.strls"))) in
+          [sv;sc;gt;cm;up]
+      in
+      let body = (format 1 ( md :: check @ (MC.Low.computation comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
     in
 
     (* map entry point definitions *)
     let mapentrydef ls = (List.map printf 
       (List.map (function EntryPoint(name,typ,comp,mask) ->
-        let args = if (mask) then [ (MODDATA,STR) ] else [] in
+        let args = match mask with | Some _ -> [ (MODDATA,STR) ] | _ -> [] in
         (ENTRYPOINT,typ,name,args,true)) ls))
     in
 

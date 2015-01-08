@@ -83,8 +83,9 @@ MODULE get_module(MODULE m,char * str)
             }
         }
     }
+    MODULE empty;
     mistakeFromOutside();
-    return emptyModule(); // for gcc warning purposes
+    return empty; // for gcc warning purposes
 }
 
 
@@ -94,7 +95,7 @@ MODULE get_module(MODULE m,char * str)
  *  Description:  return a value member 
  * =====================================================================================
  */
-VALUE get_value(MODULE top,MODULE m,char * str)
+VALUE get_value(BINDING * top,MODULE m,char * str)
 {
     if(m.type != STRUCTURE) mistakeFromOutside();  
 
@@ -105,7 +106,7 @@ VALUE get_value(MODULE top,MODULE m,char * str)
             switch(m.c.s.accs[i])
             {
                 case BVAL :{ 
-                    return ((m.c.s.fields[i]).gettr(top.strls));
+                    return ((m.c.s.fields[i]).gettr(top));
                 }
                 default : mistakeFromOutside();
             }
@@ -122,10 +123,24 @@ VALUE get_value(MODULE top,MODULE m,char * str)
  *  Description:  call up a module
  * =====================================================================================
  */
-LOCAL MODULE path_module(MODULE s,char * path,int size)
+LOCAL MODULE path_module(BINDING * binding,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
-    return emptyModule();
+
+    char * remainder = path;
+    char * it = nextId(&remainder);
+    struct module_type * m = getBinding(binding,it,cmp_char); 
+    FREE(it);
+    
+    MODULE mod = m->m;
+    while(*remainder != '\0')
+    {
+        char * it = nextId(&remainder);
+        mod = get_module(mod,it); 
+        FREE(it);
+    }
+
+    return mod; 
 }
 
 
@@ -138,7 +153,29 @@ LOCAL MODULE path_module(MODULE s,char * path,int size)
 LOCAL VALUE path_value(BINDING * binding,char * path,int size)
 {
     if(path[size] != '\0') mistakeFromOutside(); // buffer check
-    return makeBoolean(0); 
+
+    char * remainder = path;
+    char * it = nextId(&remainder);
+    struct module_type * m = getBinding(binding,it,cmp_char); 
+    FREE(it);
+    
+    if(*remainder == '\0') mistakeFromOutside();
+
+    MODULE mod = m->m;
+    do
+    {
+        it = nextId(&remainder);
+        if(*remainder == '\0')
+        {
+            VALUE v = get_value(binding,mod,it); 
+            FREE(it);
+            return v; 
+        }
+        mod = get_module(mod,it); 
+        FREE(it);
+    }while(1);
+
+    return makeBoolean(0); // gcc is whiny
 }
 
 
@@ -154,7 +191,7 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
     struct value_type argument = convertD(d);
     union safe_cast key = {.value = id};
 
-    META * meta = (META*) getBinding(closure_exchange,key.bytes,cmp_int);
+    META * meta = (META*) getBinding(closure_exchange,key.byte,cmp_int);
     VALUE closure = *((VALUE *) meta->value);
     TYPE required = *(meta->type.a.left);
     TYPE given = argument.ty;
@@ -174,10 +211,15 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
  * =====================================================================================
  */
 ENTRYPOINT MODDATA functor_entry(int id,MODDATA d){
-  MODDATA ret;
-  union safe_cast key = {.value = id};
-  struct module_type * mt = getBinding(exchange,key.bytes,cmp_int);
-
-  return ret;
+    union safe_cast key = {.value = id};
+    struct module_type * mt = getBinding(exchange,key.byte,cmp_int);
+    MODULE functor = mt->m;
+    TYPE functortype = mt->ty;
+    struct module_type * amt = convertMD(d);
+    MODULE arg = amt->m;
+    insertBinding(&functor.strls,functor.c.f.var,amt);
+    MODULE new = functor.c.f.Functor(functor.strls,arg); 
+    MODDATA ret = convertM(new,*(functortype.f.right));
+    return ret;
 }
 

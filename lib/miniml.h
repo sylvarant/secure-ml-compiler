@@ -154,13 +154,14 @@ typedef struct module_s{
                 VALUE (*gettr)(BINDING *);
             } * fields;
             union entry_t {
-                void * bytes;
+                void * byte;
                 DATA (*entry_v)(void);
                 DATA (*entry_v2)(MODDATA);
                 MODDATA (*entry_m) (void);
             } * entries;
         }s;
         struct functor {
+            char * var;
             struct module_s (*Functor) (BINDING*,struct module_s);      
         }f;
     }c;
@@ -192,7 +193,7 @@ typedef struct Meta_s
 
 union safe_cast{
     int value;
-    void * bytes;
+    void * byte;
 };
 
 struct value_type{
@@ -235,22 +236,19 @@ LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
-LOCAL MODDATA convertM(MODULE,TYPE);
-LOCAL struct value_type convertD(DATA);
-LOCAL DATA convert(void *,TERMTAG t,TYPE);
 LOCAL DTYPE convertT(TYPE);
-LOCAL VALUE get_value(MODULE top,MODULE m,char * str);
+LOCAL MODDATA convertM(MODULE,TYPE);
+LOCAL struct module_type * convertMD(MODDATA);
+LOCAL struct value_type convertD(DATA);
+LOCAL void checkModule(MODULE,int);
+LOCAL VALUE get_value(BINDING *,MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
-LOCAL MODULE path_module(MODULE,char*,int);
+LOCAL MODULE path_module(BINDING *,char*,int);
 LOCAL VALUE path_value(BINDING *,char*,int);
-LOCAL MODULE emptyModule(void);
-LOCAL DTYPE emptyType(void);
 
 // type checking
 LOCAL TYPE get_type(VALUE);
 LOCAL void unify_types(TYPE,TYPE);
-
-// created by the compiler
 
 
 /*-----------------------------------------------------------------------------
@@ -268,7 +266,6 @@ LOCAL void mistakeFromOutside(void)
     DEBUG_PRINT("Mistake From Outside !");
     exit(2); 
 }
-
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -347,7 +344,6 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
     *(v.p.right) = right;
     return v;
 }
-
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -536,43 +532,17 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
     return *((MODULE *)getBinding(binding,key,cmp_char));
 }
 
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  emptyModule
- *  Description:  return an empty module (for testing purposes)
- * =====================================================================================
- */
-LOCAL MODULE emptyModule(void)
-{
-   MODULE m;  
-   return m;
-}
-
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  emptyType
- *  Description:  return an empty type (for testing purposes)
- * =====================================================================================
- */
-LOCAL DTYPE emptyType(void)
-{
-   DTYPE d;  
-   return d;
-}
-
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  makeContentF
  *  Description:  return a Module Content for a functor
  * =====================================================================================
  */
-LOCAL CONTENT makeContentF(Functor f)
+LOCAL CONTENT makeContentF(Functor f,char * var)
 {
     CONTENT ret;
     ret.f.Functor = f;
+    ret.f.var = var;
     return ret; 
 }
 
@@ -613,6 +583,17 @@ LOCAL MODULE makeModule(int m, MODTAG t, int s, BINDING * ls,CONTENT c)
     ret.strls = ls;
     ret.c = c;
     return ret;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  checkModule
+ *  Description:  check that the stamp of a module is in accord with the functor
+ * =====================================================================================
+ */
+LOCAL void checkModule(MODULE m, int c)
+{
+    if(m.stamp != c) mistakeFromOutside();
 }
 
 #endif

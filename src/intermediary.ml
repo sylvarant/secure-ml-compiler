@@ -44,12 +44,12 @@ sig
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
-    | ToFunctor of tempc | GetStr of tempc * tempc 
+    | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
   and consts = ENV | ARG | MOD | STR | TOP
-  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
   and headers = MINI | ENTRY
   and accs = BVAL | BMOD
   type args = (datastr * consts) list
@@ -131,7 +131,7 @@ struct
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
-    | ToFunctor of tempc | GetStr of tempc * tempc
+    | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -139,7 +139,7 @@ struct
 
   and consts = ENV | ARG | MOD | STR | TOP
 
-  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
 
   and headers = MINI | ENTRY
 
@@ -211,6 +211,7 @@ struct
     | CONT -> "convertT"
     | PATH -> "path_module"
     | PATHV -> "path_value"
+    | CMP_INT -> "cmp_int"
 
   (* build cvar from const *)
   let constv v = CVar (printconst v)
@@ -338,6 +339,7 @@ struct
     | Include a -> "#include \""^a^"\""
     | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
       (printc (CInt d))^","^(printty e)^")"
+    | ToIdent a -> (printc a)^".identifier"
     | Comment a -> "/* "^a^"*/"
 
 
