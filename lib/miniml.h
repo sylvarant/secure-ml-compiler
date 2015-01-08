@@ -151,6 +151,7 @@ typedef struct module_s{
             ACC * accs; 
             union field_t {
                 struct module_s * module;
+                struct module_s (*mgettr)(BINDING *);
                 VALUE (*gettr)(BINDING *);
             } * fields;
             union entry_t {
@@ -158,6 +159,7 @@ typedef struct module_s{
                 DATA (*entry_v)(void);
                 DATA (*entry_v2)(MODDATA);
                 MODDATA (*entry_m) (void);
+                MODDATA (*entry_m2) (MODDATA);
             } * entries;
         }s;
         struct functor {

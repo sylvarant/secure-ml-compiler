@@ -51,7 +51,7 @@ sig
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
   and headers = MINI | ENTRY
-  and accs = BVAL | BMOD
+  and accs = BVAL | BDVAL | BMOD | BDMOD
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool
 
@@ -143,7 +143,7 @@ struct
 
   and headers = MINI | ENTRY
 
-  and accs = BVAL | BMOD
+  and accs = BVAL | BDVAL | BMOD | BDMOD
 
   and args = (datastr * consts) list
 
@@ -201,7 +201,9 @@ struct
   (* print accessors *)
   let printa = function
     | BVAL -> "BVAL"
+    | BDVAL -> "BVAL"
     | BMOD -> "BMOD"
+    | BDMOD -> "BMOD"
 
   (* print functions to be used from the headers *)
   let printcalls = function

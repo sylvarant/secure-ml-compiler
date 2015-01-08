@@ -1,0 +1,91 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  functor_seal-test.c
+ *
+ *         Author:  Adriaan Larmuseau, ajhl
+ *        Company:  Uppsala
+ *
+ * =====================================================================================
+ */
+
+#include "functor_seal.h"
+#include "unit.h"
+
+typedef DATA (*func_entry) (MODDATA);
+
+int tests_run = 0;
+int tests_set = 6;
+
+
+TEST(getModule)
+    MODDATA temp = IsZero();
+    CHECK("Did not fetch the One module",temp.identifier == 1);
+    CHECK("Does not have enough names",temp.count == 2);
+DONE
+
+TEST(getFunctor)
+    MODDATA functor = Test();
+    CHECK("Did not fetch the functor module",functor.t == FUNCTOR);
+DONE
+
+TEST(applyFunctor)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functor_entry(functor.identifier,temp);
+    CHECK("Did not produce a new module",new.t == STRUCTURE);
+    CHECK("New module does not have enough names",new.count == 2);
+    CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
+    CHECK("New module does not contain input",(strcmp(new.names[1],"input") == 0));
+DONE
+
+TEST(dynamicEntry)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functor_entry(functor.identifier,temp);
+    func_entry call = new.fcalls[0];
+    func_entry call2 = new.fcalls[1];
+    DATA result = call(new);
+    DATA result2 = call2(new);
+    CHECK("Result of fcall 0 is a closure",result.t == CLOSURE);
+    CHECK("Result of fcall 1 is a closure",result2.t == CLOSURE);
+DONE
+
+TEST(dynamicResult)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functor_entry(functor.identifier,temp);
+    func_entry call = new.fcalls[0];
+    func_entry call2 = new.fcalls[1];
+    DATA closure = call(new);
+    DATA closure2 = call2(new);
+    DATA arg = { .t = INT, .value = 2 };
+    DATA result = closure_entry(closure.identifier,arg); 
+    CHECK("Result is Abstract",result.t == ABSTRACT);  
+    DATA result2 = closure_entry(closure2.identifier,result); 
+    CHECK("Result is false",result2.value == 0);  
+DONE
+
+CRASH(dynamicResultTypeFail)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functor_entry(functor.identifier,temp);
+    func_entry call = new.fcalls[1];
+    DATA closure = call(new);
+    DATA left = { .t = INT, .value = 2 };
+    DATA result = closure_entry(closure.identifier,left); 
+RECOVER
+
+
+LIST
+    RUN(getModule);
+    RUN(getFunctor);
+    RUN(applyFunctor);
+    RUN(dynamicEntry);
+    RUN(dynamicResult);
+    RUN(dynamicResultTypeFail);
+DONE
+
+INCLUDE_MAIN
+
+
