@@ -247,7 +247,7 @@ LOCAL MODULE path_module(BINDING *,char*,int);
 LOCAL VALUE path_value(BINDING *,char*,int);
 
 // type checking
-LOCAL TYPE get_type(VALUE);
+LOCAL int type_check(TYPE,TYPE); 
 LOCAL void unify_types(TYPE,TYPE);
 
 

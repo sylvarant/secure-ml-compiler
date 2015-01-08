@@ -310,43 +310,108 @@ LOCAL DTYPE convertT(TYPE ty)
     return typ;
 }
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    find_type
+ *  Description:    find a type within a signature (subtyping)
+ * =====================================================================================
+ */
+LOCAL int find_type(TYPE * ty,struct T(Signature) * sig)
+{
+    if(ty == NULL || sig == NULL) return MFALSE;
+
+    struct T(Signature) * next = sig;
+    do{
+        if(next->type == NULL) return MFALSE;
+        if(type_check(*(next->type),*(ty)) == MTRUE) return MTRUE;
+        next = next->next;
+    }while(next != NULL);
+    return MFALSE;
+}
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:    unify_types
- *  Description:    type unification, C-style
+ *         Name:    type_check
+ *  Description:    type check given versus required type
  * =====================================================================================
  */
-LOCAL void unify_types(TYPE req,TYPE given)
+LOCAL int type_check(TYPE req,TYPE given)
 {
-    if (req.t == T(IGNORE)) return;
+    if (req.t == T(IGNORE)) return MTRUE;
 
-    if (req.t != given.t) mistakeFromOutside();
+    if (req.t != given.t) return MFALSE;
 
     switch(req.t)
     {
         case T(INT):
-        case T(BOOLEAN): break;
+        case T(BOOLEAN): return MTRUE;
 
 
         case T(ABSTRACT):{
-            if(cmp_char(req.aa.name,given.aa.name) != 0 ) mistakeFromOutside();
-            break;
+            if(cmp_char(req.aa.name,given.aa.name) != 0 ) return MFALSE;
+            return MTRUE;
         }
 
         case T(STAR):
         case T(ARROW):{
-            unify_types(*(req.a.left),*(given.a.left));  // CAREFULL: relies on static structure of the struct
-            unify_types(*(req.a.right),*(given.a.right)); 
-            break;
+            if(type_check(*(req.a.left),*(given.a.left))  
+                && type_check(*(req.a.right),*(given.a.right))) return MTRUE;
+            return MFALSE;
+        }
+
+        case T(VALUE):
+        case T(MODULE):
+        case T(DECLARATION): {
+            if(cmp_char(given.d.name,req.d.name) != 0) return MFALSE;
+            if(given.d.type != NULL && req.d.type != NULL 
+                && type_check(*(req.d.type),*(given.d.type))) return MTRUE;
+            else if(given.d.type != req.d.type) return MFALSE;
+            return MTRUE;
+        }
+
+        // subtyping
+        case T(SIGNATURE): {
+            struct T(Signature) * next = &req.ss;
+            do{
+                if(find_type(next->type,&given.ss) == MFALSE) return MFALSE;
+                next = next->next;
+            }while(next != NULL);
+            return MTRUE;
+        }
+
+        case T(FUNCTOR):{
+            if(cmp_char(given.f.name,req.f.name)) return MFALSE;
+            if(given.f.left != NULL & req.f.left != NULL 
+                && type_check(*(req.f.left),*(given.f.left)))
+            {
+                if(given.f.right != NULL & req.f.right != NULL
+                    && type_check(*(req.f.right),*(given.f.right))) return MTRUE;
+                else if(given.f.right != req.f.right) return MFALSE;
+            }
+            else if(given.f.left != req.f.left) return MFALSE;
+            return MTRUE;
         }
 
         default :{
             DEBUG_PRINT("Unidentified tag %d",req.t);
             mistakeFromOutside();
-            break;
+            return MFALSE;
         }
     }
+
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    unify_types
+ *  Description:    abort if type unification returns false
+ * =====================================================================================
+ */
+LOCAL void unify_types(TYPE req,TYPE given)
+{
+    if(type_check(req,given) == MFALSE) mistakeFromOutside(); 
+    return;
 }
 
 

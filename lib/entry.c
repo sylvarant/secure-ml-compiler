@@ -210,16 +210,24 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
  *  Description:    entry point for functor application
  * =====================================================================================
  */
-ENTRYPOINT MODDATA functor_entry(int id,MODDATA d){
+ENTRYPOINT MODDATA functor_entry(int id,MODDATA d)
+{
+    // fetch and type check
     union safe_cast key = {.value = id};
     struct module_type * mt = getBinding(exchange,key.byte,cmp_int);
     MODULE functor = mt->m;
     TYPE functortype = mt->ty;
+    TYPE required = *(functortype.f.left);
+
     struct module_type * amt = convertMD(d);
     MODULE arg = amt->m;
+    TYPE given = amt->ty;
+    unify_types(required,given);
+
+    // if everything is fine update the functor with the argument and apply
     insertBinding(&functor.strls,functor.c.f.var,amt);
     MODULE new = functor.c.f.Functor(functor.strls,arg); 
-    MODDATA ret = convertM(new,*(functortype.f.right));
+    MODDATA ret = convertM(new,*(functortype.f.right)); // TODO update right
     return ret;
 }
 

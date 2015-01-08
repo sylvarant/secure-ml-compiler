@@ -15,7 +15,7 @@
 #include "basic_functor.h"
 
 int tests_run = 0;
-int tests_set = 7;
+int tests_set = 8;
 
 typedef DATA (*func_entry) (MODDATA);
 
@@ -38,6 +38,12 @@ TEST(applyFunctor)
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
 DONE
+
+CRASH(crashApplyFunctor)
+    MODDATA temp = PairTestZero(); 
+    MODDATA functor = PairTest();
+    MODDATA new = functor_entry(functor.identifier,temp);
+RECOVER
 
 TEST(dynamicEntry)
     MODDATA temp = IsZero();
@@ -80,10 +86,12 @@ CRASH(dynamicResultTypeFail)
     DATA result = closure_entry(closure.identifier,left); 
 RECOVER
 
+
 LIST
     RUN(getModule);
     RUN(getFunctor);
     RUN(applyFunctor);
+    RUN(crashApplyFunctor);
     RUN(dynamicEntry);
     RUN(crashDynamicEntry);
     RUN(dynamicResult);
