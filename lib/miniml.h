@@ -484,14 +484,10 @@ LOCAL TYPE makeTSignature(TYPE sign)
 LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
 {
     if (chain.t != T(SIGNATURE)) mistakeFromOutside();
-    TYPE result = chain;
     TYPE capsule = makeTSignature(sign);
-    struct T(Signature) arg = capsule.ss;
-    arg.next = result.ss.next;
-     
-    result.ss.next = MALLOC(sizeof(struct T(Signature)));
-    *(result.ss.next) = arg;
-    return chain;
+    capsule.ss.next = MALLOC(sizeof(struct T(Signature)));
+    *(capsule.ss.next) = chain.ss; 
+    return capsule;
 }
 
 /* 

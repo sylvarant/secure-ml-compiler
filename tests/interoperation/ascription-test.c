@@ -9,9 +9,9 @@
  * =====================================================================================
  */
 
+#include "ascription.h"
 #include "unit.h"
 
-#include "ascription.h"
 
 int tests_run = 0;
 int tests_set = 2;

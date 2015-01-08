@@ -9,9 +9,9 @@
  * =====================================================================================
  */
 
+#include "arithmetic.h"
 #include "unit.h"
 
-#include "arithmetic.h"
 
 int tests_run = 0;
 int tests_set = 4;

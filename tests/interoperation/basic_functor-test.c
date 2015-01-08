@@ -9,10 +9,9 @@
  * =====================================================================================
  */
 
-#include "unit.h"
-#include <string.h>
-
 #include "basic_functor.h"
+#include "unit.h"
+
 
 int tests_run = 0;
 int tests_set = 8;
