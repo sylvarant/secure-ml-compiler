@@ -247,6 +247,7 @@ LOCAL VALUE get_value(BINDING *,MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
 LOCAL MODULE path_module(BINDING *,char*,int);
 LOCAL VALUE path_value(BINDING *,char*,int);
+LOCAL MODULE updateEntry(MODULE,BINDING*,int,int,char **,ENTRY * ls);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 
@@ -554,7 +555,7 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
 {
     CONTENT ret;
     ret.s.count = c;
-    ret.s.names = MALLOC(c);
+    ret.s.names = MALLOC(c * sizeof(char*));
     for(int i = 0; i < c; i++) ret.s.names[i] = n[i];
     ret.s.accs = MALLOC(c * sizeof(ACC));
     for(int i = 0; i < c; i++) ret.s.accs[i] = a[i]; 

@@ -223,8 +223,8 @@ ENTRYPOINT MODDATA functor_entry(int id,MODDATA d)
     MODULE arg = amt->m;
     TYPE given = amt->ty;
     unify_types(required,given);
-
     // if everything is fine update the functor with the argument and apply
+    //DEBUG_PRINT("FUNCTOR APPL");
     insertBinding(&functor.strls,functor.c.f.var,amt);
     MODULE new = functor.c.f.Functor(functor.strls,arg); 
     MODDATA ret = convertM(new,*(functortype.f.right)); // TODO update right

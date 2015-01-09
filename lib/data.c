@@ -168,7 +168,7 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
         ret.fcalls = OUTERM(sizeof(void*)*count);
         for(int i = 0; i < count; i++){
             ret.names[i] = outsidestring(s.names[i]); 
-            //DEBUG_PRINT("name == %s of %s\n",ret.names[i],s.names[i]);
+            //DEBUG_PRINT("name == %s of %s",ret.names[i],s.names[i]);
             ret.fcalls[i] = s.entries[i].byte;
         }
     }
@@ -181,6 +181,32 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
     insertBinding(&exchange,key.byte,(void *)ptr);
     return ret;
 }
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:    convertM
+ *  Description:    convert an inside Module into a MODDATA for the outside 
+ * =====================================================================================
+ */
+LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** names,ENTRY * ls)
+{
+    MODULE ret = m;
+    ret.stamp = stamp;
+    ret.strls = strls;
+    for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.entries[i].byte = NULL;
+        
+    for(int j = 0; j < count; j++){
+        for(int i = 0; i < ret.c.s.count ; i++){
+            if(cmp_char(names[j],ret.c.s.names[i]) == 0){
+                ret.c.s.entries[i] = ls[j];  
+                break;
+            }
+        }
+    }
+    return ret;
+}
+
 
 /* 
  * ===  FUNCTION  ======================================================================

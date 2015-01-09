@@ -267,7 +267,6 @@ struct
     let extract_red ls = 
 
 
-
       (* new module *)
       let new_module = let count = ref (-1) in
         fun () -> incr count; !count 
@@ -345,10 +344,10 @@ struct
 
         (* The module parser *)
         let rec parse : modbindtype -> computation = function
-          | AR (n,None,None) -> make_comp (GetStr ((constv STR),(CString n)))
-          | AR(n,Some ls,None) -> let pp =  (make_path (n::ls)) in
+          | AR (n,None,None) -> make_comp (GetStr ((constv MOD),(CString n)))
+          | AR(n,Some ls,None) -> let pp =  (make_path ls) in
             let i = CInt (String.length pp) in
-            make_comp (ToCall ((constc PATH),[(constv STR) ; (CString pp) ; i ]))
+            make_comp (ToCall ((constc PATH),[(constv MOD) ; (CString pp) ; i ]))
           | AR(n,ls,Some mb) -> let (_,set,ar) = (parse (AR(n,ls,None))) 
             and (_,sett,arg) = (parse mb) in
             ([],set@sett,(ToCall(ToFunctor(ar),[arg]))) (* functor call *)

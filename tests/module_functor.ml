@@ -15,6 +15,7 @@ struct
         module New = struct
             val five = 5 
         end
+        module Origin = Input (* TODO *)
       end 
 
     module TestZero = Test(IsZero)
