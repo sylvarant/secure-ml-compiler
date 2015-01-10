@@ -75,5 +75,18 @@
 
 union Value_u;
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  mistakeFromOutside
+ *  Description:  terminate when the outside makes a mistake
+ * =====================================================================================
+ */
+LOCAL void mistakeFromOutside(void)
+{
+    DEBUG_PRINT("Mistake From Outside !");
+    exit(2); 
+}
+
 #endif
 

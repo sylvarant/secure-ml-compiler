@@ -378,7 +378,7 @@ struct
               then (convert_assoc (name::path) (clear_input mty nbinding))
               else (convert_assoc (name::path) (clear_input mty nbinding))  in 
                 ((Share (mty,name,pth,path,(None,None))) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,var,_,mb,id,_) as y -> let head = Provide (mty,name,var,pth,path,(None,None)) in 
+            | FB (pth,var,_,_,mb,id,_) as y -> let head = Provide (mty,name,var,pth,path,(None,None)) in 
               head :: (convert_fassoc name path y mty) @ (convert_assoc path ls)) 
           | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
@@ -452,7 +452,7 @@ struct
       
           match (cont,mty) with
 
-          | (FB(pth,var,_,mb,idn,_), Functor_type (id,lmty,rmty))-> 
+          | (FB(pth,var,_,_,mb,idn,_), Functor_type (id,lmty,rmty))-> 
               let nneeds = (Some (Some idn,var ),arg) in
               let head = Provide (mty,name,(Ident.name id),pth,path,nneeds)  
               and next = (parse_mty nneeds self "Functor" (name::path) mb rmty) in

@@ -50,12 +50,27 @@ FUNCTIONALITY int cmp_int(void *vs1, void *vs2)
  */
 FUNCTIONALITY void * getBinding(BINDING * ls, void * key, compare cmp)
 {
+/*    if (cmp == cmp_char)
+    {
+        char * input = (char *) key;
+        DEBUG_PRINT("key == %s",input);
+    }
+    
+    if(ls != NULL && cmp == cmp_char){
+        BINDING * node = ls;
+        while(node) {
+            DEBUG_PRINT("Hey there %s",node->key);
+            node = node->next;
+        }
+    }*/
+
     BINDING * node = ls;
     while(node) {
         if(cmp(key,node->key) == 0)
             return node->contents;
         node = node->next;
     }
+    mistakeFromOutside();
     return NULL;
 }
 

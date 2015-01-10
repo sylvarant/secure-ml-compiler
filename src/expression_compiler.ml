@@ -83,6 +83,7 @@ struct
         (List.exists findstr int_op) in
       let rec convert : MiniML.term -> tempc = function 
         | Longident lpath -> let cpath = (convert_path lpath) in 
+           (*Printf.eprintf "Looking for %s" (String.concat "_" cpath);*)
            (try (match (lookup_path env cpath) with
               | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[(constv MOD)]))) 
               | Dynamic (nn, Some ls) -> let path = CString (make_path ls)
