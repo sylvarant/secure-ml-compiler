@@ -35,7 +35,7 @@ TEST(applyFunctor)
     MODDATA functor = Test();
     MODDATA new = functor_entry(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
-    CHECK("New module does not have enough names",new.count == 3);
+    CHECK("New module does not have enough names",new.count == 5);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
     CHECK("New module does not contain New",(strcmp(new.names[1],"New") == 0));
     CHECK("New module does not contain Origin",(strcmp(new.names[2],"Origin") == 0));

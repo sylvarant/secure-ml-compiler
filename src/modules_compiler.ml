@@ -130,7 +130,7 @@ struct
 
     (* look up x in the env *)
     let get_binding x nenv = 
-      let find_binding = (*(Printf.eprintf "Find = %s\n" x);*) (function
+      let find_binding = (function
       | BVal (nn,_,_) when (nn = x) -> true
       | BMod (nn,_,_) when (nn = x) -> true
       | BArg nn when (nn = x) -> true
@@ -156,6 +156,11 @@ struct
       | x::xs as ls -> match (lookup_path env xs) with
         | Environment( SB (_,nenv,_)) -> (lookup_path nenv (x::[]))
         | Dynamic (nn,None) -> Dynamic (nn, Some ls (*List.rev (List.tl (List.rev ls))*))
+        | Environment ( AR(nn,l,_) ) -> 
+          let extra = (match l with (* TODO what about appl ? *)
+          | None -> [nn]
+          | Some lst -> (nn::lst)) in 
+          Dynamic(nn,Some (List.rev (extra@ (List.rev (List.tl (List.rev ls))))))
         | _ -> raise (Cannot_compile "Wrong tree structure") 
 
 end

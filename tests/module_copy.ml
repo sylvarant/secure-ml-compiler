@@ -6,5 +6,7 @@ struct
 
     module Two = One
 
+    val test = Two.value
+
 end
 

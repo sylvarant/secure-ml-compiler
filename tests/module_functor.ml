@@ -16,8 +16,13 @@ struct
             val five = 5 
         end
         module Origin = Input (* TODO *)
+
+        module Copy = Origin 
+
+        val hard = Origin.test
+
       end 
 
-    module TestZero = Test(IsZero)
+   (* module TestZero = Test(IsZero) *)
 
 end
