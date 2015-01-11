@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  functions-test.c
+ *       Filename:  functions-calls.c
  *
  *         Author:  Adriaan Larmuseau, ajhl
  *        Company:  Uppsala
@@ -14,22 +14,30 @@
 #include "functions.h"
 
 int tests_run = 0;
-int tests_set = 6;
+int tests_set = 3;
 
-TEST(getf1Closure)
-    DATA temp = function1();
-    CHECK("Did not fetch a Closure from f1 ",temp.t == CLOSURE);
-DONE
 
-TEST(getf2Closure)
-    DATA temp = function2();
-    CHECK("Did not fetch a Closure from f2",temp.t == CLOSURE);
-DONE
+/*-----------------------------------------------------------------------------
+ *  attacker functions
+ *-----------------------------------------------------------------------------*/
 
-TEST(getf3Closure)
-    DATA temp = function3();
-    CHECK("Did not fetch a Closure from f3",temp.t == CLOSURE);
-DONE
+DATA goodfunction(DATA val)
+{
+   int result = val.value == 0;
+   DATA ret = {.t = BOOLEAN, .value = result};
+   return ret;
+}
+
+DATA badfunction(DATA val)
+{
+    DATA ret = {.t = INT, .value = 80};
+    return ret;
+}
+
+
+/*-----------------------------------------------------------------------------
+ *  tests
+ *-----------------------------------------------------------------------------*/
 
 TEST(getf4Closure)
     DATA temp = function4();
@@ -38,21 +46,18 @@ DONE
 
 TEST(applytof4)
     DATA clo = function4();
-    DATA arg = function3();
+    DATA arg = {.t = CALLBACK, .call = goodfunction};
     DATA res = closure_entry(clo.identifier,arg);
     CHECK("Did not recieve a Boolean",res.t == BOOLEAN);
 DONE
 
 CRASH(crashf4)
     DATA clo = function4();
-    DATA arg = function2();
+    DATA arg = {.t = CALLBACK, .call = badfunction};
     DATA res = closure_entry(clo.identifier,arg);
 RECOVER
 
 LIST
-    RUN(getf1Closure);
-    RUN(getf2Closure);
-    RUN(getf3Closure);
     RUN(getf4Closure);
     RUN(applytof4);
     RUN(crashf4);

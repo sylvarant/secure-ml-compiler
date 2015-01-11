@@ -212,10 +212,11 @@ struct module_type{
  * Function Pointers
  *-----------------------------------------------------------------------------*/
 
-typedef void* (* PrimOp) (void*,void*);
-typedef VALUE (* Lambda)(BINDING *,BINDING *,VALUE);
-typedef VALUE (* Gettr)(MODULE);
-typedef MODULE (* Functor)(BINDING*,MODULE);
+typedef void* (*PrimOp) (void*,void*);
+typedef VALUE (*Lambda)(BINDING *,BINDING *,VALUE);
+typedef VALUE (*Gettr)(MODULE);
+typedef MODULE (*Functor)(BINDING*,MODULE);
+typedef DATA (*callback)(DATA);
 
 
 /*-----------------------------------------------------------------------------
@@ -241,13 +242,14 @@ LOCAL DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
 LOCAL struct module_type * convertMD(MODDATA);
-LOCAL struct value_type convertD(DATA);
+LOCAL struct value_type convertD(DATA,TYPE);
 LOCAL void checkModule(MODULE,int);
 LOCAL VALUE get_value(BINDING *,MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
 LOCAL MODULE path_module(BINDING *,char*,int);
 LOCAL VALUE path_value(BINDING *,char*,int);
 LOCAL MODULE updateEntry(MODULE,BINDING*,int,int,char **,ENTRY * ls);
+LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 
@@ -259,7 +261,7 @@ LOCAL void unify_types(TYPE,TYPE);
  *-----------------------------------------------------------------------------*/
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  str_cpy
  *  Description:  inplace string copy
  * =====================================================================================
@@ -276,7 +278,7 @@ LOCAL void str_cpy(char * dest,char * input,int size)
  *-----------------------------------------------------------------------------*/
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeInt
  *  Description:  create a numeric value
  * =====================================================================================
@@ -290,7 +292,7 @@ LOCAL VALUE makeInt(int n)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeBoolean
  *  Description:  create a boolean
  * =====================================================================================
@@ -304,7 +306,7 @@ LOCAL VALUE makeBoolean(unsigned int b)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeClosure
  *  Description:  create a closure
  * =====================================================================================
@@ -320,7 +322,7 @@ LOCAL VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makePair
  *  Description:  create a Pair
  * =====================================================================================
@@ -337,7 +339,7 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTArrow
  *  Description:  create an Arrow type - mallocs !
  * =====================================================================================
@@ -354,7 +356,7 @@ LOCAL TYPE makeTArrow(TYPE left, TYPE right)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTStar
  *  Description:  create a Star/Pair type - mallocs !
  * =====================================================================================
@@ -371,7 +373,7 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTAbstract
  *  Description:  create an abstract type
  * =====================================================================================
@@ -385,7 +387,7 @@ LOCAL TYPE makeTAbstract(char * name)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTValue
  *  Description:  create a value type binding for a signature  
  * =====================================================================================
@@ -401,7 +403,7 @@ LOCAL TYPE makeTValue(char * name, TYPE type)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTDeclaration
  *  Description:  create a type declaration for a signature 
  * =====================================================================================
@@ -417,7 +419,7 @@ LOCAL TYPE makeTDeclaration(char * name, TYPE type)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTModule
  *  Description:  create a type declaration for a signature 
  * =====================================================================================
@@ -433,7 +435,7 @@ LOCAL TYPE makeTModule(char * name, TYPE contents)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTFunctor
  *  Description:  create a functor type
  * =====================================================================================
@@ -451,7 +453,7 @@ LOCAL TYPE makeTFunctor(char * name, TYPE left, TYPE right)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeTSignature
  *  Description:  create a standalone signature object
  * =====================================================================================
@@ -467,7 +469,7 @@ LOCAL TYPE makeTSignature(TYPE sign)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  chainTSignature
  *  Description:  add a type to an existing chain
  * =====================================================================================
@@ -482,7 +484,7 @@ LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  insertBigBinding
  *  Description:  helper function for inserting bindings
  * =====================================================================================
@@ -497,7 +499,7 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned 
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  getValue
  *  Description:  helper function for grabbing values
  * =====================================================================================
@@ -509,7 +511,7 @@ LOCAL VALUE getValue(BINDING * binding,void * key)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  getModule
  *  Description:  helper function for grabbing values
  * =====================================================================================
@@ -520,7 +522,7 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeContentF
  *  Description:  return a Module Content for a functor
  * =====================================================================================
@@ -534,7 +536,7 @@ LOCAL CONTENT makeContentF(Functor f,char * var)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeContentS
  *  Description:  return a Module Content for a structure
  * =====================================================================================
@@ -555,7 +557,7 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  makeModule
  *
  *  Description:  return a Module
@@ -573,7 +575,7 @@ LOCAL MODULE makeModule(int m, MODTAG t, int s, BINDING * ls,CONTENT c)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  checkModule
  *  Description:  check that the stamp of a module is in accord with the functor
  * =====================================================================================

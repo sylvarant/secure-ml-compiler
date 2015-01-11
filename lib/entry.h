@@ -28,7 +28,7 @@
     #define __MSP430_INTRINSICS_H_
     #include <msp430.h>
 
-    #define SPM_NAME "secure_vm" // TODO perl insert ?
+    #define SPM_Name: "secure_vm" // TODO perl insert ?
 
     extern struct SancusModule secure_vm;
 
@@ -54,7 +54,7 @@ extern void * malloc(size_t);
  *-----------------------------------------------------------------------------*/
 
 typedef enum Termtag_e {
-    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT 
+    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT, CALLBACK
 } TERMTAG;
 
 typedef struct Data_s{
@@ -63,6 +63,7 @@ typedef struct Data_s{
         void * byte;
         int value; 
         int identifier;
+        struct Data_s (*call)(struct Data_s);
         struct {
             struct Data_s * left;
             struct Data_s * right;

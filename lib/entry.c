@@ -37,9 +37,9 @@ LOCAL int getAdressAbs(void)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    nextId
- *  Description:    get the next identifier from a path
+ * ===  FUNCTION ======================================================================
+ *         Name: nextId
+ *  Description: get the next identifier from a path
  * =====================================================================================
  */
 LOCAL char * nextId(char ** str)
@@ -61,7 +61,7 @@ LOCAL char * nextId(char ** str)
 }
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  get_module
  *  Description:  return a module member 
  * =====================================================================================
@@ -90,7 +90,7 @@ MODULE get_module(MODULE m,char * str)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  get_value
  *  Description:  return a value member 
  * =====================================================================================
@@ -118,7 +118,7 @@ VALUE get_value(BINDING * top,MODULE m,char * str)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  path_module
  *  Description:  call up a module
  * =====================================================================================
@@ -145,7 +145,7 @@ LOCAL MODULE path_module(BINDING * binding,char * path,int size)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
+ * ===  FUNCTION ======================================================================
  *         Name:  path_value
  *  Description:  call up a value
  * =====================================================================================
@@ -180,22 +180,24 @@ LOCAL VALUE path_value(BINDING * binding,char * path,int size)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    closure_entry
- *  Description:    entry point for closure application
+ * ===  FUNCTION ======================================================================
+ *         Name: closure_entry
+ *  Description: entry point for closure application
  * =====================================================================================
  */
 ENTRYPOINT DATA closure_entry(int id, DATA d)
 {
     // fetch and type check
-    struct value_type argument = convertD(d);
     union safe_cast key = {.value = id};
-
     META * meta = (META*) getBinding(closure_exchange,key.byte,cmp_int);
     VALUE closure = *((VALUE *) meta->value);
     TYPE required = *(meta->type.a.left);
+
+    // the argument
+    struct value_type argument = convertD(d,required);
     TYPE given = argument.ty;
     unify_types(required,given); 
+
      
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.mod,closure.c.env,argument.val);
@@ -205,9 +207,9 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    functor_entry
- *  Description:    entry point for functor application
+ * ===  FUNCTION ======================================================================
+ *         Name: functor_entry
+ *  Description: entry point for functor application
  * =====================================================================================
  */
 ENTRYPOINT MODDATA functor_entry(int id,MODDATA d)

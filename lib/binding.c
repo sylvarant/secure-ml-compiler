@@ -16,9 +16,9 @@
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    mycmp
- *  Description:    taken from apple
+ * ===  FUNCTION ======================================================================
+ *         Name: mycmp
+ *  Description: taken from apple
  * =====================================================================================
  */
 FUNCTIONALITY int cmp_char(void *vs1, void *vs2)
@@ -43,9 +43,9 @@ FUNCTIONALITY int cmp_int(void *vs1, void *vs2)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    getBinding
- *  Description:    return an element from a given environment for a given key
+ * ===  FUNCTION ======================================================================
+ *         Name: getBinding
+ *  Description: return an element from a given environment for a given key
  * =====================================================================================
  */
 FUNCTIONALITY void * getBinding(BINDING * ls, void * key, compare cmp)
@@ -76,9 +76,9 @@ FUNCTIONALITY void * getBinding(BINDING * ls, void * key, compare cmp)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    insertBinding
- *  Description:    add a new binding to the environment
+ * ===  FUNCTION ======================================================================
+ *         Name: insertBinding
+ *  Description: add a new binding to the environment
  * =====================================================================================
  */
 FUNCTIONALITY void insertBinding(BINDING ** head,void * key,void * value)

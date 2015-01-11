@@ -96,6 +96,7 @@ do
         testname=${testf##*/}
         testbase=${testname%-*}
         if [[ $base =~ .*$testbase.* ]];then
+            tabs 4
             uppname=$(echo $testname | tr '[:lower:]' '[:upper:]')
             echo -e "\t==> \033[1;34m${uppname}\033[0m <== "  
             tabs 8

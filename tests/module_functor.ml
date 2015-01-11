@@ -23,6 +23,6 @@ struct
 
       end 
 
-   (* module TestZero = Test(IsZero) *)
+   module TestZero = Test(IsZero) 
 
 end

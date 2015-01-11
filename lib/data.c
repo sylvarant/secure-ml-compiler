@@ -13,9 +13,9 @@
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertV
- *  Description:    convert a miniml value into data for the attacker
+ * ===  FUNCTION ======================================================================
+ *         Name: convertV
+ *  Description: convert a miniml value into data for the attacker
  * =====================================================================================
  */
 LOCAL DATA convertV(VALUE input,TYPE ty)
@@ -79,12 +79,32 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertD
- *  Description:    convert a DATA struct of the attacker into a miniml value
+ * ===  FUNCTION ======================================================================
+ *         Name: foreign_lambda
+ *  Description: call a foreign function as though it were a closure 
  * =====================================================================================
  */
-LOCAL struct value_type convertD(DATA input)
+LOCAL VALUE foreign_lambda(BINDING * fptr,BINDING * type,VALUE v)
+{
+    callback call = (callback) fptr;    
+    TYPE * ty = (TYPE *) type;  
+    struct T(Arrow) arrow = ty->a;
+    DATA input = convertV(v,*(arrow.left));
+    TYPE required = *(arrow.right);
+    struct value_type valty = convertD(call(input),required); // going out
+    TYPE given = valty.ty;
+    unify_types(required,given);
+    return valty.val;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: convertD
+ *  Description: convert a DATA struct of the attacker into a miniml value
+ * =====================================================================================
+ */
+LOCAL struct value_type convertD(DATA input,TYPE req)
 {
     struct value_type result;
     switch(input.t)
@@ -109,6 +129,15 @@ LOCAL struct value_type convertD(DATA input)
             break;
         }
 
+        case CALLBACK:{
+            TYPE * ty = MALLOC(sizeof(TYPE));  
+            *ty = req;
+            VALUE val = makeClosure((BINDING *)input.call,(BINDING *)ty,foreign_lambda);
+            result.val = val;
+            result.ty = req; 
+            break;
+        }
+
         case ABSTRACT:{
             META * meta = (META *) getBinding(abstract_exchange,input.byte,cmp_int);
             VALUE temp = *((VALUE *) meta->value);
@@ -118,8 +147,9 @@ LOCAL struct value_type convertD(DATA input)
         }
 
         case PAIR:{
-            struct value_type l = convertD(*(input.left));
-            struct value_type r = convertD(*(input.right)); 
+            if(req.t != T(STAR)) mistakeFromOutside();
+            struct value_type l = convertD(*(input.left),*(req.s.left));
+            struct value_type r = convertD(*(input.right),*(req.s.right)); 
             result.val = makePair(l.val,r.val);
             result.ty = makeTStar(l.ty,r.ty);
             break;
@@ -134,7 +164,13 @@ LOCAL struct value_type convertD(DATA input)
     return result;
 }
 
-// helper function
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: outsidestring
+ *  Description: pump char's into the attacker memory
+ * =====================================================================================
+ */
 LOCAL char * outsidestring(char * s)
 {
     char * input = s;
@@ -147,9 +183,9 @@ LOCAL char * outsidestring(char * s)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertM
- *  Description:    convert an inside Module into a MODDATA for the outside 
+ * ===  FUNCTION ======================================================================
+ *         Name: convertM
+ *  Description: convert an inside Module into a MODDATA for the outside 
  * =====================================================================================
  */
 LOCAL MODDATA convertM(MODULE m,TYPE ty)
@@ -184,9 +220,9 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertM
- *  Description:    convert an inside Module into a MODDATA for the outside 
+ * ===  FUNCTION ======================================================================
+ *         Name: convertM
+ *  Description: convert an inside Module into a MODDATA for the outside 
  * =====================================================================================
  */
 LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** names,ENTRY * ls)
@@ -209,9 +245,9 @@ LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** na
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertMD
- *  Description:    convert MODDATA into a Module 
+ * ===  FUNCTION ======================================================================
+ *         Name: convertMD
+ *  Description: convert MODDATA into a Module 
  * =====================================================================================
  */
 LOCAL struct module_type * convertMD(MODDATA d)
@@ -229,9 +265,9 @@ LOCAL struct module_type * convertMD(MODDATA d)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    convertT
- *  Description:    convert an internal type to an outside type
+ * ===  FUNCTION ======================================================================
+ *         Name: convertT
+ *  Description: convert an internal type to an outside type
  * =====================================================================================
  */
 LOCAL DTYPE convertT(TYPE ty)
@@ -336,10 +372,11 @@ LOCAL DTYPE convertT(TYPE ty)
     return typ;
 }
 
+
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    find_type
- *  Description:    find a type within a signature (subtyping)
+ * ===  FUNCTION ======================================================================
+ *         Name: find_type
+ *  Description: find a type within a signature (subtyping)
  * =====================================================================================
  */
 LOCAL int find_type(TYPE * ty,struct T(Signature) * sig)
@@ -355,10 +392,11 @@ LOCAL int find_type(TYPE * ty,struct T(Signature) * sig)
     return MFALSE;
 }
 
+
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    type_check
- *  Description:    type check given versus required type
+ * ===  FUNCTION ======================================================================
+ *         Name: type_check
+ *  Description: type check given versus required type
  * =====================================================================================
  */
 LOCAL int type_check(TYPE req,TYPE given)
@@ -429,9 +467,9 @@ LOCAL int type_check(TYPE req,TYPE given)
 
 
 /* 
- * ===  FUNCTION  ======================================================================
- *         Name:    unify_types
- *  Description:    abort if type unification returns false
+ * ===  FUNCTION ======================================================================
+ *         Name: unify_types
+ *  Description: abort if type unification returns false
  * =====================================================================================
  */
 LOCAL void unify_types(TYPE req,TYPE given)
