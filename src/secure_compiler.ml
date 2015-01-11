@@ -41,7 +41,6 @@ struct
   *  Exceptions
   *-----------------------------------------------------------------------------*)
   exception Found of string list
-  exception FailSort 
   exception Cannot_Sec_Compile of string
 
 

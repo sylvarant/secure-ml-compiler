@@ -17,6 +17,7 @@ open Typechecker
 open Scoping
 open Printer
 open Secure_compiler
+open Normal_compiler
 open Modules_compiler
 open Intermediary
 
@@ -42,7 +43,7 @@ type inputspec = {
  *  Global vars
  *-----------------------------------------------------------------------------*)
 
-let comptype_enum = [SecCompiler.compile]
+let comptype_enum = [SecCompiler.compile;NormCompiler.compile]
 
 
 (*
@@ -52,7 +53,7 @@ let comptype_enum = [SecCompiler.compile]
  * =====================================================================================
  *)
 let commandline = 
-  let default = { compiler = SecCompiler.compile; obj = "object.c" ; header = "header.h"} in
+  let default = {compiler = SecCompiler.compile; obj = "object.c" ; header = "header.h"} in
   let rec process = function
     | x :: y :: ls -> if x = "-t" 
       then (default.compiler <- (List.nth comptype_enum (int_of_string y));

@@ -50,7 +50,7 @@ sig
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
   and consts = ENV | ARG | MOD | STR | TOP
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
-  and headers = MINI | ENTRY
+  and headers = MINI | ENTRY 
   and accs = BVAL | BDVAL | BMOD | BDMOD
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool

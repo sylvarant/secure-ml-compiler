@@ -13,20 +13,21 @@ Compiler="src/main.native"
 Outfold="out/"
 
 
-if [[ $# -lt 1 ]];then
+if [[ $# -lt 2 ]];then
     echo $Usage
     exit 2
 fi
 
-input=$1
-filename=$(basename "$1" 2> /dev/null) 
+comptype=$1
+input=$2
+filename=$(basename "$2" 2> /dev/null) 
 extension="${filename##*.}"
 base="${filename%.*}"
 outputc="${Outfold}${base}.c"
 outputh="${Outfold}${base}.h"
 outputm="${Outfold}${base}.o"
 
-$Compiler -t 0 -o $outputc -h $outputh  < $input > /tmp/tmpfile
+$Compiler -t $comptype -o $outputc -h $outputh  < $input > /tmp/tmpfile
 res=$?
 if [[ $res -ne 0 ]];then
     if [[ $res -eq 5 ]]; then

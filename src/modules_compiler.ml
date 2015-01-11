@@ -19,6 +19,7 @@ open Intermediary
 exception Omega_miss of string
 exception Cannot_compile_module of string
 exception Cannot_compile of string
+exception FailSort 
 
 
 (*-----------------------------------------------------------------------------
@@ -68,6 +69,7 @@ struct
                | Strct of strcttype * string * cpath * string list * Intermediary.accs list * string list * string list 
                | Fctr of  string * Intermediary.locality * computation 
                | Compttr of string * computation * Intermediary.tempc list
+
   and strcttype = Normal | Copy | Fun | Partial
 
 
@@ -79,14 +81,17 @@ struct
   let rec convert_path = (function Pident id -> [Ident.name id]
     | Pdot (p,str) -> str :: (convert_path p)) 
   
-  (* convert a list into a pointer *)
+  (* convert a list into an entry point *)
   let make_entrypoint = function [] -> "this" 
     | lst -> (String.concat "_" (List.rev lst)) 
 
+  (* convert a list into a standard ptr *)
   let make_ptr lst = "_" ^ (make_entrypoint lst)
 
+  (* convert a list into a structure ptr *)
   let make_str lst = "str" ^ (make_ptr lst)
 
+  (* convert a list into a variable ptr *)
   let make_var lst = "var"^ (make_ptr lst)
 
   (* the difference between a ptr and a path is the path is the . *)
@@ -162,6 +167,47 @@ struct
           | Some lst -> (nn::lst)) in 
           Dynamic(nn,Some (List.rev (extra@ (List.rev (List.tl (List.rev ls))))))
         | _ -> raise (Cannot_compile "Wrong tree structure") 
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  sort_compred
+  *  Description: sort the compiler redices
+  * =====================================================================================
+  *)
+  let sort_compred cls =
+    let cmp_red a b = match (a,b) with
+      | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
+      | (Strct (_,n,pth,_,_,_,_) , Strct (_,n2,pth2,_,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
+      | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
+      | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
+      | (Gettr _, _)     -> 1
+      | (_, Gettr _)     -> -1
+      | (Compttr _, _)   -> -1
+      | (_, Compttr _)   -> 1
+      | (Strct _,Fctr _) -> 1
+      | (Fctr _,Strct _) -> -1
+    in
+    (List.sort cmp_red cls)
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  sort_bindings
+  *  Description: sort the structure bindings
+  * =====================================================================================
+  *)
+  let sort_bindings bls = 
+    let cmp_binding a b = match (a,b) with
+      | (BArg _,_) -> raise FailSort
+      | (_,BArg _) -> raise FailSort
+      | (BVal (name1,_,_) , BVal(name2,_,_)) -> (String.compare name1 name2)
+      | (BMod (name1,_,_) , BMod(name2,_,_)) -> (String.compare name1 name2)
+      | (BVal _, _) -> -1
+      | (BMod _, _) -> 1
+    in
+    (List.sort cmp_binding bls)
+
 
 end
 
@@ -324,7 +370,7 @@ struct
               (*let cmp =([],[],Interm.ToCall ((Interm.CVar "emptyModule"),[])) *)
               and fcpth = npth ^ "_Fctr" ^ (string_of_int id)
               and (a,b) = (extract ls) in
-              fctr_list := (Fctr (fcpth,Interm.LOCAL,comp)) :: !fctr_list;
+              fctr_list := (Fctr (fcpth,Interm.ENTRYPOINT,comp)) :: !fctr_list;
               (agls@a,Strct(Fun,name,path,fcpth::var::[],[],[],[]) :: sls @ b)
             | FB (pth,var,_,_,_,_,false) -> let (a,b) = extract ls in 
               let str = (make_str pth) in
@@ -454,7 +500,7 @@ struct
 
     (* build funcdefi *) 
     let funcdef b = function
-      | Gettr (ptr,dtstr,loc,_,_) -> (LOCAL,dtstr,ptr,[(BINDING,MOD)],b)
+      | Gettr (ptr,dtstr,loc,_,_) -> (loc,dtstr,ptr,[(BINDING,MOD)],b)
       | Fctr (ptr,loc,_) -> (loc,(constd MODULE),ptr,[(BINDING,MOD);(MODULE,STR)],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
