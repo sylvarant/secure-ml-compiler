@@ -11,6 +11,57 @@
  * =====================================================================================
  */
 
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: free_type
+ *  Description: save some space on the heap
+ * =====================================================================================
+ */
+LOCAL void free_type(TYPE ty)
+{
+    switch(ty.t){
+
+        case T(IGNORE):
+        case T(INT) :
+        case T(ABSTRACT):
+        case T(BOOLEAN): break;
+
+        case T(ARROW):
+        case T(STAR): {
+            free_type(*(ty.a.left));
+            free_type(*(ty.a.right));
+            FREE(ty.a.left);
+            FREE(ty.a.right);
+            break;
+        }
+
+        case T(VALUE):
+        case T(DECLARATION):
+        case T(MODULE): {
+            free_type(*(ty.m.type));
+            FREE(ty.m.type);
+            break;
+        }
+
+        case T(FUNCTOR): {
+            free_type(*(ty.f.left));
+            free_type(*(ty.f.right));
+            FREE(ty.f.left);
+            FREE(ty.f.right);
+            break;
+        }
+
+        case T(SIGNATURE): {
+            struct T(Signature) * it = &ty.ss;
+            do {
+                free_type(*(it->type));
+                FREE(it->type);
+                it = it->next;
+            }while(it != NULL);
+        }
+    }
+    return;
+}
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -29,7 +80,7 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
         d.identifier = getAdressAbs();
         VALUE * value = MALLOC(sizeof(VALUE)); 
         *value = input;
-        insertBigBinding(&abstract_exchange,d.byte,value,0,ty);
+        insertBigBinding(&abstract_exchange,d.byte,value,ty);
         return d;
     }
 
@@ -52,14 +103,15 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
             d.identifier = getAdressClo(); 
             VALUE * value = MALLOC(sizeof(VALUE)); 
             *value = input;
-            insertBigBinding(&closure_exchange,d.byte,value,0,ty);
+            insertBigBinding(&closure_exchange,d.byte,value,ty);
             d.t = CLOSURE;
             break;
         }
 
         case PAIR:{
-            DATA left = convertV(*(input.p.left),ty);
-            DATA right = convertV(*(input.p.right),ty); // TODO left and right if not ignore 
+            if(ty.t != T(STAR)) mistakeFromOutside();
+            DATA left = convertV(*(input.p.left),*(ty.s.left));
+            DATA right = convertV(*(input.p.right),*(ty.s.right)); 
             d.left = OUTERM(sizeof(DATA));
             d.right = OUTERM(sizeof(DATA));
             *(d.left) = left;
@@ -74,6 +126,7 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
             break;
         }
     }
+    //free_type(ty); 
     return d;
 }
 
@@ -258,7 +311,7 @@ LOCAL struct module_type * convertMD(MODDATA d)
         struct module_type * m = getBinding(exchange,key.byte,cmp_int);
         return m;
     }
-
+    
     mistakeFromOutside(); 
     return NULL;
 }

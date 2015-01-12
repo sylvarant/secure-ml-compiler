@@ -5,8 +5,8 @@
  *
  *    Description:  The global definitions for the code within the SPM
  *
- *         Author:  Dr. Fritz Mehner (mn), mehner@fh-swf.de
- *        Company:  FH Südwestfalen, Iserlohn
+ *         Author:  Adriaan Larmuseau
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

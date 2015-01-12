@@ -40,7 +40,7 @@ sig
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
-    | InsertMeta of tempc * tempc * tempc * int * type_u  
+    | InsertMeta of tempc * tempc * tempc * type_u  
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
@@ -127,7 +127,7 @@ struct
     | MALLOC of datastr *tempc * tempc | Ptr of tempc | Adress of tempc | ToByte of tempc 
     | ToOper of string * tempc * tempc | ToLeft of tempc | ToRight of tempc | Sizeof of datastr
     | ToStatic of type_u * tempc | Emptyline | ToReturn of tempc | ToDef of tempc * tempc * tempc list
-    | InsertMeta of tempc * tempc * tempc * int * type_u 
+    | InsertMeta of tempc * tempc * tempc * type_u 
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
@@ -339,8 +339,8 @@ struct
     | SetMember (stra,strb,a) -> stra^"."^strb^" = "^(printc a) 
     | CLocal a -> (printl a)
     | Include a -> "#include \""^a^"\""
-    | InsertMeta (a,b,c,d,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
-      (printc (CInt d))^","^(printty e)^")"
+    | InsertMeta (a,b,c,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
+        (printty e)^")"
     | ToIdent a -> (printc a)^".identifier"
     | Comment a -> "/* "^a^"*/"
 

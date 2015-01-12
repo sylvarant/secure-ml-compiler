@@ -25,7 +25,7 @@ TEST(applyClosure)
     DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = INT, .value = 5 };
-    DATA res = closure_entry(temp.identifier,input);
+    DATA res = closureEntry(temp.identifier,input);
     CHECK("Did not get a correct result",res.value == 6);
 DONE
 
@@ -38,7 +38,7 @@ CRASH(crashCloApply)
     DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = BOOLEAN, .value = 5 };
-    DATA res = closure_entry(temp.identifier,input);
+    DATA res = closureEntry(temp.identifier,input);
 RECOVER
 
 LIST

@@ -16,9 +16,6 @@
 int tests_run = 0;
 int tests_set = 7;
 
-typedef DATA (*func_entry) (MODDATA);
-typedef MODDATA (*mod_entry) (MODDATA);
-
 TEST(getModule)
     MODDATA temp = IsZero();
     CHECK("Did not fetch the One module",temp.identifier == 1);
@@ -33,7 +30,7 @@ DONE
 TEST(applyFunctor)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 5);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -44,7 +41,7 @@ DONE
 TEST(dynamicModule)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     mod_entry call = new.fcalls[1];
     MODDATA result = call(new);
     CHECK("Result is a Structure",result.t == STRUCTURE);
@@ -54,7 +51,7 @@ DONE
 TEST(dynamicModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     mod_entry call = new.fcalls[1];
     MODDATA inner = call(new);
     func_entry call2 = inner.fcalls[0];
@@ -65,7 +62,7 @@ DONE
 TEST(assignedModule)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     mod_entry call = new.fcalls[2];
     MODDATA inner = call(new);
     CHECK("Result is a Structure",inner.t == STRUCTURE);
@@ -75,13 +72,13 @@ DONE
 TEST(assignedModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     mod_entry call = new.fcalls[2];
     MODDATA inner = call(new);
     func_entry test = inner.fcalls[0];
     DATA arg = {.t = INT, .value = 10};
     DATA closure = test(inner); 
-    DATA result = closure_entry(closure.identifier,arg);    
+    DATA result = closureEntry(closure.identifier,arg);    
     CHECK("Result is not a boolean",result.t == BOOLEAN);
     CHECK("Result is not false",result.value == 0);
 DONE 

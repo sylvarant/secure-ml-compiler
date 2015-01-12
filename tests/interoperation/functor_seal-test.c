@@ -12,7 +12,6 @@
 #include "functor_seal.h"
 #include "unit.h"
 
-typedef DATA (*func_entry) (MODDATA);
 
 int tests_run = 0;
 int tests_set = 6;
@@ -32,7 +31,7 @@ DONE
 TEST(applyFunctor)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 2);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -42,7 +41,7 @@ DONE
 TEST(dynamicEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     func_entry call2 = new.fcalls[1];
     DATA result = call(new);
@@ -54,26 +53,26 @@ DONE
 TEST(dynamicResult)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     func_entry call2 = new.fcalls[1];
     DATA closure = call(new);
     DATA closure2 = call2(new);
     DATA arg = { .t = INT, .value = 2 };
-    DATA result = closure_entry(closure.identifier,arg); 
+    DATA result = closureEntry(closure.identifier,arg); 
     CHECK("Result is Abstract",result.t == ABSTRACT);  
-    DATA result2 = closure_entry(closure2.identifier,result); 
+    DATA result2 = closureEntry(closure2.identifier,result); 
     CHECK("Result is false",result2.value == 0);  
 DONE
 
 CRASH(dynamicResultTypeFail)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     func_entry call = new.fcalls[1];
     DATA closure = call(new);
     DATA left = { .t = INT, .value = 2 };
-    DATA result = closure_entry(closure.identifier,left); 
+    DATA result = closureEntry(closure.identifier,left); 
 RECOVER
 
 

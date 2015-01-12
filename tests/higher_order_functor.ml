@@ -1,3 +1,5 @@
+(* test that the compiler can securely compile a functor
+that returns another functor, and thus supports multi argument functors *)
 struct
 
   module IntOrder =

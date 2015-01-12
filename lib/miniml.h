@@ -182,10 +182,7 @@ typedef struct Meta_s
 {
     unsigned int call;
     TYPE type;
-    union {
-        void * value;
-        union Value_u (*gettr)();
-    };
+    void * value;
 } META;
 
 
@@ -489,10 +486,9 @@ LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
  *  Description:  helper function for inserting bindings
  * =====================================================================================
  */
-LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,unsigned int call,TYPE ty)
+LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,TYPE ty)
 {
     META * m = MALLOC(sizeof(META));
-    m->call = call;
     m->type = ty;
     m->value = val;
     insertBinding(binding,key,m);

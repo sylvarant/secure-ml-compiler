@@ -20,7 +20,7 @@ TEST(testpublic)
     DATA temp = Main_public();
     CHECK("Did not fetch a Closure from public",temp.t == CLOSURE);
     DATA arg = { .t = INT, .value = 3};
-    DATA res = closure_entry(temp.identifier,arg);
+    DATA res = closureEntry(temp.identifier,arg);
     CHECK("Did not recieve back 80",res.value == 80);
 DONE
 

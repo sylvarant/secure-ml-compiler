@@ -47,14 +47,14 @@ DONE
 TEST(applytof4)
     DATA clo = function4();
     DATA arg = {.t = CALLBACK, .call = goodfunction};
-    DATA res = closure_entry(clo.identifier,arg);
+    DATA res = closureEntry(clo.identifier,arg);
     CHECK("Did not recieve a Boolean",res.t == BOOLEAN);
 DONE
 
 CRASH(crashf4)
     DATA clo = function4();
     DATA arg = {.t = CALLBACK, .call = badfunction};
-    DATA res = closure_entry(clo.identifier,arg);
+    DATA res = closureEntry(clo.identifier,arg);
 RECOVER
 
 LIST

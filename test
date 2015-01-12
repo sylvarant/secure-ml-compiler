@@ -146,9 +146,9 @@ printf "%s" "  "
 if [[ $SuccesCounter -ne $TestCounter ]];then
     echo -ne "\033[1;31m[$SuccesCounter]\033[0m"
 else 
-    echo -ne "\033[1;33m[$TestCounter]\033[0m"
+    echo -ne "\033[1;33m[$SuccesCounter]\033[0m"
 fi
 
-echo -e " of \033[1;33m[$SuccesCounter]\033[0m Tests in $(expr `date +%s` - $StartTime)(s)"
+echo -e " of \033[1;33m[$TestCounter]\033[0m Tests in $(expr `date +%s` - $StartTime)(s)"
 
 exit 0

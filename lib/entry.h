@@ -122,13 +122,17 @@ typedef struct Moduledata_s{
     };
 } MODDATA;
 
+// for the attacker's convenience
+typedef DATA (*func_entry) (MODDATA);
+typedef MODDATA (*mod_entry) (MODDATA);
+
 
 /*-----------------------------------------------------------------------------
  *  General Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT DATA closure_entry(int,DATA);
-ENTRYPOINT MODDATA functor_entry(int,MODDATA);
+ENTRYPOINT DATA closureEntry(int,DATA);
+ENTRYPOINT MODDATA functorEntry(int,MODDATA);
 
 #endif
 

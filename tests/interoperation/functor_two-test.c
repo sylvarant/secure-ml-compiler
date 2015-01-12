@@ -17,7 +17,6 @@
 int tests_run = 0;
 int tests_set = 8;
 
-typedef DATA (*func_entry) (MODDATA);
 
 TEST(getModule)
     MODDATA temp = Input();
@@ -38,7 +37,7 @@ DONE
 TEST(applyFunctor1)
     MODDATA temp = Input();
     MODDATA functor = Test1();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -47,7 +46,7 @@ DONE
 TEST(applyFunctor2)
     MODDATA temp = Input();
     MODDATA functor = Test2();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -56,7 +55,7 @@ DONE
 TEST(dynamicEntry1)
     MODDATA temp = Input();
     MODDATA functor = Test1();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     DATA result = call(new);
     CHECK("Result is a closure",result.t == CLOSURE);
@@ -65,7 +64,7 @@ DONE
 TEST(dynamicEntry2)
     MODDATA temp = Input();
     MODDATA functor = Test2();
-    MODDATA new = functor_entry(functor.identifier,temp);
+    MODDATA new = functorEntry(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     DATA result = call(new);
     CHECK("Result is a closure",result.t == CLOSURE);
@@ -74,9 +73,9 @@ DONE
 CRASH(crashDynamicEntry)
     MODDATA temp = Input();
     MODDATA functor1 = Test1();
-    MODDATA new1 = functor_entry(functor1.identifier,temp);
+    MODDATA new1 = functorEntry(functor1.identifier,temp);
     MODDATA functor2 = Test2();
-    MODDATA new2 = functor_entry(functor2.identifier,temp);
+    MODDATA new2 = functorEntry(functor2.identifier,temp);
     func_entry call = new1.fcalls[0];
     DATA result = call(new2);
 RECOVER

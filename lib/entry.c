@@ -181,11 +181,11 @@ LOCAL VALUE path_value(BINDING * binding,char * path,int size)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: closure_entry
+ *         Name: closureEntry
  *  Description: entry point for closure application
  * =====================================================================================
  */
-ENTRYPOINT DATA closure_entry(int id, DATA d)
+ENTRYPOINT DATA closureEntry(int id, DATA d)
 {
     // fetch and type check
     union safe_cast key = {.value = id};
@@ -208,11 +208,11 @@ ENTRYPOINT DATA closure_entry(int id, DATA d)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: functor_entry
+ *         Name: functorEntry
  *  Description: entry point for functor application
  * =====================================================================================
  */
-ENTRYPOINT MODDATA functor_entry(int id,MODDATA d)
+ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
 {
     // fetch and type check
     union safe_cast key = {.value = id};

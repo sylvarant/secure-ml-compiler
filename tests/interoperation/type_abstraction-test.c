@@ -30,14 +30,14 @@ TEST(testAbstractfunc)
     DATA clo = Abstract_func();
     CHECK("Did not fetch a Closure from Abstract.func",clo.t == CLOSURE);
     DATA arg = Abstract_create();
-    DATA res = closure_entry(clo.identifier,arg);  
+    DATA res = closureEntry(clo.identifier,arg);  
     CHECK("Did not fetch an Abstract from applying Abstract.func",res.t == ABSTRACT);
 DONE
 
 CRASH(crashAbstractfunc)
     DATA clo = Abstract_func();
     DATA arg = Alternate_create();
-    DATA res = closure_entry(clo.identifier,arg);  
+    DATA res = closureEntry(clo.identifier,arg);  
 RECOVER
 
 TEST(testAbstractInnerDumb)
@@ -45,8 +45,8 @@ TEST(testAbstractInnerDumb)
     CHECK("Did not fetch a Closure from Abstract.Inner.dumb",clo.t == CLOSURE);
     DATA clo2 = Abstract_func();
     DATA arg2 = Abstract_create();
-    DATA arg = closure_entry(clo2.identifier,arg2);  
-    DATA res = closure_entry(clo.identifier,arg);  
+    DATA arg = closureEntry(clo2.identifier,arg2);  
+    DATA res = closureEntry(clo.identifier,arg);  
     CHECK("Did not retrieve the value 10 from dumb",res.value == 10); 
 DONE
 
