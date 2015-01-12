@@ -530,7 +530,7 @@ struct
       let make_comp p m = ([],[],ToCall ((CVar "convertM"), [p ; m])) in
 
       (* convert assocs into Gettrs *)
-      let rec entrypts (pls : assoc list list) : assoc list -> methods list = function [] -> []
+      let rec entrypts : assoc list -> methods list = function [] -> []
         | x :: xs -> match x with
 
           | (Call(ty,name,pth,rpth,(needs,arg))) -> 
@@ -540,16 +540,15 @@ struct
             let comp = (match arg with
               | None -> (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ]))
               | Some p -> (ToCall ((constc CONV),[(comp_arg (constc PATHV) p); tycomp]))) in
-            EntryPoint(eptr,(constd DATA),([],[],comp),needs) :: (entrypts pls xs)
+            EntryPoint(eptr,(constd DATA),([],[],comp),needs) :: (entrypts xs)
 
           | Share(mty,name,opth,pth,(needs,arg))  -> 
-            let tail = (try (List.tl pls) with _ -> []) in
             let eptr = (make_entrypoint (name::pth)) in
             let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
             if name = "this" then (* This is awful *)
               let special = CVar (make_str []) in
               let compu = (make_comp special modcomp) in
-              EntryPoint(name,(constd MODDATA),compu,needs) :: (entrypts tail xs)
+              EntryPoint(name,(constd MODDATA),compu,needs) :: (entrypts xs)
             else
               let ptr = (match arg with 
                 | Some ls -> (comp_arg (constc PATH) ls)
@@ -558,7 +557,7 @@ struct
                   | Some _ -> ToCall (CVar (make_ptr (name::pth)),[(constv MOD)]))) 
               in
               let compu = (make_comp ptr modcomp) in
-              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts tail xs)
+              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
 
           | Provide(mty,name,id,opth,pth,(needs,arg)) -> 
             let eptr = (make_entrypoint (name::pth)) in
@@ -568,7 +567,7 @@ struct
             in
             let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
             let compu = (make_comp ptr modcomp) in
-            EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts pls xs)
+            EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
 
           | Constrain (mty,name,path,ls,(needs,arg)) ->
             let names = List.map (function (x,_,_) -> x) ls in
@@ -592,11 +591,11 @@ struct
             let ptr = ToCall (CVar "updateEntry",
                [ target ; (constv MOD); stamp; CInt (List.length names); CVar nv ; CVar ev ]) in
             let compu = ([],[CVar nls; CVar els],ToCall ((CVar "convertM"), [ptr ; modcomp])) in
-            EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts pls xs)
+            EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
       in
 
       (* top level *)
-      (entrypts (split_assocpth assocs) assocs)
+      (entrypts assocs)
     in
 
     (* update_compred *)

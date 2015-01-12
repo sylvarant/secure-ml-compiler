@@ -22,7 +22,7 @@ now: compiler
 
 setup:
 	-mkdir out
-	-mkdir setup
+	-mkdir log
 
 test:
 	@./test

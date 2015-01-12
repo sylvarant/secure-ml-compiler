@@ -80,7 +80,6 @@ struct
     let hedh = header  (List.map printc [(consth ENTRY); (consth MINI)]) in
     let headerfile = (String.concat "\n" hedh) ^ "\n"  in
 
-
     (* build the object file *)
     let dec_ls = (separate "Declarations" (mapfd (gettrs@fctrs)))
     and pb_ls = (separate "Static Structures" (MC.Low.structure nstrcts))
