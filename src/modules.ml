@@ -110,11 +110,17 @@ module type MOD_SYNTAX =
       | Apply of mod_term * mod_term              (* mod1(mod2) *)
       | Constraint of mod_term * mod_type         (* (mod : mty) *)
     and structure = definition list
+
     and definition =
-        Value_str of Ident.t * Core.term          (* let x = expr *)
-      | Type_str of Ident.t * Core.kind * Core.def_type
-                                                  (* type t :: k = ty *)
+
+      | Value_str of Ident.t * Core.term          (* let x = expr *)
+
+      | Type_str of Ident.t * Core.kind * Core.def_type (* type t :: k = ty *)
+
       | Module_str of Ident.t * mod_term          (* module X = mod *)
+
+      | Open_str of Ident.t                       (* open X -> module X = mod *)
+
     val subst_typedecl: type_decl -> Subst.t -> type_decl
     val subst_modtype: mod_type -> Subst.t -> mod_type
   end
@@ -145,10 +151,13 @@ module Mod_syntax(Core_syntax: CORE_SYNTAX) =
 
     and structure = definition list
     and definition =
-        Value_str of Ident.t * Core.term          (* let x = expr *)
-      | Type_str of Ident.t * Core.kind * Core.def_type
-                                                  (* type t :: k = ty *)
+      | Value_str of Ident.t * Core.term          (* let x = expr *)
+
+      | Type_str of Ident.t * Core.kind * Core.def_type (* type t :: k = ty *)
+                                                  
       | Module_str of Ident.t * mod_term          (* module X = mod *)
+
+      | Open_str of Ident.t                       (* open X -> module X = mod *)
 
     let subst_typedecl decl sub =
       { kind = Core.subst_kind decl.kind sub;

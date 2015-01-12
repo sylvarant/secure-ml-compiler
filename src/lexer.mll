@@ -41,6 +41,7 @@ let _ = List.iter (fun (str,tok) -> Hashtbl.add keyword_table str tok)
   "val", VALUE;
   "type", TYPE;
   "module", MODULE;
+  "open", OPEN;
   "sig", SIG;
   "in", IN;
   "if", IF;

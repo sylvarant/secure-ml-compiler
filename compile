@@ -27,7 +27,7 @@ outputc="${Outfold}${base}.c"
 outputh="${Outfold}${base}.h"
 outputm="${Outfold}${base}.o"
 
-$Compiler -t $comptype -o $outputc -h $outputh  < $input > /tmp/tmpfile
+$Compiler -t $comptype -o $outputc -h $outputh $input > /tmp/tmpfile
 res=$?
 if [[ $res -ne 0 ]];then
     if [[ $res -eq 5 ]]; then

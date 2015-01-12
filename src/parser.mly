@@ -80,6 +80,7 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %token VALUE
 %token FST
 %token SND
+%token OPEN
 
 
 %right ARROW
@@ -223,6 +224,8 @@ structure_item:
   | MODULE MODIDENT COLON moduletype EQUAL modulexpr
                      { MiniMLMod.Module_str(Ident.create $2, MiniMLMod.Constraint($6, $4)) }
   | MODULE MODIDENT EQUAL modulexpr   { MiniMLMod.Module_str(Ident.create $2, $4) }
+
+  | OPEN MODIDENT                 {MiniMLMod.Open_str (Ident.create $2)}
 ;
 opt_semi:
     /* nothing */ { () }
