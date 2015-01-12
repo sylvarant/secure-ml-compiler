@@ -76,7 +76,6 @@ do
     $Compiler 0 $file >> $logname 2>&1
     res=$?
     printr $res 0
-    tabs 8
     case $res in
 
         0) ;;#let's move on
@@ -93,7 +92,6 @@ do
         *) echo -e "\tUnkown Error"
 
     esac
-    tabs 4
 
     # the specific interoperation tests for this file
     for testf in ${Testfold}/${Iterfold}/*.c
