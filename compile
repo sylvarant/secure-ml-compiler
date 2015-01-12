@@ -43,7 +43,7 @@ if [[ $res -ne 0 ]];then
     fi
 fi
 
-gcc  $outputc -I./lib/ -g -Werror -Wfatal-errors -O -c -o $outputm 
+gcc  $outputc -I./lib/ -g -std=c99 -Werror -Wfatal-errors -O -c -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"

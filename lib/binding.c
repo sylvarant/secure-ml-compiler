@@ -34,8 +34,11 @@ FUNCTIONALITY int cmp_char(void *vs1, void *vs2)
 
 FUNCTIONALITY int cmp_int(void *vs1, void *vs2)
 {
-    int s1 = (int) vs1;
-    int s2 = (int) vs2;
+
+    union safe_cast u = {.byte = vs1};
+    union safe_cast u2 = {.byte = vs2};
+    int s1 = u.value;
+    int s2 = u2.value;
 
     if(s1==s2) return 0;
     else return 1;
