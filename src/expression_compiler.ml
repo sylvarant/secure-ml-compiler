@@ -86,9 +86,8 @@ struct
            (*Printf.eprintf "Looking for %s" (String.concat "_" cpath);*)
            (try (match (lookup_path env cpath) with
               | Static spath -> ToCast (VALUE,(ToCall ((CVar spath),[(constv MOD)]))) 
-              | Dynamic (nn, Some ls) -> let path = CString (make_path ls)
-                and size = CInt (String.length (make_path ls)) in
-                  (ToCall ((constc PATHV),[ (constv MOD); path ; size])) 
+              | Dynamic (nn, Some ls) -> let path = CString (make_path ls) in
+                  (ToCall ((constc PATHV),[ (constv MOD); path])) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
            with _ -> (Get ((constv ENV),(CString (make_entrypoint cpath)))))
         | Constant x -> ToInt (CInt x)
@@ -122,7 +121,7 @@ struct
         let ptrstr = CVar (new_ptr()) in
         let malla = MALLOC (VALUE,ptrarg,(Sizeof VALUE)) in
         let assarg = Assign((Ptr ptrarg),(constv ARG)) in
-        let asstr = ToStatic((constd CHAR),Assign((Ptr ptrstr),(CString id))) in
+        let asstr = ToStatic((constd CHAR),Assign(ptrstr,(CString id))) in
         let insert = (Insert((constv ENV),ptrstr,ptrarg)) in
         let compttr = Compttr (name,(!vlist,[],compiled),[asstr; malla ; assarg; insert]) in
         funclist := compttr :: !funclist in

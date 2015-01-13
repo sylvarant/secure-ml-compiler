@@ -68,7 +68,9 @@ LOCAL char * nextId(char ** str)
  */
 MODULE get_module(MODULE m,char * str)
 {
+    DEBUG_PRINT("in");
     if(m.type != STRUCTURE) mistakeFromOutside();  
+    DEBUG_PRINT("in");
 
     for(int i = 0; i < m.c.s.count; i++)
     {
@@ -95,7 +97,7 @@ MODULE get_module(MODULE m,char * str)
  *  Description:  return a value member 
  * =====================================================================================
  */
-VALUE get_value(BINDING * top,MODULE m,char * str)
+VALUE get_value(MODULE m,char * str)
 {
     if(m.type != STRUCTURE) mistakeFromOutside();  
 
@@ -106,7 +108,7 @@ VALUE get_value(BINDING * top,MODULE m,char * str)
             switch(m.c.s.accs[i])
             {
                 case BVAL :{ 
-                    return ((m.c.s.fields[i]).gettr(top));
+                    return ((m.c.s.fields[i]).gettr(m.strls));
                 }
                 default : mistakeFromOutside();
             }
@@ -119,28 +121,67 @@ VALUE get_value(BINDING * top,MODULE m,char * str)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name:  path_module
- *  Description:  call up a module
+ *         Name:  get_module_path
+ *  Description:  return a module member pointed to by a path
  * =====================================================================================
  */
-LOCAL MODULE path_module(BINDING * binding,char * path,int size)
+LOCAL MODULE get_module_path(MODULE m,char * path)
 {
-    if(path[size] != '\0') mistakeFromOutside(); // buffer check
-
     char * remainder = path;
-    char * it = nextId(&remainder);
-    struct module_type * m = getBinding(binding,it,cmp_char); 
-    FREE(it);
-    
-    MODULE mod = m->m;
+    MODULE mod = m;
     while(*remainder != '\0')
     {
         char * it = nextId(&remainder);
         mod = get_module(mod,it); 
         FREE(it);
     }
+    return mod;
+}
 
-    return mod; 
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  get_value_path
+ *  Description:  return a value member pointed to by a path
+ * =====================================================================================
+ */
+LOCAL VALUE get_value_path(MODULE m,char * path)
+{
+    char * remainder = path;
+    MODULE mod = m;
+    if(*remainder == '\0') mistakeFromOutside();
+    do
+    {
+        char * it = nextId(&remainder);
+        if(*remainder == '\0')
+        {
+            VALUE v = get_value(mod,it); 
+            FREE(it);
+            return v; 
+        }
+        mod = get_module(mod,it); 
+        FREE(it);
+    }while(1);
+
+    return makeBoolean(0); // gcc is whiny
+}
+
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  path_module
+ *  Description:  call up a module
+ * =====================================================================================
+ */
+LOCAL MODULE path_module(BINDING * binding,char * path)
+{
+    char * remainder = path;
+    char * it = nextId(&remainder);
+    MODULE * m = getBinding(binding,it,cmp_char); 
+    FREE(it);
+    
+    return get_module_path(*m,remainder); 
 }
 
 
@@ -150,32 +191,14 @@ LOCAL MODULE path_module(BINDING * binding,char * path,int size)
  *  Description:  call up a value
  * =====================================================================================
  */
-LOCAL VALUE path_value(BINDING * binding,char * path,int size)
+LOCAL VALUE path_value(BINDING * binding,char * path)
 {
-    if(path[size] != '\0') mistakeFromOutside(); // buffer check
-
     char * remainder = path;
     char * it = nextId(&remainder);
-    struct module_type * m = getBinding(binding,it,cmp_char); 
+    MODULE * m = getBinding(binding,it,cmp_char); 
     FREE(it);
     
-    if(*remainder == '\0') mistakeFromOutside();
-
-    MODULE mod = m->m;
-    do
-    {
-        it = nextId(&remainder);
-        if(*remainder == '\0')
-        {
-            VALUE v = get_value(binding,mod,it); 
-            FREE(it);
-            return v; 
-        }
-        mod = get_module(mod,it); 
-        FREE(it);
-    }while(1);
-
-    return makeBoolean(0); // gcc is whiny
+    return get_value_path(*m,remainder);
 }
 
 
@@ -227,7 +250,7 @@ ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
     unify_types(required,given);
     // if everything is fine update the functor with the argument and apply
     //DEBUG_PRINT("FUNCTOR APPL");
-    insertBinding(&functor.strls,functor.c.f.var,amt);
+    //insertBinding(&functor.strls,functor.c.f.var,amt);
     MODULE new = functor.c.f.Functor(functor.strls,arg); 
     MODDATA ret = convertM(new,*(functortype.f.right)); // TODO update right
     return ret;

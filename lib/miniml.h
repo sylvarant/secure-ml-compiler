@@ -163,7 +163,6 @@ typedef struct module_s{
             } * entries;
         }s;
         struct functor {
-            char * var;
             struct module_s (*Functor) (BINDING*,struct module_s);      
         }f;
     }c;
@@ -241,10 +240,12 @@ LOCAL MODDATA convertM(MODULE,TYPE);
 LOCAL struct module_type * convertMD(MODDATA);
 LOCAL struct value_type convertD(DATA,TYPE);
 LOCAL void checkModule(MODULE,int);
-LOCAL VALUE get_value(BINDING *,MODULE,char *);
+LOCAL VALUE get_value(MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
-LOCAL MODULE path_module(BINDING *,char*,int);
-LOCAL VALUE path_value(BINDING *,char*,int);
+LOCAL MODULE path_module(BINDING *,char*);
+LOCAL VALUE path_value(BINDING *,char*);
+LOCAL VALUE get_value_path(MODULE,char*);
+LOCAL MODULE get_module_path(MODULE,char*);
 LOCAL MODULE updateEntry(MODULE,BINDING*,int,int,char **,ENTRY * ls);
 LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
 
@@ -523,11 +524,10 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
  *  Description:  return a Module Content for a functor
  * =====================================================================================
  */
-LOCAL CONTENT makeContentF(Functor f,char * var)
+LOCAL CONTENT makeContentF(Functor f)
 {
     CONTENT ret;
     ret.f.Functor = f;
-    ret.f.var = var;
     return ret; 
 }
 

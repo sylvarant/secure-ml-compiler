@@ -45,10 +45,11 @@ sig
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
+    | ToVar of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
-  and consts = ENV | ARG | MOD | STR | TOP
+  and consts = ENV | ARG | MOD | STR | TOP | FVAR
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
   and headers = MINI | ENTRY 
   and accs = BVAL | BDVAL | BMOD | BDMOD
@@ -132,12 +133,13 @@ struct
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
+    | ToVar of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
 
-  and consts = ENV | ARG | MOD | STR | TOP
+  and consts = ENV | ARG | MOD | STR | TOP | FVAR
 
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
 
@@ -178,7 +180,7 @@ struct
     | VOID -> "void"
     | DATA -> "DATA"
     | DTYPE -> "DTYPE"
-    | CHAR -> "char"
+    | CHAR -> "char*"
     | ACC -> "ACC"
     | FIELD -> "FIELD"
     | ENTRY -> "ENTRY"
@@ -190,6 +192,7 @@ struct
     | ENV -> "my_env" 
     | ARG -> "my_arg"
     | MOD -> "my_mod" 
+    | FVAR -> "my_fvar"
     | STR -> "my_str"
     | TOP -> "toplevel"
 
@@ -332,7 +335,7 @@ struct
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
       | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
     | ToStructure (s,ls) -> "struct "^s^" {"^ (String.concat " "  (List.map printc ls))^"}"
-    | ToFunctor a -> "("^(printc a)^").f.Functor"
+    | ToFunctor a -> "("^(printc a)^").c.f.Functor"
     | Member (ty,str) -> (printty ty)^" "^str^";"
     | CallMember (ret,n,arg) -> (printty ret)^" (*"^n^")("^(match arg with [] -> "void" 
       | ls -> (String.concat "," (List.map printty arg)))^");"
@@ -342,6 +345,8 @@ struct
     | InsertMeta (a,b,c,e) -> "insertBigBinding("^(printc (Adress a))^","^(printc b)^","^(printc c)^","^
         (printty e)^")"
     | ToIdent a -> (printc a)^".identifier"
+    | ToVar a -> (printc a) ^"c.f.var"
+
     | Comment a -> "/* "^a^"*/"
 
 

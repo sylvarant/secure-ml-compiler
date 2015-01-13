@@ -497,7 +497,7 @@ LOCAL int type_check(TYPE req,TYPE given)
         }
 
         case T(FUNCTOR):{
-            if(cmp_char(given.f.name,req.f.name)) return MFALSE;
+            //if(cmp_char(given.f.name,req.f.name)) return MFALSE;
             if(given.f.left != NULL & req.f.left != NULL 
                 && type_check(*(req.f.left),*(given.f.left)))
             {

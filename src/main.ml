@@ -83,7 +83,7 @@ let commandline =
  *  Description:  preprocessor for the open statements
  * =====================================================================================
  *)
-let preprocess prog dirname = 
+let rec preprocess prog dirname = 
 
   (* look up the module *)
   let fetch_module id = 
@@ -94,10 +94,11 @@ let preprocess prog dirname =
     let lexbuf = Lexing.from_channel channel in
     try
       let m = Parser.implementation Lexer.token lexbuf in
-      (*let scoped_m = MiniMLModScoping.scope_module Scope.empty prog in*)
-      let mty = MiniMLModTyping.type_module MiniMLEnv.empty m in 
+      let pm = preprocess m dirname in
+      let sm = MiniMLModScoping.scope_module Scope.empty pm in
+      let mty = MiniMLModTyping.type_module MiniMLEnv.empty sm in 
       (* only return the prog for now *)
-      m 
+      sm 
     with
       | Error s -> (fail id); 
         (Printf.eprintf "Error: %s\n" s);
