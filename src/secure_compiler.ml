@@ -481,7 +481,7 @@ struct
       
           let updated_arg a = match a with
             | None ->  (compile_ar cont)
-            | Some arg -> extend_argument mname arg
+            | Some arg -> arg 
           in
 
           match (cont,mty) with

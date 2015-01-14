@@ -385,7 +385,9 @@ LOCAL VALUE foreign_value(foreignval f,TYPE req)
 LOCAL MODULE foreign_module(foreignmod f,TYPE req)
 {
     MODDATA result = f();
+    DEBUG_PRINT("in here");
     struct module_type  v = convertMD(result,req);
+    DEBUG_PRINT("O really");
     return v.m;
 }
 
@@ -406,7 +408,7 @@ LOCAL TYPE getstype(struct T(Signature) s,char * target)
             return *(next->type->v.type);
         next = next->next;
     }while(next != NULL);
-    DEBUG_PRINT("here");
+    DEBUG_PRINT("No shit");
     mistakeFromOutside();
     return T(Int); // gcc
 }
@@ -428,6 +430,7 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
     }
 
     if(req.t != T(SIGNATURE)) mistakeFromOutside();
+    DEBUG_PRINT("Now we are serious");
     MODULE m;
     m.type = STRUCTURE;
     m.strls = NULL; 

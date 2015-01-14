@@ -16,7 +16,7 @@
 #include "unit.h"
 
 int tests_run = 0;
-int tests_set = 5;
+int tests_set = 7;
 
 DATA goodclosure(DATA val)
 {
@@ -93,12 +93,54 @@ CRASH(evilFun)
     DATA result = closureEntry(closure.identifier,input);
 RECOVER
 
+MODDATA module(void)
+{
+    MODDATA m;
+    return m;
+}
+
+CRASH(modinjection)
+    myarg.accs[0] = MOD; 
+    myarg.fcalls[0] = module;
+    MODDATA functor = IdF();
+    MODDATA new = functorEntry(functor.identifier,myarg);
+    func_entry func = IdF_Functor_func; 
+    DATA closure = func(new);
+RECOVER
+
+DTYPE ignored;
+char * innames [] =  {"test"};
+CALLTAG inacc[] = {VAL};
+void * ptrs[] = {gooddata};
+MODDATA inner = {.t = STRUCTURE, .type = 0, .identifier = -1,.count = 1,.names = innames,.accs=inacc,.fcalls=ptrs};
+
+MODDATA inner_mod(void)
+{
+   return inner; 
+}
+
+TEST(deepModule)
+    MODDATA mod = myarg;
+    mod.fcalls[0] = (void *) inner_mod;
+    mod.accs[0] = MOD;
+    mod.names[0] = "Inner";
+    MODDATA functor = IdFDeep(); 
+    MODDATA new = functorEntry(functor.identifier,mod);
+    MODDATA obj = IdFDeep_Functor_Inner(new);
+    CHECK("Resulting object does not have correct entry point",obj.fcalls[0] == IdFDeep_Functor_Inner_test);
+    DATA closure = IdFDeep_Functor_Inner_test(new); 
+    CHECK("Value does not produce closure",closure.t == CLOSURE);
+DONE
+
+
 LIST
     RUN(getSetup);
     RUN(applyFunctor);
     RUN(dynGettr);
     RUN(attFun);
     RUN(evilFun);
+    RUN(modinjection);
+    RUN(deepModule);
 DONE
 
 INCLUDE_MAIN

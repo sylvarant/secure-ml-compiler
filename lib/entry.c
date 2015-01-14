@@ -68,9 +68,8 @@ LOCAL char * nextId(char ** str)
  */
 MODULE get_module(MODULE m,char * str)
 {
-    DEBUG_PRINT("in");
+    DEBUG_PRINT("path = %s",str);
     if(m.type != STRUCTURE) mistakeFromOutside();  
-    DEBUG_PRINT("in");
 
     for(int i = 0; i < m.c.s.count; i++)
     {
@@ -83,6 +82,7 @@ MODULE get_module(MODULE m,char * str)
                 }
 
                 case BDMOD :{
+                    DEBUG_PRINT("here");
                     struct foreign_s fs = *((m.c.s.fields[i]).foreign);
                     return foreign_module(fs.me,fs.req);
                 }

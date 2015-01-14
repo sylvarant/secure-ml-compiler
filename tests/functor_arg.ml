@@ -30,5 +30,8 @@ struct
 
             module Result = Func (Argument) 
         end
+
+    module IdFDeep = 
+        functor (Arg : sig module Inner : (sig val test : int->int end) end) Arg
 end
 
