@@ -334,6 +334,9 @@ struct
   *)
   let type_weave progtype binding = 
 
+    (* crazy list *)
+    let crazy_lst = ref [] in
+
     (* ================================================= *)
     (* extract the shared associations                   *)
     (* ================================================= *)
@@ -466,7 +469,7 @@ struct
               (parse_mty (need,Some newarg) false nm path ar mty) @ (build_arg path need arg ar xs)
               
         (* parse the module type *)
-        and parse_mty needs self name path cont mty = 
+        and parse_mty needs self mname npath cont mty = 
 
           let (need,arg) = needs in  
 
@@ -478,35 +481,36 @@ struct
       
           let updated_arg a = match a with
             | None ->  (compile_ar cont)
-            | Some arg -> extend_argument name arg
+            | Some arg -> extend_argument mname arg
           in
 
           match (cont,mty) with
 
           | (FB(pth,var,_,_,mb,idn,_), Functor_type (id,lmty,rmty))-> 
               let nneeds = (Some (Easy idn,var ),arg) in
-              let head = Provide (mty,name,(Ident.name id),pth,path,nneeds)  
-              and next = (parse_mty nneeds self "Functor" (name::path) mb rmty) in
+              let head = Provide (mty,mname,(Ident.name id),pth,npath,nneeds)  
+              and next = (parse_mty nneeds self "Functor" (mname::npath) mb rmty) in
               (no_self head next)
 
           | (SB (pth,nbinding,_),(Signature sigls)) -> 
-              let head = Share(mty,name,pth,path,needs) 
-              and next = (parse_sigls needs (name::path) nbinding sigls) in
+              let head = Share(mty,mname,pth,npath,needs) 
+              and next = (parse_sigls needs (mname::npath) nbinding sigls) in
               (no_self head next)
 
           | (AR _,(Signature sigls)) -> 
               let arg = updated_arg arg in
-              let triple = (quick (name::path) sigls) in 
-              let head = Constrain (mty,name,path,triple,(need,Some arg))
-              and next = (build_arg (name::path) need arg cont sigls) in
+              let triple = (quick (mname::npath) sigls) in 
+              let head = Constrain (mty,mname,npath,triple,(need,Some arg))
+              and next = (build_arg (mname::npath) need arg cont sigls) in
+              (if self then crazy_lst := (name,path,triple) :: !crazy_lst);
               (no_self head next)
 
           | (AR (_,_,_,c), Functor_type (id,lmty,rmty) ) -> 
               let arg = updated_arg arg in
               let (_,ptr,_) = arg in
               let nneeds = (Some ((Easy c),(Ident.name id)),Some arg) in
-              let head = Provide (mty,name,(Ident.name id),path,path,nneeds)
-              and next = (parse_mty nneeds self "Functor" (name::path) cont rmty) in
+              let head = Provide (mty,mname,(Ident.name id),npath,npath,nneeds)
+              and next = (parse_mty nneeds self "Functor" (mname::npath) cont rmty) in
               (no_self head next)
 
          (* | (AR(n,ls,Some arg),Functor_type (id,lmty,rmty)) -> DEPRECATED *) 
@@ -643,7 +647,7 @@ struct
     let ngettrs = update_compred gettr_s in
     let nfctrs = update_compred fctrs in
     let gentry = compile_entrypoints assocs ngettrs in
-      (gentry,ngettrs,strcts,nfctrs,assocs)
+      (!crazy_lst,gentry,ngettrs,strcts,nfctrs,assocs)
 
 
  (* 
@@ -691,7 +695,8 @@ struct
     in
 
     (* is a real entrypoint *)
-    let convert_entry enls str =
+    let update_entry cls enls str =
+
       (* is an entrypoint *)
       let isentry ptr = 
         let predicate = function
@@ -700,14 +705,29 @@ struct
         in 
         (List.exists predicate enls) 
       in
+
+      (* is a special fctr *)
+      let isspecial ptr =
+        let predicate = function
+          | (n,pth,_) -> (make_str (n::pth)) = ptr
+        in
+        (List.find predicate cls)
+      in
+
       (* convert non entry point to NULL *)
       let conv_e = (function 
         | x when (isentry x) -> x  
         | _ -> "NULL") 
       in
       match str with
+      | Strct (Fun,n,pth,info,_,_,_) -> (try let (_,_,ls) = isspecial (make_str (n::pth)) in
+          let names = List.map (function (x,_,_) -> x) ls in
+          let assocs = List.map (function (_,x,_) -> x) ls in
+          let eptrs = List.map (function (_,_,x) -> x) ls in
+          Strct (Fun,n,pth,info,assocs,names,eptrs) 
+        with Not_found -> str)
       | Strct (t,a,b,c,d,e,ls) -> let nls = (List.map conv_e ls) in 
-          Strct (t,a,b,c,d,e,nls)
+        Strct (t,a,b,c,d,e,nls)
       | _ -> raise (Cannot_Sec_Compile "only strct can deal with entry conversion")
       (*Fctr (a,b,c,ls) -> let rec conv = function [] -> []
           | ys::(x::xs)::bls -> ys::(x :: (List.map conv_e xs)) :: (conv bls) 
@@ -723,11 +743,11 @@ struct
 
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
-    let (gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
+    let (crazy,gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
 
 
-    (* filter out the unnecessary entry points *)
-    let n_strlist = (List.map (fun x -> (convert_entry gentry x)) strct_list)
+    (* filter out the unnecessary entry points and add new ones *)
+    let n_strlist = (List.map (fun x -> (update_entry crazy gentry x)) strct_list)
     (*and n_fctrlist = (List.map (fun x -> (convert_entry gentry x)) fctr_list)*)
     in
 

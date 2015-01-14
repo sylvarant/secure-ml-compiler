@@ -583,11 +583,26 @@ struct
         let setup = [els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
-      | Strct (Fun,n,pth,fctr::var::id::[],[],[],[]) :: xs -> let name = (make_str (n::pth))    
-        and fc = ".c.f={.Functor ="^fctr^",.stamp="^id^"}" in
+      | Strct (Fun,n,pth,fctr::var::id::[],assocs,names,entries) :: xs -> 
+        let (setup,cnt,nptr,eptr) = (match names with 
+          | [] -> ([],"0","NULL","NULL")
+          | _ -> let eonvs = (convert_entry assocs) in
+            let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
+            and echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs entries) in
+            let nptr = ("char"^(make_var (n::pth)))
+            and eptr = ("entry"^(make_var (n::pth))) in
+            let nls = (printd CHAR)^" "^nptr^"[] = {"^nchars^"}"
+            and els = (printd ENTRY)^" "^eptr^"[] = {"^echars^"}" 
+            and cnt = (string_of_int (List.length names)) in
+            ([nls;els],cnt,nptr,eptr)) 
+        in
+        let targets = ["Functor";"stamp";"count";"names";"entries"] in
+        let values = [fctr;id;cnt;nptr;eptr] in
+        let name = (make_str (n::pth))    
+        and fc = ".c.f={"^(String.concat "," (List.map2 (fun x y -> "."^x^"="^y) targets values))^"}" in 
         let decl = ((printd MODULE)^" "^name^" = {"^
           (String.concat "," [".type = FUNCTOR";".stamp = -1"; fc])^"}") in
-        let body = (format 0 [decl]) in 
+        let body = (format 0 (setup @ [decl])) in 
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Partial,n,pth,[],assocs,[],entries) :: xs ->
         let eonvs = (convert_entry assocs) in

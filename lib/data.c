@@ -282,16 +282,28 @@ LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** na
 {
     MODULE ret = m;
     ret.stamp = stamp;
-    ret.strls = strls;
-    for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.entries[i].byte = NULL;
+    if(strls != NULL) ret.strls = strls;
+
+    if(count == 0) return ret; // nothing needs to be done
+
+    if(m.type == STRUCTURE)
+    {
+        for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.entries[i].byte = NULL;
         
-    for(int j = 0; j < count; j++){
-        for(int i = 0; i < ret.c.s.count ; i++){
-            if(cmp_char(names[j],ret.c.s.names[i]) == 0){
-                ret.c.s.entries[i] = ls[j];  
-                break;
+        for(int j = 0; j < count; j++){
+            for(int i = 0; i < ret.c.s.count ; i++){
+                if(cmp_char(names[j],ret.c.s.names[i]) == 0){
+                    ret.c.s.entries[i] = ls[j];  
+                    break;
+                }
             }
         }
+    }
+    else
+    {
+        ret.c.f.count = count;
+        ret.c.f.names = names;
+        ret.c.f.entries = ls;
     }
     return ret;
 }

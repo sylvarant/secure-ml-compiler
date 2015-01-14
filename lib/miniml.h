@@ -163,7 +163,9 @@ typedef struct module_s{
         }s;
         struct functor {
             struct module_s (*Functor) (BINDING*,struct module_s);      
-            //union entry_t * entries;
+            int count;
+            char ** names;
+            union entry_t * entries;
             int stamp;
         }f;
     }c;
@@ -595,18 +597,5 @@ LOCAL MODULE updateFStamp(MODULE m, int nfctr,BINDING *ls)
     return ret;
 }
 
-
-/* 
- * ===  FUNCTION ======================================================================
- *         Name: updateStamp
- *  Description: update the module stamp in the functor entry point
- * =====================================================================================
- */
-LOCAL MODULE updateStamp(MODULE m, int stamp)
-{
-    MODULE ret = m;
-    ret.stamp = stamp;
-    return ret;
-}
 
 #endif

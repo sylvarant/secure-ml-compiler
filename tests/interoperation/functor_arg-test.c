@@ -61,7 +61,7 @@ TEST(higherOrder)
     CHECK("result of higher order id is not functor",new.t == FUNCTOR);
     MODDATA str = functorEntry(new.identifier,arg);
     CHECK("Result is not a structure",str.t == STRUCTURE);
-    //CHECK("Result does not containt the right entry points",str.fcalls[0] == IdHighF_Functor_Functor_func);
+    CHECK("Result does not containt the right entry points",str.fcalls[0] == IdHighF_Functor_Functor_func);
     func_entry call = IdHighF_Functor_Functor_func;
     DATA closure = call(str); 
     CHECK("result is not a closure",closure.t == CLOSURE);
@@ -81,7 +81,7 @@ TEST(simpleAppF)
     MODDATA farg = IdF();
     MODDATA fhigh = SimpleAppF();
     MODDATA str = functorEntry(fhigh.identifier,farg); 
-    //CHECK("Result does not contain the right entry points",str.fcalls[0] == SimpleAppF_Functor_func);
+    CHECK("Result does not contain the right entry points",str.fcalls[0] == SimpleAppF_Functor_func);
     func_entry call = SimpleAppF_Functor_func; 
     DATA closure = call(str); 
     CHECK("Did not recieve a closure",closure.t == CLOSURE);
