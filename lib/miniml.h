@@ -140,7 +140,6 @@ typedef union Value_u {
 typedef enum acc_e { BVAL , BMOD } ACC;
 
 typedef struct module_s{
-    int mask; 
     MODTAG type;
     int stamp; 
     BINDING * strls;
@@ -164,6 +163,8 @@ typedef struct module_s{
         }s;
         struct functor {
             struct module_s (*Functor) (BINDING*,struct module_s);      
+            //union entry_t * entries;
+            int stamp;
         }f;
     }c;
 }MODULE;
@@ -524,10 +525,11 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
  *  Description:  return a Module Content for a functor
  * =====================================================================================
  */
-LOCAL CONTENT makeContentF(Functor f)
+LOCAL CONTENT makeContentF(Functor f,int stamp)
 {
     CONTENT ret;
     ret.f.Functor = f;
+    ret.f.stamp = stamp;
     return ret; 
 }
 
@@ -555,14 +557,12 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
 /* 
  * ===  FUNCTION ======================================================================
  *         Name:  makeModule
- *
  *  Description:  return a Module
  * =====================================================================================
  */
-LOCAL MODULE makeModule(int m, MODTAG t, int s, BINDING * ls,CONTENT c)
+LOCAL MODULE makeModule(MODTAG t, int s, BINDING * ls,CONTENT c)
 {
     MODULE ret;
-    ret.mask = m;
     ret.type = t;
     ret.stamp = s;
     ret.strls = ls;
@@ -579,6 +579,34 @@ LOCAL MODULE makeModule(int m, MODTAG t, int s, BINDING * ls,CONTENT c)
 LOCAL void checkModule(MODULE m, int c)
 {
     if(m.stamp != c) mistakeFromOutside();
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: updateFStamp
+ *  Description: update the Functor Stamp if object is a functor
+ * =====================================================================================
+ */
+LOCAL MODULE updateFStamp(MODULE m, int nfctr,BINDING *ls)
+{
+    MODULE ret = m;
+    if(ret.type == FUNCTOR) ret.c.f.stamp = nfctr;
+    ret.strls = ls;
+    return ret;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: updateStamp
+ *  Description: update the module stamp in the functor entry point
+ * =====================================================================================
+ */
+LOCAL MODULE updateStamp(MODULE m, int stamp)
+{
+    MODULE ret = m;
+    ret.stamp = stamp;
+    return ret;
 }
 
 #endif

@@ -52,7 +52,7 @@ struct
 
   and modbindtype = FB of cpath * string * strctbinding list * MiniMLMod.mod_term * modbindtype * mask * modinfo
                   | SB of cpath * strctbinding list * modinfo
-                  | AR of string * string list option * modbindtype option
+                  | AR of string * string list option * modbindtype option * mask
 
   and strctbinding = BVal of string * cpath * computation 
                    | BMod of string * cpath * modbindtype 
@@ -97,7 +97,7 @@ struct
   let make_var lst = "var"^ (make_ptr lst)
 
   (* the difference between a ptr and a path is the path is the . *)
-  let make_path = function [] -> raise (Omega_miss "Not a path")
+  let make_path = function [] -> ""
     | lst  -> (String.concat "." (List.rev lst))
 
   (* get_static *)
@@ -163,7 +163,7 @@ struct
       | x::xs as ls -> match (lookup_path env xs) with
         | Environment( SB (_,nenv,_)) -> (lookup_path nenv (x::[]))
         | Dynamic (nn,None) -> Dynamic (nn, Some ls (*List.rev (List.tl (List.rev ls))*))
-        | Environment ( AR(nn,l,_) ) -> 
+        | Environment ( AR(nn,l,_,_) ) -> 
           let extra = (match l with (* TODO what about appl ? *)
           | None -> [nn]
           | Some lst -> (nn::lst)) in 
@@ -251,8 +251,12 @@ struct
    (*-----------------------------------------------------------------------------
     *  Helper Funcions
     *-----------------------------------------------------------------------------*)
+
     let defmask = (-1)
 
+    (* create fctr id's *)
+    let new_fctr = let count = ref (0) in
+      fun () -> incr count; !count
 
    (* 
     * ===  FUNCTION  ======================================================================
@@ -265,11 +269,6 @@ struct
       (* funct list *)
       let functlist = ref [] in
 
-      (* new functor maks *)
-      let new_fctr = let count = ref (0) in
-        fun () -> incr count; !count
-      in
-
       (* convert a sequence of structure definitions *)
       let rec parse_struct env path dyn strctls = 
 
@@ -277,7 +276,7 @@ struct
         let rec parse_module env pth dyn = function
             Longident ident -> (match (lookup_path env (convert_path ident)) with 
               | (Environment e) -> e
-              | Dynamic (n,ls) -> AR (n,ls,None)
+              | Dynamic (n,ls) -> let fc = new_fctr() in AR (n,ls,None,fc)
               | _ -> raise (Cannot_compile_module "Did not retrieve environment from path lookup"))
           | Structure strls -> let parsed = (parse_struct env pth dyn strls) in SB (pth,parsed,(dyn,true))
           | Functor (id,ty,m) -> (*Printf.eprintf "Fun\n";*) let bind = BArg (Ident.name id) in
@@ -289,8 +288,9 @@ struct
               | FB (_,id,e,m,_,_,_) -> let nenv = (parse_module env pth dyn m2) in
                 (*(Printf.eprintf "Added %s for %d \n" id (List.length e));*)
                 (parse_module ((BMod (id,pth,nenv))::e) pth dyn m)
-              | AR (n,ls,None) -> let nm = (parse_module env pth dyn m2) in 
-                (AR (n,ls, (Some nm)))
+              | AR (n,ls,None,_) -> let nm = (parse_module env pth dyn m2) in 
+                let fc = new_fctr() in
+                AR (n,ls, (Some nm),fc)
               | _ -> raise (Cannot_compile_module "Needed Functor or AR hole"))
           | Constraint (m,ty) -> (parse_module env pth dyn m) 
         in
@@ -373,11 +373,11 @@ struct
               and fcpth = npth ^ "_Fctr" ^ (string_of_int id)
               and (a,b) = (extract ls) in
               fctr_list := (Fctr (fcpth,Interm.ENTRYPOINT,comp)) :: !fctr_list;
-              (agls@a,Strct(Fun,name,path,fcpth::var::[],[],[],[]) :: sls @ b)
-            | FB (pth,var,_,_,_,_,(_,false)) -> let (a,b) = extract ls in 
+              (agls@a,Strct(Fun,name,path,fcpth::var::(string_of_int id)::[],[],[],[]) :: sls @ b)
+            | FB (pth,var,_,_,_,id,(_,false)) -> let (a,b) = extract ls in 
               let str = (make_str pth) in
               let fcpth = str^".c.f.Functor" in
-              (a,Strct(Fun,name,path,fcpth::var::[],[],[],[])::b)))
+              (a,Strct(Fun,name,path,fcpth::var::(string_of_int id)::[],[],[],[])::b)))
 
 
 
@@ -400,25 +400,28 @@ struct
         (* make computation default *)
         let make_comp c = ([],[],c) in
 
+        let up c id = UpdateF (c,id,constv MOD) in
+
         (* The module parser *)
         let rec parse : modbindtype -> computation = function
-          | AR (n,None,None) -> make_comp (GetStr ((constv MOD),(CString n)))
-          | AR(n,Some ls,None) -> let pp =  (make_path ls) in
-            make_comp (ToCall ((constc PATH),[(constv MOD) ; (CString pp)  ]))
-          | AR(n,ls,Some mb) -> let (_,set,ar) = (parse (AR(n,ls,None))) 
+          | AR (n,None,None,id) -> make_comp (up (GetStr ((constv MOD),(CString n))) id)
+          | AR(n,Some ls,None,id) -> let pp =  (make_path ls) in
+            make_comp (up (ToCall ((constc PATH),[(constv MOD) ; (CString pp)])) id)
+          | AR(n,ls,Some mb,id) -> let (_,set,ar) = (parse (AR(n,ls,None,id))) 
             and (_,sett,arg) = (parse mb) in
-            ([],set@sett,(ToCall(ToFunctor(ar),[(constv MOD);arg]))) (* functor call *)
+            ([],set@sett,(up (ToCall(ToFunctor(ar),[(constv MOD);arg])) id)) (* functor call *)
           | FB (pth,var,_,_,mb,id,(_,true)) -> let npth = (make_ptr pth) in
             let (comp,agls,esls) = (compile_fctr ("Functor"::pth) id var mb) 
             and fcpth = npth ^ "_Fctr" ^ (string_of_int id) in 
             gettrls := agls @ !gettrls;
             strctls := esls @ !strctls;
             fctr_list := (Fctr (fcpth,Interm.LOCAL,comp)) :: !fctr_list;
-            let c = ToCall ((CVar "makeContentF"),[(CVar fcpth)]) in
-              make_comp (ToCall(CVar "makeModule",[CInt (-1); (CVar "FUNCTOR"); (CInt fctr); (constv MOD); c]))
-          | FB (pth,var,_,_,mb,id,(dyn,false)) -> let target =  if not dyn 
-            then (CVar (make_str pth)) 
-            else ToCall ( (CVar (make_ptr pth)), [constv MOD]) in
+            let c = ToCall ((CVar "makeContentF"),[(CVar fcpth); CInt id]) in
+              make_comp (ToCall(CVar "makeModule",[(CVar "FUNCTOR"); (CInt fctr); (constv MOD); c]))
+          | FB (pth,var,_,_,mb,id,(dyn,false)) -> let nf = new_fctr() in
+            let target =  if not dyn 
+            then up (CVar (make_str pth)) nf
+            else up (ToCall ( (CVar (make_ptr pth)), [constv MOD])) nf in
               (make_comp target)
           | SB (pth,nbinding,(_,true)) -> let (names,assocs,ptrs,entries) = decouple (parse_str path nbinding) in
             (* the names list *)
@@ -432,20 +435,20 @@ struct
             (* the Fields *)
             let convs = convert_mod assocs in
             (try
-             let fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
-            let fptr = ("field"^(make_var pth)) in
-            let fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}" in
-            (* The Entrypoints *)
-            let eptr = ("entry"^(make_var pth)) in 
-            let nstr = Strct (Partial, (List.hd pth),(List.tl pth),[],assocs,[],entries) in
-            strctls := nstr ::  !strctls;
-            (* update setup *)
-            let setup = (CVar nls) :: (CVar als) :: (CVar fls) :: [] in
-            (* make the content and module *)
-            let args = (List.map (fun x -> CVar x) [nptr;aptr;fptr;eptr]) in
-            let c = ToCall (CVar "makeContentS", (CInt (List.length names)::args)) in
-             ([],setup,ToCall(CVar "makeModule",[CInt (-1); (CVar "STRUCTURE"); (CInt fctr); (constv MOD); c ]))
-            with _ -> raise (Cannot_compile_module "Sure"))
+              let fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) in
+              let fptr = ("field"^(make_var pth)) in
+              let fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}" in
+              (* The Entrypoints *)
+              let eptr = ("entry"^(make_var pth)) in 
+              let nstr = Strct (Partial, (List.hd pth),(List.tl pth),[],assocs,[],entries) in
+              strctls := nstr ::  !strctls;
+              (* update setup *)
+              let setup = (CVar nls) :: (CVar als) :: (CVar fls) :: [] in
+              (* make the content and module *)
+              let args = (List.map (fun x -> CVar x) [nptr;aptr;fptr;eptr]) in
+              let c = ToCall (CVar "makeContentS", (CInt (List.length names)::args)) in
+               ([],setup,ToCall(CVar "makeModule",[(CVar "STRUCTURE"); (CInt fctr); (constv MOD); c ]))
+             with _ -> raise (Cannot_compile_module "Sure"))
           | SB (pth,nbinding,(dyn,false)) -> let target = if not dyn 
             then (CVar (make_str pth))
             else ToCall ( (CVar (make_ptr pth)), [constv MOD]) in
@@ -576,14 +579,14 @@ struct
         let arg = [cnt;".names="^orig_n;".accs="^orig_a;".fields="^orig_f;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
-          (String.concat "," [".mask = "^(string_of_int (-1));".type = STRUCTURE";".stamp = -1"; str])^"}") in
+          (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
         let setup = [els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
-      | Strct (Fun,n,pth,fctr::var::[],[],[],[]) :: xs -> let name = (make_str (n::pth))    
-        and fc = ".c.f={.Functor ="^fctr^"}" in
+      | Strct (Fun,n,pth,fctr::var::id::[],[],[],[]) :: xs -> let name = (make_str (n::pth))    
+        and fc = ".c.f={.Functor ="^fctr^",.stamp="^id^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^
-          (String.concat "," [".mask = "^(string_of_int (-1));".type = FUNCTOR";".stamp = -1"; fc])^"}") in
+          (String.concat "," [".type = FUNCTOR";".stamp = -1"; fc])^"}") in
         let body = (format 0 [decl]) in 
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Partial,n,pth,[],assocs,[],entries) :: xs ->
@@ -613,7 +616,7 @@ struct
         let arg = [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
-          (String.concat "," [".mask = "^(string_of_int (-1));".type = STRUCTURE";".stamp = -1"; str])^"}") in
+          (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
         let setup = [nls ; als ; fls ; els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)

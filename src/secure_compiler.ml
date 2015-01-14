@@ -409,10 +409,10 @@ struct
           in
 
           let rec parse : modbindtype -> tempc = function
-            | AR (n,None,None) -> (ToCall ((CVar "path_module"),[(constv MOD);(CString n)]))
-            | AR (n,Some ls,None) ->  let pp =  (make_path ls) in
+            | AR (n,None,None,_) -> (ToCall ((CVar "path_module"),[(constv MOD);(CString n)]))
+            | AR (n,Some ls,None,_) ->  let pp =  (make_path ls) in
                 (ToCall ((CVar "path_module"),[(constv MOD) ; (CString pp) ]))
-            | AR (n,ls,Some mb) ->  let ar = (parse (AR(n,ls,None))) 
+            | AR (n,ls,Some mb,i) ->  let ar = (parse (AR(n,ls,None,i))) 
               and arg = (parse mb) in
                 (ToCall(ToFunctor(ar),[(constv MOD);arg]))
             | FB (pth,var,_,_,mb,id,(dyn,_)) -> if not dyn then (CVar (make_str pth)) 
@@ -453,7 +453,14 @@ struct
         and build_arg path need arg ar = function [] -> []
           | x :: xs -> match x with
             | Value_sig(id,vty) -> let nm = (Ident.name id) in 
-              Call(vty,nm,path,path,(need,Some (extend_argument nm arg))) :: (build_arg path need arg ar xs)
+              let newarg = let (a,b,c) = (extend_argument nm arg) in
+                let bb = (match ar with 
+                  | AR(_,_,Some _,_) -> b
+                  | AR(_,_,None,_) -> "m->m")
+                in
+               Some (a,bb,c)
+               in 
+               Call(vty,nm,path,path,(need,newarg)) :: (build_arg path need arg ar xs)
             | Module_sig (id,mty) -> let nm = (Ident.name id) in
               let newarg  = (extend_argument nm arg) in 
               (parse_mty (need,Some newarg) false nm path ar mty) @ (build_arg path need arg ar xs)
@@ -494,10 +501,10 @@ struct
               and next = (build_arg (name::path) need arg cont sigls) in
               (no_self head next)
 
-          | (AR _, Functor_type (id,lmty,rmty) ) -> 
+          | (AR (_,_,_,c), Functor_type (id,lmty,rmty) ) -> 
               let arg = updated_arg arg in
               let (_,ptr,_) = arg in
-              let nneeds = (Some ((Painfull ptr),(Ident.name id)),Some arg) in
+              let nneeds = (Some ((Easy c),(Ident.name id)),Some arg) in
               let head = Provide (mty,name,(Ident.name id),path,path,nneeds)
               and next = (parse_mty nneeds self "Functor" (name::path) cont rmty) in
               (no_self head next)
@@ -538,7 +545,9 @@ struct
       (* helpers *)
       let convm p m = ToCall ((CVar "convertM"), [p ; m]) in
 
-      let convf f v p = let path = match p with [] -> "" | _ -> (String.concat "." p) in
+      let convf f v p = 
+        let predicate = (fun x -> if x = "Functor" then false else true) in
+        let path = make_path (List.filter predicate p) in
         ToCall(f,[CVar v; CString path])
       in
 

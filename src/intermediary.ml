@@ -45,7 +45,7 @@ sig
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
-    | ToVar of tempc
+    | ToVar of tempc | UpdateF of tempc * int * tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
@@ -133,7 +133,7 @@ struct
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
-    | ToVar of tempc
+    | ToVar of tempc | UpdateF of tempc * int * tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -346,7 +346,7 @@ struct
         (printty e)^")"
     | ToIdent a -> (printc a)^".identifier"
     | ToVar a -> (printc a) ^"c.f.var"
-
+    | UpdateF (a,i,b) -> "updateFStamp("^(printc a)^","^(printc (CInt i))^","^(printc b)^")"
     | Comment a -> "/* "^a^"*/"
 
 

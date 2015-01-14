@@ -1,6 +1,5 @@
 (* test that the attacker can apply a secure functor
 as an argument to another secure functor *)
-
 struct
 
     module Argument = 
@@ -30,8 +29,6 @@ struct
             end
 
             module Result = Func (Argument) 
-
         end
-
 end
 

@@ -252,7 +252,9 @@ ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
     //DEBUG_PRINT("FUNCTOR APPL");
     //insertBinding(&functor.strls,functor.c.f.var,amt);
     MODULE new = functor.c.f.Functor(functor.strls,arg); 
-    MODDATA ret = convertM(new,*(functortype.f.right)); // TODO update right
+
+    // update the generate module
+    MODDATA ret = convertM(updateStamp(new,functor.c.f.stamp),*(functortype.f.right)); 
     return ret;
 }
 

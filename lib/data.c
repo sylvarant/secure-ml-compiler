@@ -274,7 +274,7 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: convertM
+ *         Name: convertM - TODO extend ?
  *  Description: convert an inside Module into a MODDATA for the outside 
  * =====================================================================================
  */
@@ -478,12 +478,12 @@ LOCAL int type_check(TYPE req,TYPE given)
 
         case T(VALUE):
         case T(MODULE):
-        case T(DECLARATION): {
+        case T(DECLARATION): { // Fixed subtyping?
             if(cmp_char(given.d.name,req.d.name) != 0) return MFALSE;
+            if (given.d.type == NULL || req.d.type == NULL) return MTRUE;
             if(given.d.type != NULL && req.d.type != NULL 
                 && type_check(*(req.d.type),*(given.d.type))) return MTRUE;
-            else if(given.d.type != req.d.type) return MFALSE;
-            return MTRUE;
+            return MFALSE;
         }
 
         // subtyping
