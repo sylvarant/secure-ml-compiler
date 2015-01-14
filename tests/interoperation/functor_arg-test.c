@@ -33,7 +33,7 @@ TEST(applyFunctor)
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain func",(strcmp(new.names[0],"func") == 0));
-    //CHECK("Entry Point is off ",new.fcalls[0] == IdF_Functor_func);
+    CHECK("Entry Point is off ",new.fcalls[0] == IdF_Functor_func);
 DONE
 
 TEST(dynGettr)

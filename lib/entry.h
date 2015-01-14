@@ -75,6 +75,7 @@ typedef struct Data_s{
 /*-----------------------------------------------------------------------------
  *  Type Sharing
  *-----------------------------------------------------------------------------*/
+
 typedef enum Type_e {
     TYINT, TYBOOLEAN, TYARROW, TYSTAR, 
     TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE, TYMODULE, TYVALUE, 
@@ -107,9 +108,12 @@ typedef struct Type_s {
 /*-----------------------------------------------------------------------------
  *  Module Sharing
  *-----------------------------------------------------------------------------*/
+
 typedef enum Modtag_e{
     STRUCTURE, FUNCTOR 
 } MODTAG;
+
+typedef enum Calltag_e { VAL , MOD } CALLTAG;
 
 typedef struct Moduledata_s{
     MODTAG t;
@@ -118,6 +122,7 @@ typedef struct Moduledata_s{
     struct {
         int count;
         char ** names; 
+        CALLTAG * accs;
         void ** fcalls;
     };
 } MODDATA;

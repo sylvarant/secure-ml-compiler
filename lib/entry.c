@@ -81,6 +81,12 @@ MODULE get_module(MODULE m,char * str)
                 case BMOD :{ 
                     return *((m.c.s.fields[i]).module);
                 }
+
+                case BDMOD :{
+                    struct foreign_s fs = *((m.c.s.fields[i]).foreign);
+                    return foreign_module(fs.me,fs.req);
+                }
+
                 default : mistakeFromOutside();
             }
         }
@@ -110,6 +116,12 @@ VALUE get_value(MODULE m,char * str)
                 case BVAL :{ 
                     return ((m.c.s.fields[i]).gettr(m.strls));
                 }
+
+                case BDVAL :{
+                    struct foreign_s fs = *((m.c.s.fields[i]).foreign);
+                    return foreign_value(fs.fe,fs.req);
+                }
+
                 default : mistakeFromOutside();
             }
         }
@@ -244,9 +256,9 @@ ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
     TYPE functortype = mt->ty;
     TYPE required = *(functortype.f.left);
 
-    struct module_type * amt = convertMD(d);
-    MODULE arg = amt->m;
-    TYPE given = amt->ty;
+    struct module_type amt = convertMD(d,required);
+    MODULE arg = amt.m;
+    TYPE given = amt.ty;
     unify_types(required,given);
 
     // if everything is fine update the functor with the argument and apply

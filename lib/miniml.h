@@ -136,8 +136,18 @@ typedef union Value_u {
 /*-----------------------------------------------------------------------------
  * Modules
  *-----------------------------------------------------------------------------*/
+typedef DATA (*foreignval) (void);
+typedef MODDATA (*foreignmod) (void);
 
-typedef enum acc_e { BVAL , BMOD } ACC;
+struct foreign_s{
+    TYPE req;
+    union {
+        foreignval fe;
+        foreignmod me;
+    };
+};
+
+typedef enum acc_e { BVAL , BMOD, BDVAL, BDMOD } ACC;
 
 typedef struct module_s{
     MODTAG type;
@@ -152,6 +162,7 @@ typedef struct module_s{
                 struct module_s * module;
                 struct module_s (*mgettr)(BINDING *);
                 VALUE (*gettr)(BINDING *);
+                struct foreign_s * foreign;
             } * fields;
             union entry_t {
                 void * byte;
@@ -240,7 +251,7 @@ LOCAL int getAdress(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
-LOCAL struct module_type * convertMD(MODDATA);
+LOCAL struct module_type convertMD(MODDATA,TYPE);
 LOCAL struct value_type convertD(DATA,TYPE);
 LOCAL void checkModule(MODULE,int);
 LOCAL VALUE get_value(MODULE,char *);
@@ -251,6 +262,8 @@ LOCAL VALUE get_value_path(MODULE,char*);
 LOCAL MODULE get_module_path(MODULE,char*);
 LOCAL MODULE updateEntry(MODULE,BINDING*,int,int,char **,ENTRY * ls);
 LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
+LOCAL MODULE foreign_module(foreignmod f,TYPE);
+LOCAL VALUE foreign_value(foreignval f,TYPE);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 

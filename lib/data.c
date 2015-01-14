@@ -229,11 +229,61 @@ LOCAL char * outsidestring(char * s)
     char * input = s;
     int count = 0;
     while(*s++ != '\0'){count++;}
-    char * ret = OUTERM(count);
+    char * ret = OUTERM(count+1);
     for(int j = 0; j < count; j++) ret[j] = input[j];
+    ret[count] = '\0';
     return ret;
 }
 
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: insidestring
+ *  Description: pump char's into the secure memory
+ * =====================================================================================
+ */
+LOCAL char * insidestring(char * s)
+{
+    char * input = s;
+    int count = 0;
+    while(*s++ != '\0'){count++;}
+    char * ret = MALLOC(count+1);
+    for(int j = 0; j < count; j++) ret[j] = input[j];
+    ret[count] = '\0';
+    return ret;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: tocalltag
+ *  Description: convert ACC to CALLTAG
+ * =====================================================================================
+ */
+LOCAL CALLTAG tocalltag(ACC a)
+{
+    switch(a)
+    {
+        case BVAL:
+        case BDVAL: return VAL;
+
+        case BMOD:
+        case BDMOD: return MOD;
+    }
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: toacc
+ *  Description: convert CALLTAG to ACC
+ * =====================================================================================
+ */
+LOCAL ACC toacc(CALLTAG a)
+{
+    switch(a)
+    {
+        case VAL: return BDVAL;
+        case MOD: return BDMOD;
+    }
+}
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -254,9 +304,11 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
         }
         ret.count = count;
         ret.names = OUTERM(sizeof(char*)*count);
+        ret.accs = OUTERM(sizeof(ACC) * count);
         ret.fcalls = OUTERM(sizeof(void*)*count);
         for(int i = 0; i < count; i++){
             ret.names[i] = outsidestring(s.names[i]); 
+            ret.accs[i] = tocalltag(s.accs[i]);
             //DEBUG_PRINT("name == %s of %s",ret.names[i],s.names[i]);
             ret.fcalls[i] = s.entries[i].byte;
         }
@@ -311,21 +363,96 @@ LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** na
 
 /* 
  * ===  FUNCTION ======================================================================
+ *         Name: foreign_value
+ *  Description: call a foreign value gettr
+ * =====================================================================================
+ */
+LOCAL VALUE foreign_value(foreignval f,TYPE req)
+{
+    DATA result = f();
+    struct value_type v = convertD(result,req);
+    unify_types(req,v.ty);
+    return v.val;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: foreign_module
+ *  Description: call a foreign module gettr
+ * =====================================================================================
+ */
+LOCAL MODULE foreign_module(foreignmod f,TYPE req)
+{
+    MODDATA result = f();
+    struct module_type  v = convertMD(result,req);
+    return v.m;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: getstype
+ *  Description: return a type from the signature
+ * =====================================================================================
+ */
+LOCAL TYPE getstype(struct T(Signature) s,char * target)
+{
+    struct T(Signature) * next = &s;
+    do{
+        if(next->type == NULL) mistakeFromOutside();
+        //if(next->type->t != T(VALUE) || next->type->t !=  T(MODULE)) mistakeFromOutside();
+        if(cmp_char(next->type->v.name,target) == 0)
+            return *(next->type->v.type);
+        next = next->next;
+    }while(next != NULL);
+    DEBUG_PRINT("here");
+    mistakeFromOutside();
+    return T(Int); // gcc
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
  *         Name: convertMD
  *  Description: convert MODDATA into a Module 
  * =====================================================================================
  */
-LOCAL struct module_type * convertMD(MODDATA d)
+LOCAL struct module_type convertMD(MODDATA d,TYPE req)
 {
     if(d.identifier > 0){
         union safe_cast key;
         key.value = d.identifier;
         struct module_type * m = getBinding(exchange,key.byte,cmp_int);
-        return m;
+        return (*m);
     }
-    
-    mistakeFromOutside(); 
-    return NULL;
+
+    if(req.t != T(SIGNATURE)) mistakeFromOutside();
+    MODULE m;
+    m.type = STRUCTURE;
+    m.strls = NULL; 
+    struct structure sc;
+    sc.count = d.count;
+    sc.names = MALLOC(sizeof(char*)*sc.count);
+    sc.accs = MALLOC(sizeof(ACC)*sc.count);
+    sc.fields = MALLOC(sizeof(FIELD)*sc.count);
+    sc.entries = MALLOC(sizeof(ENTRY)*sc.count);
+    for(int i = 0; i < d.count; i++){
+        char * insiden = insidestring(d.names[i]);
+        sc.names[i] = insiden;
+        sc.accs[i] = toacc(d.accs[i]);
+        sc.entries[i].byte = d.fcalls[i];
+        struct foreign_s * ptr = MALLOC(sizeof(struct foreign_s));
+        ptr->req = getstype(req.ss,insiden);
+        if(d.accs[i] == MOD) ptr->me = d.fcalls[i];
+        else ptr->fe = d.fcalls[i];
+        sc.fields[i].foreign = ptr;             
+    }
+    m.c.s = sc;
+    struct module_type mt;
+    mt.m = m;
+    mt.ty = req;
+    return mt;
 }
 
 
