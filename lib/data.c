@@ -300,7 +300,7 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
     if(m.type == STRUCTURE){
         int count = 0;
         for(int i = 0; i < s.count; i++){
-            if((s.entries[i]).byte != NULL) count++;
+            if( s.ie[i] == YES) count++;
         }
         ret.count = count;
         ret.names = OUTERM(sizeof(char*)*count);
@@ -326,26 +326,26 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: convertM - TODO extend ?
+ *         Name: convertM 
  *  Description: convert an inside Module into a MODDATA for the outside 
  * =====================================================================================
  */
-LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int stamp,int count,char ** names,ENTRY * ls)
+LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int count,char ** names,ENTRY * ls)
 {
     MODULE ret = m;
-    ret.stamp = stamp;
     if(strls != NULL) ret.strls = strls;
 
-    if(count == 0) return ret; // nothing needs to be done
+    if(count < 0) return m; // nothing needs to be 
 
     if(m.type == STRUCTURE)
     {
-        for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.entries[i].byte = NULL;
+        ret.c.s.entries = ls; // preserve that reference
+        for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.ie[i] = NO;
         
         for(int j = 0; j < count; j++){
             for(int i = 0; i < ret.c.s.count ; i++){
                 if(cmp_char(names[j],ret.c.s.names[i]) == 0){
-                    ret.c.s.entries[i] = ls[j];  
+                    ret.c.s.ie[i] = YES;  
                     break;
                 }
             }
@@ -385,9 +385,7 @@ LOCAL VALUE foreign_value(foreignval f,TYPE req)
 LOCAL MODULE foreign_module(foreignmod f,TYPE req)
 {
     MODDATA result = f();
-    DEBUG_PRINT("in here");
     struct module_type  v = convertMD(result,req);
-    DEBUG_PRINT("O really");
     return v.m;
 }
 
@@ -408,7 +406,6 @@ LOCAL TYPE getstype(struct T(Signature) s,char * target)
             return *(next->type->v.type);
         next = next->next;
     }while(next != NULL);
-    DEBUG_PRINT("No shit");
     mistakeFromOutside();
     return T(Int); // gcc
 }
@@ -430,7 +427,6 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
     }
 
     if(req.t != T(SIGNATURE)) mistakeFromOutside();
-    DEBUG_PRINT("Now we are serious");
     MODULE m;
     m.type = STRUCTURE;
     m.strls = NULL; 
@@ -439,12 +435,13 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
     sc.names = MALLOC(sizeof(char*)*sc.count);
     sc.accs = MALLOC(sizeof(ACC)*sc.count);
     sc.fields = MALLOC(sizeof(FIELD)*sc.count);
-    sc.entries = MALLOC(sizeof(ENTRY)*sc.count);
+    sc.ie = MALLOC(sizeof(ISENTRY) * sc.count);
+    sc.entries = NULL; // entries will be assigned when passing throught the functor
     for(int i = 0; i < d.count; i++){
         char * insiden = insidestring(d.names[i]);
         sc.names[i] = insiden;
         sc.accs[i] = toacc(d.accs[i]);
-        sc.entries[i].byte = d.fcalls[i];
+        sc.ie[i] = YES;
         struct foreign_s * ptr = MALLOC(sizeof(struct foreign_s));
         ptr->req = getstype(req.ss,insiden);
         if(d.accs[i] == MOD) ptr->me = d.fcalls[i];

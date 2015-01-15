@@ -68,7 +68,7 @@ struct
 
     (* is a real entrypoint *)
     let convert_entry = function
-      | Strct (t,a,b,c,d,e,ls) -> let nls = (List.map (function _ -> "NULL") ls) in 
+      | Strct (t,a,b,c,d,e,ls) -> let nls = (List.map (function _ -> None) ls) in 
           Strct (t,a,b,c,d,e,nls)
       | _ -> raise (Cannot_Norm_Compile "Only strct can deal with entry conversion")
     in

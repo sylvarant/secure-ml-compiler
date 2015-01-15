@@ -68,7 +68,6 @@ LOCAL char * nextId(char ** str)
  */
 MODULE get_module(MODULE m,char * str)
 {
-    DEBUG_PRINT("path = %s",str);
     if(m.type != STRUCTURE) mistakeFromOutside();  
 
     for(int i = 0; i < m.c.s.count; i++)
@@ -82,7 +81,6 @@ MODULE get_module(MODULE m,char * str)
                 }
 
                 case BDMOD :{
-                    DEBUG_PRINT("here");
                     struct foreign_s fs = *((m.c.s.fields[i]).foreign);
                     return foreign_module(fs.me,fs.req);
                 }
@@ -266,7 +264,7 @@ ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
     MODULE new = functor.c.f.Functor(functor.strls,arg); 
 
     // update the generate module
-    MODULE updated = updateEntry(new,NULL,functor.c.f.stamp,functor.c.f.count,functor.c.f.names,functor.c.f.entries);
+    MODULE updated = updateEntry(new,NULL,functor.c.f.count,functor.c.f.names,functor.c.f.entries);
     MODDATA ret = convertM(updated,*(functortype.f.right)); 
     return ret;
 }

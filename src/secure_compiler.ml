@@ -53,17 +53,15 @@ struct
   type typetrawl = Fail | SimpleType of simple_type | Modtype of mod_type 
                  | ManifestType of def_type option
 
-  type fcheck = Easy of int | Painfull of string 
-  type mask = (fcheck * string)
   type argument = ( tempc * string * cpath)
-  type func = mask option * argument option
+  type func = cpath * argument option
 
   type assoc = Call of val_type * string * string list * cpath * func 
              | Share of MiniMLMod.mod_type * string * string list * string list * func
              | Provide of MiniMLMod.mod_type * string * string * string list * string list * func
-             | Constrain of MiniMLMod.mod_type * string * cpath * (string * accs * string) list * func
+             | Constrain of MiniMLMod.mod_type * string * cpath * (string * accs * entry) list * func
 
-  type methods = EntryPoint of string * type_u * computation * mask option
+  type methods = EntryPoint of entry * type_u * computation * cpath 
  
 
  (*-----------------------------------------------------------------------------
@@ -375,13 +373,13 @@ struct
       let rec convert_assoc path = function [] -> []
         | (bind,ty)::ls -> match (bind,ty) with
           | (BVal (name,pth,_) , Value_sig (_, vty)) ->
-            (Call (vty,name,path,pth,(None,None)))::(convert_assoc path ls) 
+            (Call (vty,name,path,pth,([],None)))::(convert_assoc path ls) 
           | (BMod (name,_, modt), Module_sig(_,mty)) -> (match modt with 
             | AR _ -> raise (Cannot_Sec_Compile "Cannot convert AR modbinding")
             | SB (pth, nbinding,_) -> 
               let recurse = convert_assoc (name::path) (clear_input mty nbinding) in
-                ((Share (mty,name,pth,path,(None,None))) :: recurse) @ (convert_assoc path ls)
-            | FB (pth,var,_,_,mb,id,_) as y -> let head = Provide (mty,name,var,pth,path,(None,None)) in 
+                ((Share (mty,name,pth,path,([],None))) :: recurse) @ (convert_assoc path ls)
+            | FB (pth,var,_,_,mb,id,_) as y -> let head = Provide (mty,name,var,pth,path,([],None)) in 
               head :: (convert_fassoc name path y mty) @ (convert_assoc path ls)) 
           | _ -> raise (Cannot_Sec_Compile "Massive idiocy everywhere")
 
@@ -433,15 +431,19 @@ struct
         in
 
         (* parse the signature spec *)
-        let rec parse_sigls needs path nbinding = function [] -> []
+        let rec parse_sigls func path nbinding = function [] -> []
           | x :: xs -> match x with
             | Value_sig (id, vty) -> let nm = Ident.name id in  
                 let BVal (_,pth,_) = (find nm nbinding) in
-                Call(vty,nm,path,pth,needs) :: (parse_sigls needs path nbinding xs)
+                let (cpath,arg) = func in           
+                let nfunc = ((nm::cpath),arg) in 
+                Call(vty,nm,path,pth,nfunc) :: (parse_sigls func path nbinding xs)
             | Module_sig (id,mty) -> let nm = Ident.name id in
                 let BMod (_,_,cont) = (find nm nbinding) in
-                (parse_mty needs false nm path cont mty) @ (parse_sigls needs path nbinding xs)
-            | Type_sig _ -> (parse_sigls needs path nbinding xs)
+                let (cpath,arg) = func in           
+                let nfunc = ((nm::cpath),arg) in 
+                (parse_mty nfunc false nm path cont mty) @ (parse_sigls func path nbinding xs)
+            | Type_sig _ -> (parse_sigls func path nbinding xs)
 
         (* quickly extract top level entry points *)
         and quick path = function [] -> []
@@ -453,25 +455,29 @@ struct
             | Type_sig _ -> (quick path xs)
 
         (* build the extra shares for the arguments *)
-        and build_arg path need arg ar = function [] -> []
+        and build_arg path mask arg ar = function [] -> []
           | x :: xs -> match x with
             | Value_sig(id,vty) -> let nm = (Ident.name id) in 
-              let newarg = let (a,b,c) = (extend_argument nm arg) in
-                let bb = (match ar with 
-                  | AR(_,_,Some _,_) -> b
-                  | AR(_,_,None,_) -> "m->m")
-                in
-               Some (a,bb,c)
-               in 
-               Call(vty,nm,path,path,(need,newarg)) :: (build_arg path need arg ar xs)
+              let newarg = 
+                let (a,b,c) = (extend_argument nm arg) in
+                Some (a,"m->m",c)
+              in 
+              let cpath = mask in
+              let nmask = (nm::cpath) in
+              Call(vty,nm,path,path,(nmask,newarg)) :: (build_arg path mask arg ar xs)
             | Module_sig (id,mty) -> let nm = (Ident.name id) in
-              let newarg  = (extend_argument nm arg) in 
-              (parse_mty (need,Some newarg) false nm path ar mty) @ (build_arg path need arg ar xs)
+              let newarg = 
+                let (a,b,c) = (extend_argument nm arg) in
+                Some (a,"m->m",c)
+              in 
+              let cpath = mask in
+              let nmask = nm::cpath in
+              (parse_mty (nmask,newarg) false nm path ar mty) @ (build_arg path mask arg ar xs)
               
         (* parse the module type *)
         and parse_mty needs self mname npath cont mty = 
 
-          let (need,arg) = needs in  
+          let (mask,arg) = needs in  
 
           (* this is driving me crazy *)
           let no_self head next = if (not self) 
@@ -484,10 +490,15 @@ struct
             | Some arg -> arg 
           in
 
+          let updated_mask m = match m with
+            | [] -> (name::path)
+            | _ -> m
+          in
+
           match (cont,mty) with
 
           | (FB(pth,var,_,_,mb,idn,_), Functor_type (id,lmty,rmty))-> 
-              let nneeds = (Some (Easy idn,var ),arg) in
+              let nneeds = ((updated_mask mask),arg) in
               let head = Provide (mty,mname,(Ident.name id),pth,npath,nneeds)  
               and next = (parse_mty nneeds self "Functor" (mname::npath) mb rmty) in
               (no_self head next)
@@ -500,15 +511,15 @@ struct
           | (AR _,(Signature sigls)) -> 
               let arg = updated_arg arg in
               let triple = (quick (mname::npath) sigls) in 
-              let head = Constrain (mty,mname,npath,triple,(need,Some arg))
-              and next = (build_arg (mname::npath) need arg cont sigls) in
+              let head = Constrain (mty,mname,npath,triple,(mask,Some arg))
+              and next = (build_arg (mname::npath) mask arg cont sigls) in
               (if self then crazy_lst := (name,path,triple) :: !crazy_lst);
               (no_self head next)
 
           | (AR (_,_,_,c), Functor_type (id,lmty,rmty) ) -> 
               let arg = updated_arg arg in
               let (_,ptr,_) = arg in
-              let nneeds = (Some ((Easy c),(Ident.name id)),Some arg) in
+              let nneeds = (mask,Some arg) in 
               let head = Provide (mty,mname,(Ident.name id),npath,npath,nneeds)
               and next = (parse_mty nneeds self "Functor" (mname::npath) cont rmty) in
               (no_self head next)
@@ -518,11 +529,11 @@ struct
         in
 
         (* top level*)
-        (parse_mty (None,None) true name path func mty)
+        (parse_mty ([],None) true name path func mty)
       in
 
       (* top level *)
-      (Share (progtype,"this",[],[],(None,None))) :: (convert_assoc [] (clear_input sign binding)) 
+      (Share (progtype,"this",[],[],([],None))) :: (convert_assoc [] (clear_input sign binding)) 
     in
 
 
@@ -530,11 +541,6 @@ struct
     (* Compile the entrypoints                           *)
     (* ================================================= *)
     let compile_entrypoints assocs gettrls =
-
-      (* new_variables *)
-      let new_var = let count = ref (-1) in 
-        fun () -> incr count; (var_prefix^"_s_" ^ (string_of_int !count)) 
-      in
 
       (* new mask *)
       let new_mask = let count = ref (-1) in
@@ -546,12 +552,17 @@ struct
         (fun () -> incr count; !count) 
       in
 
+      (* extra partial structs *)
+      let partial_ls = ref [] in
+
       (* helpers *)
       let convm p m = ToCall ((CVar "convertM"), [p ; m]) in
 
       let convf f v p = 
         let predicate = (fun x -> if x = "Functor" then false else true) in
-        let path = make_path (List.filter predicate p) in
+        let newlist = (List.filter predicate p) in
+        let top = match newlist with [] -> [] | x::xs -> [x] in
+        let path = make_path top in
         ToCall(f,[CVar v; CString path])
       in
 
@@ -574,29 +585,19 @@ struct
           | Share(mty,name,opth,pth,(needs,arg))  -> 
             let eptr = (make_entrypoint (name::pth)) in
             let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-            if name = "this" then (* This is awful *)
-              let special = CVar (make_str []) in
+            (match eptr with
+            | None -> let special = CVar (make_str []) in
               let compu =  empty (convm special modcomp) in
-              EntryPoint(name,(constd MODDATA),compu,needs) :: (entrypts xs)
-            else
+              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
+            | _ ->
               let compu = (match arg with 
                 | None -> (match needs with
-                  | None -> empty (convm (CVar (make_str (name::pth))) modcomp)
-                  | Some _ -> empty (convm (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)])) modcomp))
+                  | [] -> empty (convm (CVar (make_str (name::pth))) modcomp)
+                  | _ -> empty (convm (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)])) modcomp))
                 | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
                   ([],[c],(convm fcall modcomp)))
               in
-              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
-
-          | Provide(mty,name,id,opth,pth,(needs,arg)) -> 
-            let eptr = (make_entrypoint (name::pth)) in
-            let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
-            let comp = (match arg with 
-             | None -> empty (convm (CVar (make_str (name::pth))) modcomp)   
-             | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
-                ([],[c],(convm fcall modcomp)))
-            in
-            EntryPoint(eptr,(constd MODDATA),comp,needs) :: (entrypts xs)
+              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs))
 
           | Constrain (mty,name,path,ls,(needs,arg)) ->
             let names = List.map (function (x,_,_) -> x) ls in
@@ -608,26 +609,31 @@ struct
               | None -> ([],(ToCall (CVar (make_ptr (name::path)),[(constv MOD)]))) 
               | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in
                 ([c],fcall))
-            and eonvs = (convert_entry assocs) in
-            let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
-            and echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs eptrs) in
-            let nv = ("names"^(make_var (name::path))) 
-            and ev = ("ptrs"^(make_var (name::path))) in
-            let nls =  (printd CHAR)^" "^nv^"[] = {"^nchars^"}" 
-            and els = (printd ENTRY)^" "^ev^"[] = {"^echars^"}" in
-            let stamp = (match needs with
-                | Some (Easy i,_) ->  CInt i          
-                | Some (Painfull str,_) -> CVar (str^".stamp")
-                | _ -> raise (Cannot_Sec_Compile "Idiocy in front of the Forbidden Palace")) 
             in
+            let nstrct = Strct(Partial,name,path,[],assocs,[],eptrs) in
+            partial_ls := nstrct :: !partial_ls;
+            let ev = make_eptr (name::path) in
+            let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
+            and nv = ("names"^(make_var (name::path))) in
+            let nls =  (printd CHAR)^" "^nv^"[] = {"^nchars^"}" in 
             let ptr = ToCall (CVar "updateEntry",
-               [ target ; (constv MOD); stamp; CInt (List.length names); CVar nv ; CVar ev ]) in
-            let compu = ([],extra @ [CVar nls; CVar els],ToCall ((CVar "convertM"), [ptr ; modcomp])) in
+               [ target ; (constv MOD); CInt (List.length names); CVar nv ; CVar ev ]) in
+            let compu = ([],extra @ [CVar nls],ToCall ((CVar "convertM"), [ptr ; modcomp])) in
             EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
+
+          | Provide(mty,name,id,opth,pth,(needs,arg)) -> 
+            let eptr = (make_entrypoint (name::pth)) in
+            let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+            let comp = (match arg with 
+             | None -> empty (convm (CVar (make_str (name::pth))) modcomp)   
+             | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
+                ([],[c],(convm fcall modcomp)))
+            in
+            EntryPoint(eptr,(constd MODDATA),comp,needs) :: (entrypts xs)
       in
 
       (* top level *)
-      (entrypts assocs)
+      ((entrypts assocs),!partial_ls)
     in
 
     (* update_compred *)
@@ -646,8 +652,8 @@ struct
     let gettr_s = (sort_compred gettrs) in
     let ngettrs = update_compred gettr_s in
     let nfctrs = update_compred fctrs in
-    let gentry = compile_entrypoints assocs ngettrs in
-      (!crazy_lst,gentry,ngettrs,strcts,nfctrs,assocs)
+    let (gentry,partials) = compile_entrypoints assocs ngettrs in
+      (!crazy_lst,gentry,ngettrs,(partials@strcts),nfctrs,assocs)
 
 
  (* 
@@ -661,26 +667,25 @@ struct
     (* print entrypoints *)
     let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
       let args = match mask with 
-        | Some _ -> [ (MODDATA,STR) ]  
-        | None -> [] 
+        | [] -> [] 
+        | _ -> [ (MODDATA,STR) ]  
       in
-      let definition = (ENTRYPOINT,typ,name,args,false) in
+      let nname = match name with | None -> "this" | Some n -> n in
+      let definition = (ENTRYPOINT,typ,nname,args,false) in
       let md = (printd BINDING)^" "^(printconst MOD)^" = NULL" in
       let (ign,poss,c) = comp in
       let check = match mask with 
-        | None -> [] 
-        | Some (fcheck,var) -> 
+        | [] -> [] 
+        | cpath -> 
+            let com = (Comment (make_eptr (List.tl cpath))) in
             let sv = (CVar "union safe_cast s")
             and sc = (Assign ((CVar "s.value"),ToIdent (constv STR)))
             and gc = (ToCall((CVar "getBinding"),[(CVar "exchange");ToByte (CVar "s"); (constc CMP_INT)])) in 
             let gt = (Assign ((CVar "struct module_type * m"),gc)) 
-            and stamp = match fcheck with
-              | Easy i ->  CInt i           
-              | Painfull str -> CVar (str^".stamp")
-            in
+            and stamp = CVar (make_eptr (List.tl cpath)) in
             let cm = (ToCall((CVar "checkModule"),[(CVar "m->m") ; stamp])) 
             and up = (Assign((constv MOD),(CVar "m->m.strls"))) in
-            [sv;sc;gt;up] @ poss @ [cm]
+            [com;sv;sc;gt;up] @ poss @ [cm] (*TODO remove poss*)
       in
       let newc = (ign,check,c) in
       let body = (format 1 ( md :: (MC.Low.computation newc))) in
@@ -690,8 +695,10 @@ struct
     (* map entry point definitions *)
     let mapentrydef ls = (List.map printf 
       (List.map (function EntryPoint(name,typ,comp,mask) ->
-        let args = match mask with | Some _ -> [ (MODDATA,STR) ] | _ -> [] in
-        (ENTRYPOINT,typ,name,args,true)) ls))
+        let args = match mask with [] -> []
+          | _ -> [ (MODDATA,STR) ] in
+        let nname = (match name with | None -> "this" | Some n -> n) in
+        (ENTRYPOINT,typ,nname,args,true)) ls))
     in
 
     (* is a real entrypoint *)
@@ -700,7 +707,7 @@ struct
       (* is an entrypoint *)
       let isentry ptr = 
         let predicate = function
-          | EntryPoint (str1,_,_,_) when str1 = ptr -> true
+          | EntryPoint (Some str1,_,_,_) when str1 = ptr -> true
           | _ -> false
         in 
         (List.exists predicate enls) 
@@ -716,8 +723,8 @@ struct
 
       (* convert non entry point to NULL *)
       let conv_e = (function 
-        | x when (isentry x) -> x  
-        | _ -> "NULL") 
+        | Some x when (isentry x) -> Some x  
+        | _ -> None) 
       in
       match str with
       | Strct (Fun,n,pth,info,_,_,_) -> (try let (_,_,ls) = isspecial (make_str (n::pth)) in

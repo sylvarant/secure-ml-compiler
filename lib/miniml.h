@@ -148,6 +148,7 @@ struct foreign_s{
 };
 
 typedef enum acc_e { BVAL , BMOD, BDVAL, BDMOD } ACC;
+typedef enum isentry_e { YES, NO} ISENTRY;
 
 typedef struct module_s{
     MODTAG type;
@@ -158,6 +159,7 @@ typedef struct module_s{
             int count;
             char ** names;
             ACC * accs; 
+            ISENTRY * ie; 
             union field_t {
                 struct module_s * module;
                 struct module_s (*mgettr)(BINDING *);
@@ -253,14 +255,14 @@ LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
 LOCAL struct module_type convertMD(MODDATA,TYPE);
 LOCAL struct value_type convertD(DATA,TYPE);
-LOCAL void checkModule(MODULE,int);
+LOCAL void checkModule(MODULE,ENTRY *);
 LOCAL VALUE get_value(MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
 LOCAL MODULE path_module(BINDING *,char*);
 LOCAL VALUE path_value(BINDING *,char*);
 LOCAL VALUE get_value_path(MODULE,char*);
 LOCAL MODULE get_module_path(MODULE,char*);
-LOCAL MODULE updateEntry(MODULE,BINDING*,int,int,char **,ENTRY * ls);
+LOCAL MODULE updateEntry(MODULE,BINDING*,int,char **,ENTRY * ls);
 LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
 LOCAL MODULE foreign_module(foreignmod f,TYPE);
 LOCAL VALUE foreign_value(foreignval f,TYPE);
@@ -545,6 +547,9 @@ LOCAL CONTENT makeContentF(Functor f,int stamp)
     CONTENT ret;
     ret.f.Functor = f;
     ret.f.stamp = stamp;
+    ret.f.count = -1;
+    ret.f.names = NULL;
+    ret.f.entries = NULL;
     return ret; 
 }
 
@@ -554,7 +559,7 @@ LOCAL CONTENT makeContentF(Functor f,int stamp)
  *  Description:  return a Module Content for a structure
  * =====================================================================================
  */
-LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
+LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * ies,ENTRY * es)
 {
     CONTENT ret;
     ret.s.count = c;
@@ -564,8 +569,9 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ENTRY * es)
     for(int i = 0; i < c; i++) ret.s.accs[i] = a[i]; 
     ret.s.fields = MALLOC(c * sizeof(FIELD));
     for(int i = 0; i < c; i++) ret.s.fields[i] = fs[i]; 
-    ret.s.entries = MALLOC(c * sizeof(ENTRY));
-    for(int i = 0; i < c; i++) ret.s.entries[i] = es[i];
+    ret.s.ie = MALLOC(c*sizeof(ISENTRY));
+    for(int i = 0; i < c; i++) ret.s.ie[i] = ies[i];
+    ret.s.entries = es;
     return ret;     
 }
 
@@ -591,9 +597,10 @@ LOCAL MODULE makeModule(MODTAG t, int s, BINDING * ls,CONTENT c)
  *  Description:  check that the stamp of a module is in accord with the functor
  * =====================================================================================
  */
-LOCAL void checkModule(MODULE m, int c)
+LOCAL void checkModule(MODULE m,ENTRY * ptr)
 {
-    if(m.stamp != c) mistakeFromOutside();
+    if(m.type != STRUCTURE) mistakeFromOutside();
+    if(m.c.s.entries != ptr) mistakeFromOutside();
 }
 
 /* 

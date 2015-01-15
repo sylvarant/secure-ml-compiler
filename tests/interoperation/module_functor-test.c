@@ -14,7 +14,7 @@
 
 
 int tests_run = 0;
-int tests_set = 7;
+int tests_set = 8;
 
 TEST(getModule)
     MODDATA temp = IsZero();
@@ -59,6 +59,16 @@ TEST(dynamicModuleEntry)
     CHECK("Result is not 5",result.value == 5);
 DONE
 
+CRASH(crashdynamicModuleEntry)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functorEntry(functor.identifier,temp);
+    mod_entry call = new.fcalls[1];
+    MODDATA inner = call(new);
+    func_entry call2 = inner.fcalls[0];
+    DATA result = call2(new); 
+RECOVER
+
 TEST(assignedModule)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
@@ -73,14 +83,14 @@ TEST(assignedModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
     MODDATA new = functorEntry(functor.identifier,temp);
-    mod_entry call = new.fcalls[2];
-    MODDATA inner = call(new);
-    func_entry test = inner.fcalls[0];
+    mod_entry call = Test_Functor_Origin; 
+    MODDATA origin = call(new);
+    func_entry test = Test_Functor_Origin_test;
     DATA arg = {.t = INT, .value = 10};
-    DATA closure = test(inner); 
-    DATA result = closureEntry(closure.identifier,arg);    
+    DATA closure = test(origin); 
+ /*   DATA result = closureEntry(closure.identifier,arg);    
     CHECK("Result is not a boolean",result.t == BOOLEAN);
-    CHECK("Result is not false",result.value == 0);
+    CHECK("Result is not false",result.value == 0);  */
 DONE 
 
 LIST
@@ -91,6 +101,7 @@ LIST
     RUN(dynamicModuleEntry);
     RUN(assignedModule);
     RUN(assignedModuleEntry);
+    RUN(crashdynamicModuleEntry);
 DONE
 
 INCLUDE_MAIN

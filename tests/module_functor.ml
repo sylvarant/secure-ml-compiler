@@ -15,7 +15,7 @@ struct
         module New = struct
             val five = 5 
         end
-        module Origin = Input (* TODO *)
+        module Origin = Input 
 
         module Copy = Origin 
 

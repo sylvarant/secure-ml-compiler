@@ -66,9 +66,11 @@ struct
             | Dynamic of string * string list option
 
   and omega = strctbinding list
+  
+  type entry = string option
 
   type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * mask option * computation 
-               | Strct of strcttype * string * cpath * string list * Intermediary.accs list * string list * string list 
+               | Strct of strcttype * string * cpath * string list * Intermediary.accs list * string list * entry list 
                | Fctr of  string * Intermediary.locality * computation 
                | Compttr of string * computation * Intermediary.tempc list
 
@@ -84,17 +86,28 @@ struct
     | Pdot (p,str) -> str :: (convert_path p)) 
   
   (* convert a list into an entry point *)
-  let make_entrypoint = function [] -> "this" 
-    | lst -> (String.concat "_" (List.rev lst)) 
+  let make_entrypoint = function [] -> None
+    | lst -> Some (String.concat "_" (List.rev lst)) 
+
+  (* helper for ptrs *)
+  let make_baseptr = function [] -> "this"
+    | lst -> (String.concat "_" (List.rev lst))
 
   (* convert a list into a standard ptr *)
-  let make_ptr lst = "_" ^ (make_entrypoint lst)
+  let make_ptr lst = "_" ^ (make_baseptr lst)
 
   (* convert a list into a structure ptr *)
   let make_str lst = "str" ^ (make_ptr lst)
 
   (* convert a list into a variable ptr *)
   let make_var lst = "var"^ (make_ptr lst)
+
+  (* convert list into a an entry point ptr *)
+  let filter_fctr = (fun x -> if x = "Functor" then false else true) 
+  let make_eptr lst = "entry_"^(make_ptr (List.filter filter_fctr lst))
+
+  (* produce ptr to list of entry variables *)
+  let make_ieptr lst = "ie_"^(make_ptr (List.filter filter_fctr lst))
 
   (* the difference between a ptr and a path is the path is the . *)
   let make_path = function [] -> ""
@@ -439,13 +452,14 @@ struct
               let fptr = ("field"^(make_var pth)) in
               let fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}" in
               (* The Entrypoints *)
-              let eptr = ("entry"^(make_var pth)) in 
+              let eptr = (make_eptr pth) in 
+              let ieptr = (make_ieptr pth) in
               let nstr = Strct (Partial, (List.hd pth),(List.tl pth),[],assocs,[],entries) in
               strctls := nstr ::  !strctls;
               (* update setup *)
               let setup = (CVar nls) :: (CVar als) :: (CVar fls) :: [] in
               (* make the content and module *)
-              let args = (List.map (fun x -> CVar x) [nptr;aptr;fptr;eptr]) in
+              let args = (List.map (fun x -> CVar x) [nptr;aptr;fptr;ieptr;eptr]) in
               let c = ToCall (CVar "makeContentS", (CInt (List.length names)::args)) in
                ([],setup,ToCall(CVar "makeModule",[(CVar "STRUCTURE"); (CInt fctr); (constv MOD); c ]))
              with _ -> raise (Cannot_compile_module "Sure"))
@@ -519,14 +533,22 @@ struct
       | Fctr (ptr,loc,_) -> (loc,(constd MODULE),ptr,[(BINDING,MOD);(MODULE,STR)],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
-    (*(* the check list *)  
-    let check_list = ref []
+    (* map the entry points *)
+    let map_entries assocs eptrs = 
+        let rec filter2 l1 l2 = match l1 with
+          | [] -> []
+          | x :: xs -> match l2 with
+            | None :: ys -> (filter2 xs ys) 
+            | Some y :: ys -> ("{"^x^y^"}") :: (filter2 xs ys)
+            | _ -> raise (Cannot_compile_module "Incorrectly formatted double list")
+        in
+        let ie = (List.map (function None -> "NO" | _ -> "YES") eptrs) in
+        let final = match (filter2 (convert_entry assocs) eptrs) with
+         | [] -> ["NULL"]
+         | ls -> ls in
+        (ie,final)
 
-    (* generate the masks *)
-    let generate_mask str = let count = ref (-1) in
-        fun () -> incr count; 
-          check_list := str :: !check_list; 
-          !count *)
+    let print_ls ty ptr ls = (printd ty)^" "^ptr^"[] = {"^(String.concat "," ls)^"}"
 
    (* 
     * ===  FUNCTION  ======================================================================
@@ -567,32 +589,34 @@ struct
     * =====================================================================================
     *)
     let rec structure : compred list -> string list  = function [] -> []
-      | Strct (Copy,n,pth, p::ps ,assocs,[],entries) :: xs -> let eonvs = (convert_entry assocs) in
+      | Strct (Copy,n,pth, p::ps ,assocs,[],entries) :: xs -> 
         let name = (make_str (n::pth)) 
         and orig_n = "char"^(make_var (p::ps)) 
         and orig_a = "acc"^(make_var (p::ps))
         and orig_f = "field"^(make_var (p::ps))
-        and eptr = "entry"^(make_var (n::pth))
-        and echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs entries) in
-        let els = (printd ENTRY)^" "^eptr^"[] = {"^echars^"}" 
+        and ieptr = "ie"^(make_var (n::pth))
+        and eptr = (make_eptr (n::pth))
+        and (iechars,echars) = (map_entries assocs entries) in
+        let els = print_ls ENTRY eptr echars 
+        and iels = print_ls ISENTRY ieptr iechars
         and cnt = ".count="^(string_of_int (List.length assocs)) in
-        let arg = [cnt;".names="^orig_n;".accs="^orig_a;".fields="^orig_f;".entries="^eptr] in
+        let arg = [cnt;".names="^orig_n;".accs="^orig_a;".fields="^orig_f;".ie="^ieptr;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
           (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
-        let setup = [els ; decl ] in
+        let setup = [iels;els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Fun,n,pth,fctr::var::id::[],assocs,names,entries) :: xs -> 
         let (setup,cnt,nptr,eptr) = (match names with 
-          | [] -> ([],"0","NULL","NULL")
-          | _ -> let eonvs = (convert_entry assocs) in
-            let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
-            and echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs entries) in
+          | [] -> ([],"-1","NULL","NULL")
+          | _ -> 
+            let nchars = (List.map (fun x -> (printc (CString x))) names)
+            and (_,echars) = (map_entries assocs entries) in
             let nptr = ("char"^(make_var (n::pth)))
-            and eptr = ("entry"^(make_var (n::pth))) in
-            let nls = (printd CHAR)^" "^nptr^"[] = {"^nchars^"}"
-            and els = (printd ENTRY)^" "^eptr^"[] = {"^echars^"}" 
+            and eptr = (make_eptr (n::pth)) in
+            let nls = print_ls CHAR nptr nchars
+            and els = print_ls ENTRY eptr echars
             and cnt = (string_of_int (List.length names)) in
             ([nls;els],cnt,nptr,eptr)) 
         in
@@ -606,33 +630,36 @@ struct
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Partial,n,pth,[],assocs,[],entries) :: xs ->
         let eonvs = (convert_entry assocs) in
-        let echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs entries) in
-        let eptr = ("entry"^(make_var (n::pth))) in
-        let els = (printd ENTRY)^" "^eptr^"[] = {"^echars^"}" in
-        let setup = [els] in
+        let (iechars,echars) = map_entries assocs entries in
+        let ieptr = (make_ieptr (n::pth)) in
+        let eptr = (make_eptr (n::pth)) in
+        let els = print_ls ENTRY eptr echars in
+        let iels = print_ls ISENTRY ieptr iechars in
+        let setup = [iels;els] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Normal,n,pth,names,assocs,ptrs,entries) :: xs -> let name = (make_str (n::pth)) in
-        let convs = convert_mod assocs 
-        and eonvs = (convert_entry assocs) in
-        let nchars = String.concat "," (List.map (fun x -> (printc (CString x))) names)
-        and achars = String.concat "," (List.map printa assocs)
-        and fchars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) 
-        and echars = String.concat "," (List.map2 (fun x y -> "{"^x^y^"}") eonvs entries) in
+        let convs = convert_mod assocs in
+        let nchars = (List.map (fun x -> (printc (CString x))) names)
+        and achars = (List.map printa assocs)
+        and fchars = (List.map2 (fun x y -> "{"^x^y^"}") convs ptrs) 
+        and (iechars,echars) = (map_entries assocs entries) in
         let nptr = ("char"^(make_var (n::pth)))
         and aptr = ("acc"^(make_var (n::pth)))
         and fptr = ("field"^(make_var (n::pth))) 
-        and eptr = ("entry"^(make_var (n::pth))) in
-        let nls = (printd CHAR)^" "^nptr^"[] = {"^nchars^"}"
-        and als = (printd ACC)^" "^aptr^"[] = {"^achars^"}"
-        and fls = (printd FIELD)^" "^fptr^"[] = {"^fchars^"}"
-        and els = (printd ENTRY)^" "^eptr^"[] = {"^echars^"}"
+        and ieptr = "ie"^(make_var (n::pth)) 
+        and eptr = (make_eptr (n::pth)) in
+        let nls = print_ls CHAR nptr nchars
+        and als = print_ls ACC aptr achars
+        and ils = print_ls ISENTRY ieptr iechars
+        and fls = print_ls FIELD fptr fchars
+        and els = print_ls ENTRY eptr echars
         and cnt = ".count="^(string_of_int (List.length names)) in
-        let arg = [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr;".entries="^eptr] in
+        let arg = [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr;".ie="^ieptr;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
           (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
-        let setup = [nls ; als ; fls ; els ; decl ] in
+        let setup = [nls ; als ; fls ; ils; els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
       | _ -> raise (Cannot_compile "print_strcts only prints Strct") 

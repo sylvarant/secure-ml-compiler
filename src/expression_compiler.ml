@@ -89,7 +89,7 @@ struct
               | Dynamic (nn, Some ls) -> let path = CString (make_path ls) in
                   (ToCall ((constc PATHV),[ (constv MOD); path])) 
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
-           with _ -> (Get ((constv ENV),(CString (make_entrypoint cpath)))))
+           with _ -> let Some eptr = (make_entrypoint cpath) in (Get ((constv ENV),(CString eptr))))
         | Constant x -> ToInt (CInt x)
         | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))

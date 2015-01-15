@@ -128,7 +128,7 @@ TEST(deepModule)
     MODDATA new = functorEntry(functor.identifier,mod);
     MODDATA obj = IdFDeep_Functor_Inner(new);
     CHECK("Resulting object does not have correct entry point",obj.fcalls[0] == IdFDeep_Functor_Inner_test);
-    DATA closure = IdFDeep_Functor_Inner_test(new); 
+    DATA closure = IdFDeep_Functor_Inner_test(obj); 
     CHECK("Value does not produce closure",closure.t == CLOSURE);
 DONE
 

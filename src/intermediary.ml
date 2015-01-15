@@ -48,7 +48,7 @@ sig
     | ToVar of tempc | UpdateF of tempc * int * tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
   and headers = MINI | ENTRY 
@@ -137,7 +137,7 @@ struct
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
 
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
 
@@ -184,6 +184,7 @@ struct
     | ACC -> "ACC"
     | FIELD -> "FIELD"
     | ENTRY -> "ENTRY"
+    | ISENTRY -> "ISENTRY"
     | MODULE -> "MODULE"
     | MODDATA -> "MODDATA"
 
