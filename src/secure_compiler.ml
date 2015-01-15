@@ -473,6 +473,7 @@ struct
               let cpath = mask in
               let nmask = nm::cpath in
               (parse_mty (nmask,newarg) false nm path ar mty) @ (build_arg path mask arg ar xs)
+            | _ -> (build_arg path mask arg ar xs)
               
         (* parse the module type *)
         and parse_mty needs self mname npath cont mty = 

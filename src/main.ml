@@ -162,7 +162,7 @@ let main() =
     (output_string header_chan header);
     exit 0
 
-  with Error s -> prerr_string "Error: "; 
+  with Error s -> prerr_string "Type Checker Error: "; 
     prerr_string s; 
     prerr_newline(); 
     exit 1
