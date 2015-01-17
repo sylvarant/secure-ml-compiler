@@ -99,7 +99,47 @@ FUNCTIONALITY void insertBinding(BINDING ** head,void * key,void * value)
     node->contents = value;
 }
 
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: pushBinding
+ *  Description: pushes a new binding to the environment
+ * =====================================================================================
+ */
+FUNCTIONALITY BINDING * pushBinding(BINDING * original,void * key, void * value)
+{
+    BINDING * node = MALLOC(sizeof(BINDING));
+    node->key = key;
+    node->contents = value;
+    node->next = original;
+    return node;
+}
 
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: pushIntlist
+ *  Description: pushes a new intiger on to the list
+ * =====================================================================================
+ */
+FUNCTIONALITY INTLIST * pushIntlist(INTLIST * ls,int value)
+{
+    INTLIST * node = MALLOC(sizeof(INTLIST));
+    node->content = value;
+    node->next = ls;
+    return node;
+}
 
-
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: getPosIntlist
+ *  Description: get the integer at position pos
+ * =====================================================================================
+ */
+FUNCTIONALITY int getPosIntlist(INTLIST * ls,int pos)
+{
+    INTLIST * it = ls;
+    for(int i = 0; i < pos; i++){
+       it = it->next; 
+    }
+    return it->content;
+}
 

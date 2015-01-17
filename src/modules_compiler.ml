@@ -413,7 +413,7 @@ struct
         (* make computation default *)
         let make_comp c = ([],[],c) in
 
-        let up c id = UpdateF (c,id,constv MOD) in
+        let up c id = UpdateB (c,id,constv MOD) in
 
         (* The module parser *)
         let rec parse : modbindtype -> computation = function
@@ -429,8 +429,8 @@ struct
             gettrls := agls @ !gettrls;
             strctls := esls @ !strctls;
             fctr_list := (Fctr (fcpth,Interm.LOCAL,comp)) :: !fctr_list;
-            let c = ToCall ((CVar "makeContentF"),[(CVar fcpth); CInt id]) in
-              make_comp (ToCall(CVar "makeModule",[(CVar "FUNCTOR"); (CInt fctr); (constv MOD); c]))
+            let c = ToCall ((CVar "makeContentF"),[(CVar fcpth)]) in
+              make_comp (ToCall(CVar "makeModule",[(CVar "FUNCTOR"); (constv MOD); c]))
           | FB (pth,var,_,_,mb,id,(dyn,false)) -> let nf = new_fctr() in
             let target =  if not dyn 
             then up (CVar (make_str pth)) nf
@@ -461,7 +461,7 @@ struct
               (* make the content and module *)
               let args = (List.map (fun x -> CVar x) [nptr;aptr;fptr;ieptr;eptr]) in
               let c = ToCall (CVar "makeContentS", (CInt (List.length names)::args)) in
-               ([],setup,ToCall(CVar "makeModule",[(CVar "STRUCTURE"); (CInt fctr); (constv MOD); c ]))
+               ([],setup,ToCall(CVar "makeModule",[(CVar "STRUCTURE"); (constv MOD); c ]))
              with _ -> raise (Cannot_compile_module "Sure"))
           | SB (pth,nbinding,(dyn,false)) -> let target = if not dyn 
             then (CVar (make_str pth))
@@ -603,7 +603,7 @@ struct
         let arg = [cnt;".names="^orig_n;".accs="^orig_a;".fields="^orig_f;".ie="^ieptr;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
-          (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
+          (String.concat "," [".type = STRUCTURE";".strls = NULL";".keys=NULL";str])^"}") in
         let setup = [iels;els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)
@@ -620,12 +620,12 @@ struct
             and cnt = (string_of_int (List.length names)) in
             ([nls;els],cnt,nptr,eptr)) 
         in
-        let targets = ["Functor";"stamp";"count";"names";"entries"] in
-        let values = [fctr;id;cnt;nptr;eptr] in
+        let targets = ["Functor";"count";"names";"entries"] in
+        let values = [fctr;cnt;nptr;eptr] in
         let name = (make_str (n::pth))    
         and fc = ".c.f={"^(String.concat "," (List.map2 (fun x y -> "."^x^"="^y) targets values))^"}" in 
         let decl = ((printd MODULE)^" "^name^" = {"^
-          (String.concat "," [".type = FUNCTOR";".stamp = -1"; fc])^"}") in
+          (String.concat "," [".type = FUNCTOR";".strls = NULL"; ".keys = NULL"; fc])^"}") in
         let body = (format 0 (setup @ [decl])) in 
           (String.concat "\n" (body@[""])) :: (structure xs)
       | Strct (Partial,n,pth,[],assocs,[],entries) :: xs ->
@@ -658,7 +658,7 @@ struct
         let arg = [cnt;".names="^nptr;".accs="^aptr;".fields="^fptr;".ie="^ieptr;".entries="^eptr] in
         let str = ".c.s={"^(String.concat "," arg )^"}" in
         let decl = ((printd MODULE)^" "^name^" = {"^  
-          (String.concat "," [".type = STRUCTURE";".stamp = -1"; str])^"}") in
+          (String.concat "," [".type = STRUCTURE";".strls = NULL";".keys=NULL";str])^"}") in
         let setup = [nls ; als ; fls ; ils; els ; decl ] in
         let body = (format 0 setup) in
           (String.concat "\n" (body@[""])) :: (structure xs)

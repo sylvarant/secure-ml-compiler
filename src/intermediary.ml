@@ -30,9 +30,9 @@ sig
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
-    | TyCStruct of string
+    | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
 
-  type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
@@ -45,7 +45,8 @@ sig
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
-    | ToVar of tempc | UpdateF of tempc * int * tempc
+    | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
+    | GetPos of int
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
@@ -118,9 +119,9 @@ struct
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
-    | TyCStruct of string  
+    | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
 
-  type tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
@@ -133,11 +134,13 @@ struct
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
-    | ToVar of tempc | UpdateF of tempc * int * tempc
+    | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
+    | GetPos of int
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
-  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
+  and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC 
+    |FIELD | ENTRY | ISENTRY
 
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
 
@@ -293,6 +296,8 @@ struct
     | TyCString n -> "\""^n^"\""
     | TyCType s -> s
     | TyCStruct s -> "struct "^s
+    | TyComment (s,a) -> (printty a)^" "^(printc (Comment s))
+    | TySpecAbst (n,a) -> "makeIdTAbstract("^(printty (TyCString n))^","^(printc a)^")"
 
 
  (* 
@@ -301,7 +306,7 @@ struct
   *  Description:  When all is said and done, conver the computation to string
   * =====================================================================================
   *)
-  let rec printc = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
+  and printc = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
     | ToIValue a -> (printc a)^".i.value"
     | ToInt a -> "makeInt(" ^ (printc a) ^ ")"
     | ToBoolean a -> "makeBoolean("^ (printc a) ^ ")"
@@ -347,8 +352,10 @@ struct
         (printty e)^")"
     | ToIdent a -> (printc a)^".identifier"
     | ToVar a -> (printc a) ^"c.f.var"
-    | UpdateF (a,i,b) -> "updateFStamp("^(printc a)^","^(printc (CInt i))^","^(printc b)^")"
+    | UpdateB (a,i,b) -> "updateBinding("^(printc a)^","^(printc b)^")"
     | Comment a -> "/* "^a^"*/"
+    | Append (a,b) -> (printc a)^" "^(printc b) 
+    | GetPos i ->"getPosIntlist(m->m.keys,"^(printc (CInt i))^")"
 
 
   (* print functions *)

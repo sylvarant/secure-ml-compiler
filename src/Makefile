@@ -8,7 +8,7 @@
 # Tools
 #============================================
 
-OCAMLBUILD=ocamlbuild
+OCAMLBUILD=ocamlbuild -cflags -w,-a
 
 
 #============================================

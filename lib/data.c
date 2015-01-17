@@ -326,8 +326,8 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: convertM 
- *  Description: convert an inside Module into a MODDATA for the outside 
+ *         Name: updateEntry
+ *  Description: Reset the entrypoints of a module that is being constrained
  * =====================================================================================
  */
 LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int count,char ** names,ENTRY * ls)
@@ -430,6 +430,7 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
     MODULE m;
     m.type = STRUCTURE;
     m.strls = NULL; 
+    m.keys = NULL;
     struct structure sc;
     sc.count = d.count;
     sc.names = MALLOC(sizeof(char*)*sc.count);
@@ -605,6 +606,7 @@ LOCAL int type_check(TYPE req,TYPE given)
 
         case T(ABSTRACT):{
             if(cmp_char(req.aa.name,given.aa.name) != 0 ) return MFALSE;
+            if(req.aa.identifier >= 0 && req.aa.identifier != given.aa.identifier) return MFALSE;
             return MTRUE;
         }
 

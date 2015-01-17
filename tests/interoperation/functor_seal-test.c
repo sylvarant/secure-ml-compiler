@@ -14,7 +14,7 @@
 
 
 int tests_run = 0;
-int tests_set = 6;
+int tests_set = 7;
 
 
 TEST(getModule)
@@ -75,6 +75,19 @@ CRASH(dynamicResultTypeFail)
     DATA result = closureEntry(closure.identifier,left); 
 RECOVER
 
+CRASH(dynamicResultTypeFail2)
+    MODDATA temp = IsZero();
+    MODDATA functor = Test();
+    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA second = functorEntry(functor.identifier,temp);
+    func_entry scall = second.fcalls[0];
+    DATA left = { .t = INT, .value = 2 };
+    DATA sclosure = scall(second);
+    DATA type2 = closureEntry(sclosure.identifier,left); 
+    func_entry call = new.fcalls[1];
+    DATA closure = call(new);
+    DATA result = closureEntry(closure.identifier,type2); 
+RECOVER
 
 LIST
     RUN(getModule);
@@ -83,6 +96,7 @@ LIST
     RUN(dynamicEntry);
     RUN(dynamicResult);
     RUN(dynamicResultTypeFail);
+    RUN(dynamicResultTypeFail2);
 DONE
 
 INCLUDE_MAIN

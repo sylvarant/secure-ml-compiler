@@ -35,6 +35,12 @@ LOCAL int getAdressAbs(void)
     return ++addr;
 }
 
+LOCAL int getObjId(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -265,7 +271,8 @@ ENTRYPOINT MODDATA functorEntry(int id,MODDATA d)
 
     // update the generate module
     MODULE updated = updateEntry(new,NULL,functor.c.f.count,functor.c.f.names,functor.c.f.entries);
-    MODDATA ret = convertM(updated,*(functortype.f.right)); 
+    MODULE nks = updateKeys(updated,functor.keys);
+    MODDATA ret = convertM(nks,*(functortype.f.right)); 
     return ret;
 }
 

@@ -53,6 +53,7 @@ struct T(Star){
 };
 
 struct T(Abstract){
+    int identifier; 
     char * name;
 };
 
@@ -152,8 +153,8 @@ typedef enum isentry_e { YES, NO} ISENTRY;
 
 typedef struct module_s{
     MODTAG type;
-    int stamp; 
     BINDING * strls;
+    INTLIST * keys;
     union content {
         struct structure {
             int count;
@@ -179,7 +180,6 @@ typedef struct module_s{
             int count;
             char ** names;
             union entry_t * entries;
-            int stamp;
         }f;
     }c;
 }MODULE;
@@ -250,9 +250,11 @@ unsigned int LOADED = 0;
 LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdress(void);
+LOCAL int getObjId(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
+LOCAL MODULE updateKeys(MODULE,INTLIST*);
 LOCAL struct module_type convertMD(MODDATA,TYPE);
 LOCAL struct value_type convertD(DATA,TYPE);
 LOCAL void checkModule(MODULE,ENTRY *);
@@ -398,6 +400,22 @@ LOCAL TYPE makeTAbstract(char * name)
 {
    TYPE t;
    t.t = T(ABSTRACT);
+   t.aa.identifier = -1;
+   t.aa.name = name;
+   return t;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeIdTAbstract
+ *  Description:  create an abstract type with a dynamic identifier
+ * =====================================================================================
+ */
+LOCAL TYPE makeIdTAbstract(char * name,int id)
+{
+   TYPE t;
+   t.t = T(ABSTRACT);
+   t.aa.identifier = id;
    t.aa.name = name;
    return t;
 }
@@ -542,11 +560,10 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
  *  Description:  return a Module Content for a functor
  * =====================================================================================
  */
-LOCAL CONTENT makeContentF(Functor f,int stamp)
+LOCAL CONTENT makeContentF(Functor f)
 {
     CONTENT ret;
     ret.f.Functor = f;
-    ret.f.stamp = stamp;
     ret.f.count = -1;
     ret.f.names = NULL;
     ret.f.entries = NULL;
@@ -581,11 +598,11 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * ies,ENTR
  *  Description:  return a Module
  * =====================================================================================
  */
-LOCAL MODULE makeModule(MODTAG t, int s, BINDING * ls,CONTENT c)
+LOCAL MODULE makeModule(MODTAG t, BINDING * ls,CONTENT c)
 {
     MODULE ret;
     ret.type = t;
-    ret.stamp = s;
+    ret.keys = NULL;
     ret.strls = ls;
     ret.c = c;
     return ret;
@@ -605,17 +622,28 @@ LOCAL void checkModule(MODULE m,ENTRY * ptr)
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: updateFStamp
- *  Description: update the Functor Stamp if object is a functor
+ *         Name: updateBinding
+ *  Description: update the objects binding
  * =====================================================================================
  */
-LOCAL MODULE updateFStamp(MODULE m, int nfctr,BINDING *ls)
+LOCAL MODULE updateBinding(MODULE m,BINDING *ls)
 {
     MODULE ret = m;
-    if(ret.type == FUNCTOR) ret.c.f.stamp = nfctr;
     ret.strls = ls;
     return ret;
 }
 
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: updateKeys
+ *  Description: update the keys of a dyn module
+ * =====================================================================================
+ */
+LOCAL MODULE updateKeys(MODULE m,INTLIST *keys)
+{
+    MODULE ret = m;
+    ret.keys = pushIntlist(keys,getObjId());
+    return ret;
+}
 
 #endif

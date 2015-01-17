@@ -35,10 +35,10 @@ if [[ $res -ne 0 ]];then
         exit 2
     else
         echo "MiniML compiler failed"
-        echo "#> Result of :: $outputh"
-        cat $outputh
-        echo "#> Result of :: $outputc"
-        cat $outputc 
+        #echo "#> Result of :: $outputh"
+        #cat $outputh
+        #echo "#> Result of :: $outputc"
+        #cat $outputc 
         exit 3
     fi
 fi

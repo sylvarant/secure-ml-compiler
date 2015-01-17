@@ -202,10 +202,9 @@ struct
       in
       match mty with 
         | Signature sls -> (find_decl sls)
-        | Functor_type(arg,_,_) when (Ident.name arg) = str -> Modtype mty (* TODO *)
-        | Functor_type(_,ml1,ml2) -> match (find str ml1) with
-          | Fail -> (find str ml2)
-          | _ as a -> a
+        | Functor_type(arg,ml1,_) when (Ident.name arg) = str -> Modtype ml1 
+        | Functor_type(_,ml1,ml2) when (str = "Functor") -> Modtype ml2
+        | Functor_type(_,ml1,ml2) when (str = "Signature") -> Modtype ml1
     in
 
     (* top level *)
@@ -237,6 +236,7 @@ struct
          | Module_sig (id,mod_type) -> let name = (Ident.name id) in
            if (((List.length ns) > 0) && (name = (List.hd ns))) 
            then ((full_mty (name::topl) mod_type (List.tl ns)); (full_decl topl xs ns))  (* Recurse *)
+
            else if (List.length ns == 0)
            then ((full_mty (name::topl) mod_type []); (full_decl topl xs ns))  (* Recurse *)
            else (full_decl topl xs ns)
@@ -245,13 +245,29 @@ struct
     (* search module types *)
     and full_mty (topl : string list) (ty : mod_type) (ns : string list) : unit = match ty with
       | Signature sigls -> (full_decl topl (List.rev (sort_sigs sigls)) ns)
-      | Functor_type (id,ml1,ml2) when (Ident.name id) = target -> raise (Found (List.rev (pth@topl)))
-      | Functor_type (id,ml1,ml2) -> let argum = (Ident.name id) in
-         (full_mty topl ml1 ns); (full_mty topl ml2 ns); ()
-     
+      | Functor_type (id,ml1,ml2) -> (*(Printf.eprintf  "ns == %s\n" (make_path ns));*)
+        let npath = ("Functor"::topl) in
+        let check_arg = 
+          let argum = (Ident.name id) in
+          if target = argum 
+          then raise (Found (List.rev (pth@topl)))
+          else ()
+        in
+        if ((List.length ns) > 0 && ((List.hd ns) = "Functor"))
+        then 
+          let tail = (List.tl ns) in
+          (check_arg ; (full_mty npath ml2 tail);  ())
+        else if ((List.length ns) > 0 && ((List.hd ns) = "Signature"))
+        then 
+          let tail = (List.tl ns) in
+          (check_arg ; (full_mty ("Signature"::topl) ml1 tail);  ())
+        else if (List.length ns == 0)
+        then (check_arg ;(full_mty npath ml2 ns);  (*(full_mty npath ml1 ns);*) ())
+        else ()
+                  
     in
     (* top level *)
-    (*(Printf.eprintf "Looking for path: %s -> %s in %s\n" (String.concat "." pth) target (String.concat "." ns));*)
+    (*(Printf.eprintf "Looking for path: %s -> %s in %s\n" (make_path pth) target (make_path ns));*)
     (full_mty [] mty (List.rev ns))
 
 
@@ -261,33 +277,42 @@ struct
   *  Description:  convert the simple type to the intermed representation
   * =====================================================================================
   *)
-  let rec compile_simple_type progtype pth =  
+  let rec compile_simple_type dyn progtype pth =  
     function
-    | Var _ as x -> compile_simple_type progtype pth (typerepr x)
+    | Var _ as x -> compile_simple_type dyn progtype pth (typerepr x)
     | LambdaType(TIgnore,_) -> TyIgnore
     | LambdaType(TBool,_) -> TyBool
     | LambdaType(TInt,_) ->  TyInt
-    | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
-        let tu2 = compile_simple_type progtype pth ty2 in
+    | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type dyn progtype pth ty1 in
+        let tu2 = compile_simple_type dyn progtype pth ty2 in
         TyArrow (tu1,tu2)
-    | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type progtype pth ty1 in
-        let tu2 = compile_simple_type progtype pth ty2 in
+    | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type dyn progtype pth ty1 in
+        let tu2 = compile_simple_type dyn progtype pth ty2 in
         TyStar (tu1,tu2)
-    | Typeconstr(path,_) -> (*(Printf.eprintf "Going for %s\n" (String.concat "." (convert_path path)));*)
+    | Typeconstr(path,_) -> (*(Printf.eprintf "Going for %s in %s\n" (make_path (convert_path path)) (make_path pth));*)
       let obtainbase p = 
         (*Printf.eprintf "full path = %s\n" (String.concat "." p));*)
         (match (look_up_type_path progtype p) with
           | Fail -> raise (Cannot_compile "Type path not found")
-          | SimpleType ty -> (compile_simple_type progtype p ty)
-          | Modtype mty -> (compile_mty_type progtype (List.rev p) mty)
+          | SimpleType ty -> (compile_simple_type dyn progtype p ty)
+          | Modtype mty -> (compile_mty_type dyn progtype (List.rev p) mty)
           | ManifestType opt -> (match opt with
-            | None -> (TyAbstract (TyCString (String.concat "." p)))
-            | Some simple -> (compile_simple_type progtype (List.rev p) simple.defbody)))
+            | None -> 
+              (match dyn with
+               | None -> (TyAbstract (TyCString (String.concat "." p)))
+               | Some cpth -> if (List.exists (fun x -> x = "Functor") p) 
+                 then let depth = (List.length cpth) - (List.length (List.tl p)) in
+                   (TySpecAbst ( (String.concat "." p),(GetPos depth)))
+                 else 
+                   (TyAbstract (TyCString (String.concat "." p))))
+            | Some simple -> (compile_simple_type dyn progtype (List.rev p) simple.defbody)))
       in
       let fullpath = 
         (try (gen_full_path progtype (convert_path path) pth); 
-           raise (Cannot_compile "Couldn't gen. path")
-         with Found topl -> (*(Printf.eprintf "found %s \n" (String.concat "." topl)*) topl
+           let target = (make_path (convert_path path)) 
+           and namespace = (make_path pth) in
+           raise (Cannot_compile ("Couldn't gen. path for: "^target^" in "^namespace))
+         with Found topl -> (*(Printf.eprintf "found %s \n" (make_path topl));*) topl
          | Cannot_compile _ as a -> raise a) in
         (*(raise (Cannot_compile ("Before obtain "^(String.concat "." fullpath)))); *)
       (obtainbase fullpath)
@@ -300,28 +325,29 @@ struct
   *  Description:  compiles the lambda calculus
   * =====================================================================================
   *)
-  and compile_mty_type progtype pth mty = 
+  and compile_mty_type dyn progtype pth mty = 
 
     (* type declarations, without kind or param *)
     let convert_decl pth dec = match dec.manifest with
-      | None -> TyAbstract (TyCString (String.concat "." (List.rev pth)))
-      | Some dt -> (* TODO params *) (compile_simple_type progtype pth dt.defbody)
+      | None -> let npth = (List.filter filter_fctr pth) in
+        (*TyComment ((string_of_int depth),*)TyAbstract (TyCString (String.concat "." (List.rev npth)))
+      | Some dt -> (* TODO params *) (compile_simple_type dyn progtype pth dt.defbody)
     in
 
     (* signature specifications *)
     let rec convert_spec pth = function
-      | Value_sig (id,st) -> TyValue (TyCString (Ident.name id),(compile_simple_type progtype pth st.body))
+      | Value_sig (id,st) -> TyValue (TyCString (Ident.name id),(compile_simple_type dyn progtype pth st.body))
       | Type_sig (id,td) -> TyDeclar (TyCString (Ident.name id),(convert_decl pth td))
       | Module_sig (id,mty) -> let name = (Ident.name id) in
-        TyModule (TyCString (Ident.name id), compile_mty_type progtype (name::pth) mty)
+        TyModule (TyCString (Ident.name id), compile_mty_type dyn progtype (name::pth) mty)
     in
 
     (* top level *)
     match mty with 
     | Signature sigls -> TySignature (List.map (fun x -> convert_spec pth x) sigls)
     | Functor_type (id,mty1,mty2) -> let argum = (Ident.name id) in
-      let inter1 = (compile_mty_type progtype pth mty1)
-      and inter2 = (compile_mty_type progtype pth mty2) in
+      let inter1 = (compile_mty_type dyn progtype ("Signature"::pth) mty1)
+      and inter2 = (compile_mty_type dyn progtype ("Functor"::pth) mty2) in
       TyFunctor (TyCString argum ,inter1,inter2)
 
  (* 
@@ -558,6 +584,7 @@ struct
 
       (* helpers *)
       let convm p m = ToCall ((CVar "convertM"), [p ; m]) in
+      let upkeys p = ToCall ((CVar "updateKeys"),[p ; CVar "m->m.keys"]) in
 
       let convf f v p = 
         let predicate = (fun x -> if x = "Functor" then false else true) in
@@ -576,7 +603,11 @@ struct
           | (Call(ty,name,pth,rpth,(needs,arg))) -> 
             let eptr = (make_entrypoint (name::pth))  in
             let ptr = make_ptr (name::rpth) in
-            let tycomp = CVar (printty (compile_simple_type progtype pth ty.body)) in
+            (*let Some debug = eptr in
+            Printf.eprintf "Compile type with path :: %s\n for %s\n" (make_path rpth) debug;*)
+            let dyn = match needs with [] -> None | _ -> Some pth in 
+            let tycomp = CVar (printty (compile_simple_type dyn progtype rpth ty.body)) in
+            (*Printf.eprintf "====== DONE ========\n";*)
             let comp = (match arg with
               | None -> empty (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ]))
               | Some (c,var,p) -> let fcall = convf (CVar "get_value_path") var p  in
@@ -585,7 +616,7 @@ struct
 
           | Share(mty,name,opth,pth,(needs,arg))  -> 
             let eptr = (make_entrypoint (name::pth)) in
-            let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+            let modcomp = CVar (printty (compile_mty_type None progtype opth mty)) in
             (match eptr with
             | None -> let special = CVar (make_str []) in
               let compu =  empty (convm special modcomp) in
@@ -594,9 +625,9 @@ struct
               let compu = (match arg with 
                 | None -> (match needs with
                   | [] -> empty (convm (CVar (make_str (name::pth))) modcomp)
-                  | _ -> empty (convm (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)])) modcomp))
+                  | _ -> empty (convm (upkeys (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)]))) modcomp))
                 | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
-                  ([],[c],(convm fcall modcomp)))
+                  ([],[c],(convm (upkeys fcall) modcomp)))
               in
               EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs))
 
@@ -605,7 +636,7 @@ struct
             let assocs = List.map (function (_,x,_) -> x) ls in
             let eptrs = List.map (function (_,_,x) -> x) ls in
             let eptr = (make_entrypoint (name::path)) in
-            let modcomp = CVar (printty (compile_mty_type progtype path mty)) in
+            let modcomp = CVar (printty (compile_mty_type None progtype path mty)) in
             let (extra,target) = (match arg with 
               | None -> ([],(ToCall (CVar (make_ptr (name::path)),[(constv MOD)]))) 
               | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in
@@ -619,16 +650,17 @@ struct
             let nls =  (printd CHAR)^" "^nv^"[] = {"^nchars^"}" in 
             let ptr = ToCall (CVar "updateEntry",
                [ target ; (constv MOD); CInt (List.length names); CVar nv ; CVar ev ]) in
-            let compu = ([],extra @ [CVar nls],ToCall ((CVar "convertM"), [ptr ; modcomp])) in
+            let compu = ([],extra @ [CVar nls],(convm (upkeys ptr) modcomp)) in
             EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
 
           | Provide(mty,name,id,opth,pth,(needs,arg)) -> 
             let eptr = (make_entrypoint (name::pth)) in
-            let modcomp = CVar (printty (compile_mty_type progtype opth mty)) in
+            let modcomp = CVar (printty (compile_mty_type None progtype opth mty)) in
+            let upd = (fun x -> (match needs with [] -> x | _ -> upkeys x)) in
             let comp = (match arg with 
-             | None -> empty (convm (CVar (make_str (name::pth))) modcomp)   
+             | None -> empty (convm (upd (CVar (make_str (name::pth)))) modcomp)   
              | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
-                ([],[c],(convm fcall modcomp)))
+                ([],[c],(convm (upd fcall) modcomp)))
             in
             EntryPoint(eptr,(constd MODDATA),comp,needs) :: (entrypts xs)
       in

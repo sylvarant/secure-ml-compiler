@@ -39,15 +39,19 @@ struct
         val id x : t = x
         module Inner =
         struct
+            type y = int
             val testfst p : int = (Input.test p)
             val input x : t = x
+            val add x : y = x + 20
         end
       end : sig
         type t
         val id : t -> t
         module Inner: sig
+            type y
             val testfst : int -> t
             val input : t -> bool
+            val add : y -> y
         end
       end
 
