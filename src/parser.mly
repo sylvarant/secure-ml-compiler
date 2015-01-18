@@ -41,7 +41,9 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 
 %token TINT
 %token TBOOL
+%token TUNIT
 
+%token UNIT
 %token TRUE
 %token FALSE
 %token ARROW
@@ -110,6 +112,7 @@ path:
 
 valexpr:
     valexpr1                          { $1 }
+  | valexpr SEMICOLON valexpr         { MiniML.Sequence($1,$3) }
   | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
   | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
   | valexpr STAR valexpr              { MiniML.Prim( "*",(prim_ls $1 $3)) }
@@ -132,6 +135,7 @@ valexpr1:
 ;
 valexpr0:
     path { MiniML.Longident($1) }
+  | UNIT { MiniML.Unit }
   | INT  { MiniML.Constant $1 }
   | TRUE { MiniML.Boolean true }
   | FALSE { MiniML.Boolean false }
@@ -154,6 +158,7 @@ simpletype:
   | simpletype STAR simpletype  { (MiniML.pair_type $1 $3) }
   | TBOOL                   { MiniML.bool_type }
   | TINT                    { MiniML.int_type }
+  | TUNIT                   { MiniML.unit_type }
   | path                    { MiniML.Typeconstr($1, []) }
   | simpletype path         { MiniML.Typeconstr($2, [$1]) }
   | LPAREN simpletypelist RPAREN path { MiniML.Typeconstr($4, List.rev $2) }

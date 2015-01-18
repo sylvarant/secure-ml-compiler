@@ -32,7 +32,7 @@ sig
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
     | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
 
-  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToTrue | ToFalse | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
@@ -46,7 +46,7 @@ sig
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
-    | GetPos of int
+    | GetPos of int | ToUnit | ToBoolean of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
@@ -121,7 +121,7 @@ struct
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
     | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
 
-  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToBoolean of tempc | CVar of string 
+  and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToTrue | ToFalse | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
     | Assign of tempc * tempc | ToCall of tempc * tempc list | ToLambda of tempc | CInt of int
     | ToEnv of tempc | ToMod of tempc | Insert of tempc * tempc * tempc | ToCast of datastr * tempc
@@ -135,7 +135,7 @@ struct
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
-    | GetPos of int
+    | GetPos of int | ToUnit | ToBoolean of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -307,9 +307,12 @@ struct
   * =====================================================================================
   *)
   and printc = function ToBValue a -> (printc a)^".b.value"  (* TODO is ptr ? *)
+    | ToUnit -> "VUnit"
+    | ToTrue -> "VTrue"
+    | ToFalse -> "VFalse"
+    | ToBoolean a -> "makeBoolean("^(printc a)^")"
     | ToIValue a -> (printc a)^".i.value"
     | ToInt a -> "makeInt(" ^ (printc a) ^ ")"
-    | ToBoolean a -> "makeBoolean("^ (printc a) ^ ")"
     | ToQuestion(a,b,c) -> "("^(printc a)^" ? "^(printc b)^" : "^(printc c)^")"
     | ToPair (a,b) -> "makePair("^(printc a)^","^(printc b)^")"
     | ToComma(a,b) -> "("^(printc a)^","^(printc b)^")"

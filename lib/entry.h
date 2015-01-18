@@ -54,7 +54,7 @@ extern void * malloc(size_t);
  *-----------------------------------------------------------------------------*/
 
 typedef enum Termtag_e {
-    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT, CALLBACK
+    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT, CALLBACK, UNIT
 } TERMTAG;
 
 typedef struct Data_s{
@@ -77,7 +77,7 @@ typedef struct Data_s{
  *-----------------------------------------------------------------------------*/
 
 typedef enum Type_e {
-    TYINT, TYBOOLEAN, TYARROW, TYSTAR, 
+    TYINT, TYBOOLEAN, TYARROW, TYSTAR,TYUNIT,
     TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE, TYMODULE, TYVALUE, 
 } TYPE_INFO;
 

@@ -65,8 +65,6 @@ struct
     (* get rid of the let terms *)
     let rec desugar : MiniML.term -> MiniML.term  = function
       | Let (id,e,t) -> Apply( (desugar (Function(id,ignore_type,t))) , (desugar e))
-      | Constant _ as t -> t
-      | Boolean _ as t -> t
       | Longident _ as t -> t
       | If (a,b,c) -> If ((desugar a),(desugar b),(desugar c))
       | Prim (op,ls) -> let nls = (List.map desugar ls) in Prim(op,nls)
@@ -74,7 +72,10 @@ struct
       | Pair(a,b) -> Pair( (desugar a), (desugar b))
       | Apply (a,b) -> Apply ((desugar a),(desugar b)) 
       | Fst a -> Fst (desugar a)
-      | Snd a -> Snd (desugar a) in
+      | Snd a -> Snd (desugar a) 
+      | Sequence (a,b) -> Sequence ((desugar a),(desugar b))
+      | _ as t -> t
+    in
      
     (* miniml -> interm + var list side effect *)
     let rec mcompile varlist program = 
@@ -91,14 +92,16 @@ struct
               | _ -> raise (Cannot_compile "Did not retrieve path from lookup"))
            with _ -> let Some eptr = (make_entrypoint cpath) in (Get ((constv ENV),(CString eptr))))
         | Constant x -> ToInt (CInt x)
-        | Boolean x -> ToBoolean (CInt (match x with | true -> 1 | _ -> 0))
+        | Unit -> ToUnit
+        | Boolean x -> (match x with | true -> ToTrue | _ -> ToFalse)
         | If (a,b,c) -> ToQuestion ((ToBValue (convert a)),(convert b),(convert c))
-        | Pair(a,b) -> ToPair ((convert  a), (convert b))
+        | Pair(a,b) -> ToPair ((convert a), (convert b))
         | Apply (l,r) -> let tmp = new_var() in 
            varlist := (CVar tmp) :: !varlist;
            let tcv = (CVar tmp) in
            let args = [(ToMod tcv);(ToEnv tcv); (convert r)] in
            ToComma(Assign( tcv, (convert l)),ToCast (VALUE,(ToCall ((ToLambda tcv),args))))
+        | Sequence (a,b) -> ToComma((convert a),(convert b))
         | Function(id,ty,e) -> let idn = (Ident.name id) in
           let lamname = (new_func (make_ptr path))  in
           (*let convert_ty = (parse_type ty) in*)

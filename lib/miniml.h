@@ -39,7 +39,7 @@ enum{ MFALSE = 0, MTRUE = 1 };
 
 typedef enum T(Tag_e){
     T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), 
-    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE)
+    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE), T(UNIT)
 } T(TAG);
 
 struct T(Arrow){
@@ -100,12 +100,16 @@ typedef struct Type_u{
 // global constant types
 const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
 const struct Type_u T(Int) = {.t = T(INT), .a = 0};
+const struct Type_u T(Unit) = {.t = T(UNIT), .a = 0};
 const struct Type_u T(Boolean) = {.t = T(BOOLEAN), .a = 0};
 
 
 /*-----------------------------------------------------------------------------
  * Values
  *-----------------------------------------------------------------------------*/
+
+SCM_(Empty)
+_SCM
 
 SCM_(Int)
     int value;
@@ -127,12 +131,17 @@ SCM_(Pair)
 _SCM
 
 typedef union Value_u {
+    struct V(Empty) e;
     struct V(Boolean) b;
     struct V(Int) i;
     struct V(Closure) c;
     struct V(Pair) p;
 } VALUE;
 
+// global constant values
+const VALUE V(Unit) = {.e = { .t = UNIT} };
+const VALUE V(True) = {.b = { .t = BOOLEAN, .value = 1}};
+const VALUE V(False) = {.b = { .t = BOOLEAN, .value = 0}};
 
 /*-----------------------------------------------------------------------------
  * Modules
@@ -317,10 +326,8 @@ LOCAL VALUE makeInt(int n)
  */
 LOCAL VALUE makeBoolean(unsigned int b)
 {
-    VALUE v;
-    v.b.t = BOOLEAN;
-    v.b.value =  b;
-    return v;
+    if(b) return V(True);
+    else return V(False);
 }
 
 /* 

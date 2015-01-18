@@ -175,11 +175,8 @@ struct
     let trivial_scheme ty = { quantif = []; body = ty } in
 
     (* unify types *)
-    let rec unify env t1 t2 =
-      
-      (* top level *)
-      match scrape_types env t1 t2 with
-        (r1, r2) when r1 == r2 -> ()
+    let rec unify env t1 t2 = match scrape_types env t1 t2 with
+      |  (r1, r2) when r1 == r2 -> ()
       | (Var v, r2) -> occur_check v r2;
          update_levels v.level r2;
          v.repres <- Some r2
@@ -198,6 +195,7 @@ struct
     let rec infer_type env = function
         Constant _ -> MiniML.int_type
       | Boolean _ -> MiniML.bool_type
+      | Unit -> MiniML.unit_type
       | Longident path -> instance (Env.find_value path env) 
       | Function(param,ty,body) -> let quantifier = (trivial_scheme ty) in
         let type_body = infer_type (Env.add_value param quantifier env) body in
@@ -207,6 +205,10 @@ struct
         let type_result = unknown() in
         unify env type_funct (MiniML.arrow_type type_arg type_result);
         type_result
+      | Sequence (t1,t2) -> let t1_type = infer_type env t1 
+        and t2_type = infer_type env t2 in
+        unify env t1_type MiniML.unit_type;
+        t2_type
       | Let(ident, arg, body) -> begin_def();
         let type_arg = infer_type env arg in
         end_def();

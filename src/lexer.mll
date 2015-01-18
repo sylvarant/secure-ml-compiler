@@ -28,8 +28,11 @@ let _ = List.iter (fun (str,tok) -> Hashtbl.add keyword_table str tok)
 
   "bool", TBOOL;
   "int", TINT;
+  "Unit", TUNIT;
+
 
 (* terms *)
+  "unit", UNIT;
   "true", TRUE;
   "false", FALSE;
   "function", FUNCTION;

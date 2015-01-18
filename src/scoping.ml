@@ -41,8 +41,6 @@ struct
    * =====================================================================================
    *)
   let rec scope_term sc = function
-     Constant _  as el -> el
-   | Boolean _ as el -> el
    | Longident path -> Longident(Scope.value_path path sc)
    | Function(id,ty,body) -> let scoped_ty = (scope_simple_type sc ty) in
        let scoped_body = (scope_term (Scope.enter_value id sc) body) in
@@ -55,6 +53,8 @@ struct
    | Fst t1 ->  Fst (scope_term sc t1)
    | Snd t1 ->  Snd (scope_term sc t1)
    | Pair (t1,t2) -> Pair ((scope_term sc t1), (scope_term sc t2))
+   | Sequence (t1,t2) -> Sequence ((scope_term sc t1),(scope_term sc t2))
+   | _ as t -> t
 
 
   (* value types , definitions and kinds *)

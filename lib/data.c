@@ -24,6 +24,7 @@ LOCAL void free_type(TYPE ty)
         case T(IGNORE):
         case T(INT) :
         case T(ABSTRACT):
+        case T(UNIT):
         case T(BOOLEAN): break;
 
         case T(ARROW):
@@ -87,6 +88,11 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
     // general conversion
     switch(input.b.t)
     {
+        case UNIT:{
+            d.t = UNIT;
+            break;
+        }
+
         case INT:{
             d.t = INT; 
             d.value = input.i.value;
@@ -162,6 +168,12 @@ LOCAL struct value_type convertD(DATA input,TYPE req)
     struct value_type result;
     switch(input.t)
     {
+        case UNIT:{
+            result.val = V(Unit);
+            result.ty = T(Unit);
+            break;
+        }
+
         case INT:{ 
             result.val = makeInt(input.value); 
             result.ty = T(Int);    
@@ -169,7 +181,8 @@ LOCAL struct value_type convertD(DATA input,TYPE req)
         }
 
         case BOOLEAN:{
-            result.val = makeBoolean(input.value); 
+            if(input.value) result.val = V(True);
+            else result.val = V(False);
             result.ty = T(Boolean); 
             break;
         }
@@ -475,6 +488,11 @@ LOCAL DTYPE convertT(TYPE ty)
             break;
         }
 
+        case T(UNIT) :{
+            typ.t = TYUNIT;
+            break;
+        }
+
         case T(INT) :{
             typ.t = TYINT;
             break;
@@ -601,7 +619,8 @@ LOCAL int type_check(TYPE req,TYPE given)
     switch(req.t)
     {
         case T(INT):
-        case T(BOOLEAN): return MTRUE;
+        case T(BOOLEAN): 
+        case T(UNIT): return MTRUE;
 
 
         case T(ABSTRACT):{
