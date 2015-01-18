@@ -54,7 +54,7 @@ extern void * malloc(size_t);
  *-----------------------------------------------------------------------------*/
 
 typedef enum Termtag_e {
-    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT, CALLBACK, UNIT
+    INT, BOOLEAN, CLOSURE, PAIR, ABSTRACT, CALLBACK, UNIT, LOCATION
 } TERMTAG;
 
 typedef struct Data_s{
@@ -77,13 +77,14 @@ typedef struct Data_s{
  *-----------------------------------------------------------------------------*/
 
 typedef enum Type_e {
-    TYINT, TYBOOLEAN, TYARROW, TYSTAR,TYUNIT,
+    TYINT, TYBOOLEAN, TYARROW, TYSTAR,TYUNIT,TYREF,
     TYDECLARATION, TYFUNCTOR, TYABSTRACT, TYSIGNATURE, TYMODULE, TYVALUE, 
 } TYPE_INFO;
 
 typedef struct Type_s {
     TYPE_INFO t;
     union {
+        struct Type_s * reftype;
         struct {
             char * name;
             struct Type_s * type;
@@ -138,6 +139,7 @@ typedef MODDATA (*mod_entry) (MODDATA);
 
 ENTRYPOINT DATA closureEntry(int,DATA);
 ENTRYPOINT MODDATA functorEntry(int,MODDATA);
+ENTRYPOINT DATA locationEntry(int);
 
 #endif
 

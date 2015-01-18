@@ -517,8 +517,11 @@ struct
     *-----------------------------------------------------------------------------*)
 
     (* print the tuple computation *)
-    let rec computation = function (vlist,sls,comp) -> 
-      let c = [("return "^(printc comp))] in
+    let rec computation boolean data = function (vlist,sls,comp) -> 
+      let c = if boolean 
+        then ["static int _dec = 0";"static "^data^" _rValue";("SWITCH(_dec,_rValue,"^(printc comp)^")");"return _rValue"] 
+        else ["return "^(printc comp)]
+      in
       let l = match sls with [] -> []
         | _ -> (List.map printc sls)
       in
@@ -561,7 +564,7 @@ struct
           let args = [(BINDING,MOD);(BINDING,ENV);(VALUE,ARG)] in
           let definition = (LOCAL,(constd VALUE),name,args,false) in
           let setupls : string list = (List.map printc setup)  in
-          let body = (format 1 (setupls @ (computation comp))) in
+          let body = (format 1 (setupls @ (computation false (printd VALUE) comp))) in
           (String.concat "\n" (((printf definition)::body) @ func_end)) :: (lambda xs) 
       | _ -> raise (Cannot_convert_intermediary "print_lambdas - only compiles Compttr")
 
@@ -578,7 +581,8 @@ struct
         let env = (printd BINDING)^" "^(printconst ENV)^" = NULL" 
         (*and md = (printd BINDING)^" "^(printconst MOD)^" = "^(printconst MOD)*) in
         let setup = env :: [] in
-        let body = (format 1 (setup @ (computation comp))) in
+        let static = (match maskc with Some _ -> false | _ -> true) in
+        let body = (format 1 (setup @ (computation static (printty dtstr) comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
       | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
 
@@ -682,7 +686,7 @@ struct
           (printd ENTRY)^" "^a^"[] ={"^content^"}" ) collection) 
         in *)
         let definition = printf (funcdef false f) 
-        and body = (format 1 (computation comp)) in 
+        and body = (format 1 (computation false (printd MODULE) comp)) in 
         (String.concat "\n" ((definition :: body) @ func_end)) :: (lambdaf xs) 
       | _ -> raise (Cannot_compile "print_fctrs - only compiles Gettr")
 

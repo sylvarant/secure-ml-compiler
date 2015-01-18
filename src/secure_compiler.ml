@@ -283,12 +283,15 @@ struct
     | LambdaType(TIgnore,_) -> TyIgnore
     | LambdaType(TBool,_) -> TyBool
     | LambdaType(TInt,_) ->  TyInt
+    | LambdaType(TUnit,_) ->  TyUnit
+    | LambdaType(TRef,[ty1]) -> let tu1 = compile_simple_type dyn progtype pth ty1 in
+      (TyRef tu1)
     | LambdaType(TArrow,[ty1;ty2]) -> let tu1 = compile_simple_type dyn progtype pth ty1 in
-        let tu2 = compile_simple_type dyn progtype pth ty2 in
-        TyArrow (tu1,tu2)
+      let tu2 = compile_simple_type dyn progtype pth ty2 in
+      TyArrow (tu1,tu2)
     | LambdaType(TPair,[ty1;ty2]) -> let tu1 = compile_simple_type dyn progtype pth ty1 in
-        let tu2 = compile_simple_type dyn progtype pth ty2 in
-        TyStar (tu1,tu2)
+      let tu2 = compile_simple_type dyn progtype pth ty2 in
+      TyStar (tu1,tu2)
     | Typeconstr(path,_) -> (*(Printf.eprintf "Going for %s in %s\n" (make_path (convert_path path)) (make_path pth));*)
       let obtainbase p = 
         (*Printf.eprintf "full path = %s\n" (String.concat "." p));*)
@@ -721,7 +724,7 @@ struct
             [com;sv;sc;gt;up] @ poss @ [cm] (*TODO remove poss*)
       in
       let newc = (ign,check,c) in
-      let body = (format 1 ( md :: (MC.Low.computation newc))) in
+      let body = (format 1 ( md :: (MC.Low.computation false (printty typ) newc))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
     in
 

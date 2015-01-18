@@ -27,6 +27,12 @@ LOCAL void free_type(TYPE ty)
         case T(UNIT):
         case T(BOOLEAN): break;
 
+        case T(REF): {
+            free_type(*(ty.r.type));
+            FREE(ty.r.type);
+            break;
+        }
+
         case T(ARROW):
         case T(STAR): {
             free_type(*(ty.a.left));
@@ -113,6 +119,15 @@ LOCAL DATA convertV(VALUE input,TYPE ty)
             d.t = CLOSURE;
             break;
         }
+        
+        case LOCATION:{
+            d.identifier = getAdressLoc();
+            VALUE * value = MALLOC(sizeof(VALUE)); 
+            *value = input;
+            insertBigBinding(&location_exchange,d.byte,value,ty);
+            d.t = LOCATION;
+            break;
+        }
 
         case PAIR:{
             if(ty.t != T(STAR)) mistakeFromOutside();
@@ -189,6 +204,14 @@ LOCAL struct value_type convertD(DATA input,TYPE req)
 
         case CLOSURE:{
             META * meta = (META *) getBinding(closure_exchange,input.byte,cmp_int);
+            VALUE temp = *((VALUE *) meta->value);
+            result.val = temp;
+            result.ty = meta->type;
+            break;
+        }
+
+        case LOCATION:{
+            META * meta = (META *) getBinding(location_exchange,input.byte,cmp_int);
             VALUE temp = *((VALUE *) meta->value);
             result.val = temp;
             result.ty = meta->type;
@@ -481,81 +504,88 @@ LOCAL DTYPE convertT(TYPE ty)
     DTYPE typ;
     switch(ty.t)
     {
-        case T(ABSTRACT) :{
+        case T(ABSTRACT):{
             typ.t = TYABSTRACT;
             typ.name = outsidestring(ty.aa.name);
             typ.type = NULL;
             break;
         }
 
-        case T(UNIT) :{
+        case T(UNIT):{
             typ.t = TYUNIT;
             break;
         }
 
-        case T(INT) :{
+        case T(INT):{
             typ.t = TYINT;
             break;
         }
 
-        case T(BOOLEAN) :{
+        case T(BOOLEAN):{
             typ.t = TYBOOLEAN;
             break;
         }
 
-        case T(ARROW) :{
+        case T(REF):{
+            typ.t = TYREF;
+            typ.reftype = OUTERM(sizeof(DTYPE));
+            *(typ.reftype) = convertT(*(ty.r.type));
+            break;
+        }
+
+        case T(ARROW):{
             typ.t = TYARROW;
             typ.left = OUTERM(sizeof(DTYPE));
             typ.right = OUTERM(sizeof(DTYPE));
-            *typ.left = convertT(*(ty.a.left));
-            *typ.right = convertT(*(ty.a.right));
+            *(typ.left) = convertT(*(ty.a.left));
+            *(typ.right) = convertT(*(ty.a.right));
             break;
         }
 
-        case T(STAR) :{
+        case T(STAR):{
             typ.t = TYSTAR;
             typ.left = OUTERM(sizeof(DTYPE));
             typ.right = OUTERM(sizeof(DTYPE));
-            *typ.left = convertT(*(ty.s.left));
-            *typ.right = convertT(*(ty.s.right));
+            *(typ.left) = convertT(*(ty.s.left));
+            *(typ.right) = convertT(*(ty.s.right));
             break;
         }
 
-        case T(VALUE) :{
+        case T(VALUE):{
             typ.t = TYVALUE; 
             typ.name = outsidestring(ty.v.name);
             typ.type = OUTERM(sizeof(DTYPE));
-            *typ.type = convertT(*(ty.v.type));
+            *(typ.type) = convertT(*(ty.v.type));
             break;
         }
 
-        case T(MODULE) :{
+        case T(MODULE):{
             typ.t = TYMODULE; 
             typ.name = outsidestring(ty.m.name);
             typ.type = OUTERM(sizeof(DTYPE));
-            *typ.type = convertT(*(ty.v.type));
+            *(typ.type) = convertT(*(ty.v.type));
             break;
         }
 
-        case T(DECLARATION) :{
+        case T(DECLARATION):{
             typ.t = TYDECLARATION; 
             typ.name = outsidestring(ty.d.name);
             typ.type = OUTERM(sizeof(DTYPE));
-            *typ.type = convertT(*(ty.v.type));
+            *(typ.type) = convertT(*(ty.v.type));
             break;
         }
 
-        case T(FUNCTOR) :{
+        case T(FUNCTOR):{
             typ.t = TYDECLARATION; 
             typ.fname = outsidestring(ty.f.name);
             typ.fleft = OUTERM(sizeof(DTYPE));
             typ.fright = OUTERM(sizeof(DTYPE));
-            *typ.fleft = convertT(*(ty.f.left));
-            *typ.fright = convertT(*(ty.f.right));
+            *(typ.fleft) = convertT(*(ty.f.left));
+            *(typ.fright) = convertT(*(ty.f.right));
             break;
         }
 
-        case T(SIGNATURE) :{
+        case T(SIGNATURE):{
             typ.t = TYSIGNATURE;
             struct T(Signature) * it = &(ty.ss);
             int count = 1;
@@ -627,6 +657,11 @@ LOCAL int type_check(TYPE req,TYPE given)
             if(cmp_char(req.aa.name,given.aa.name) != 0 ) return MFALSE;
             if(req.aa.identifier >= 0 && req.aa.identifier != given.aa.identifier) return MFALSE;
             return MTRUE;
+        }
+
+        case T(REF):{
+            if(type_check(*(req.r.type),*(given.r.type))) return MTRUE;
+            return MFALSE; 
         }
 
         case T(STAR):

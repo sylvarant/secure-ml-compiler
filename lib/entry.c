@@ -41,6 +41,12 @@ LOCAL int getObjId(void)
     return ++addr;
 }
 
+LOCAL int getAdressLoc(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -196,7 +202,6 @@ LOCAL MODULE path_module(BINDING * binding,char * path)
     char * it = nextId(&remainder);
     MODULE * m = getBinding(binding,it,cmp_char); 
     FREE(it);
-    
     return get_module_path(*m,remainder); 
 }
 
@@ -213,7 +218,6 @@ LOCAL VALUE path_value(BINDING * binding,char * path)
     char * it = nextId(&remainder);
     MODULE * m = getBinding(binding,it,cmp_char); 
     FREE(it);
-    
     return get_value_path(*m,remainder);
 }
 
@@ -237,11 +241,25 @@ ENTRYPOINT DATA closureEntry(int id, DATA d)
     TYPE given = argument.ty;
     unify_types(required,given); 
 
-     
     // when typechecks have succeeded apply the argument to the closure
     VALUE result = closure.c.lam(closure.c.mod,closure.c.env,argument.val);
     return convertV(result,*(meta->type.a.right)); 
+}
 
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: locationEntry
+ *  Description: entry point for fetching location values
+ * =====================================================================================
+ */
+ENTRYPOINT DATA locationEntry(int id)
+{
+    union safe_cast key = {.value = id};
+    META * meta = (META*) getBinding(location_exchange,key.byte,cmp_int);
+    VALUE location = *((VALUE *) meta->value);
+    TYPE type = *((meta->type).r.type);
+    return convertV(*(location.l.content),type);
 }
 
 

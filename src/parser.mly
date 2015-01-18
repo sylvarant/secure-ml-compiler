@@ -73,6 +73,8 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %token RPAREN
 %token SEMICOLON
 %token SEMISEMI
+%token EXCLAMATION
+%token DOTEQUAL
 %token SIG
 %token SLASH
 %token STAR
@@ -83,6 +85,7 @@ let prim_ls arg1 arg2 = arg1 :: arg2 :: []
 %token FST
 %token SND
 %token OPEN
+%token REF
 
 
 %right ARROW
@@ -112,6 +115,7 @@ path:
 
 valexpr:
     valexpr1                          { $1 }
+  | valexpr DOTEQUAL valexpr          { MiniML.Assign ($1,$3)}
   | valexpr SEMICOLON valexpr         { MiniML.Sequence($1,$3) }
   | valexpr PLUS valexpr              { MiniML.Prim( "+",(prim_ls $1 $3)) }
   | valexpr MINUS valexpr             { MiniML.Prim( "-",(prim_ls $1 $3)) }
@@ -128,6 +132,8 @@ valexpr:
   | IF valexpr THEN valexpr ELSE valexpr { MiniML.If( $2, $4, $6) }
   | FST valexpr {MiniML.Fst $2}
   | SND valexpr {MiniML.Snd $2}
+  | REF valexpr {MiniML.Ref $2}
+  | EXCLAMATION valexpr {MiniML.Deref $2}
 ;
 valexpr1:
     valexpr0 { $1 }
@@ -156,6 +162,7 @@ simpletype:
     QUOTE IDENT             { MiniML.Var(find_type_variable $2) }
   | simpletype ARROW simpletype { (MiniML.arrow_type $1 $3) }
   | simpletype STAR simpletype  { (MiniML.pair_type $1 $3) }
+  | REF simpletype          { MiniML.ref_type $2 }
   | TBOOL                   { MiniML.bool_type }
   | TINT                    { MiniML.int_type }
   | TUNIT                   { MiniML.unit_type }

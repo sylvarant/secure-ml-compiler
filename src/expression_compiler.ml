@@ -74,6 +74,9 @@ struct
       | Fst a -> Fst (desugar a)
       | Snd a -> Snd (desugar a) 
       | Sequence (a,b) -> Sequence ((desugar a),(desugar b))
+      | Ref a -> Ref (desugar a)
+      | Deref a -> Deref (desugar a)
+      | Assign (a,b) -> Assign ((desugar a),(desugar b))
       | _ as t -> t
     in
      
@@ -114,6 +117,9 @@ struct
         | Prim (s,ls) -> raise (Cannot_compile "multi parameter int/bool operands not supported")
         | Fst a -> (ToLeft (convert a))
         | Snd a -> (ToRight (convert a))
+        | Ref a -> (ToLocation (convert a))
+        | Deref a -> (ToDeref (convert a))
+        | Assign (a,b) -> (ToAssign ((convert a),(convert b)))
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)
 

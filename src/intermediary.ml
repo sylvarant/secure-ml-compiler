@@ -26,11 +26,12 @@ sig
   *  Types
   *-----------------------------------------------------------------------------*)
 
-  type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
+  type type_u = TyInt | TyIgnore | TyBool | TyUnit | TyArrow of type_u * type_u 
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
     | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
+    | TyRef of type_u
 
   and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToTrue | ToFalse | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -46,7 +47,8 @@ sig
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
-    | GetPos of int | ToUnit | ToBoolean of tempc
+    | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
+    | ToDeref of tempc | ToLocation of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
@@ -115,11 +117,12 @@ struct
   *  Types
   *-----------------------------------------------------------------------------*)
 
-  type type_u = TyInt | TyIgnore | TyBool | TyArrow of type_u * type_u 
+  type type_u = TyInt | TyIgnore | TyBool | TyUnit | TyArrow of type_u * type_u 
     | TyStar of type_u * type_u | TyModule of type_u * type_u  | TyValue of type_u * type_u 
     | TyDeclar of type_u * type_u | TyFunctor of type_u * type_u * type_u
     | TySignature of type_u list | TyAbstract of type_u |TyCString of string | TyCType of string
     | TyCStruct of string | TyComment of string * type_u | TySpecAbst of string * tempc
+    | TyRef of type_u
 
   and tempc = ToBValue of tempc | ToIValue of tempc | ToInt of tempc | ToTrue | ToFalse | CVar of string 
     | ToQuestion of tempc * tempc * tempc | ToPair of tempc * tempc | ToComma of tempc * tempc
@@ -135,7 +138,8 @@ struct
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
-    | GetPos of int | ToUnit | ToBoolean of tempc
+    | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
+    | ToDeref of tempc | ToLocation of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -280,6 +284,8 @@ struct
   let rec printty : type_u -> string = function TyIgnore -> "TIgnore"
     | TyInt -> "TInt"
     | TyBool -> "TBoolean"
+    | TyUnit -> "TUnit"
+    | TyRef a -> "makeTRef("^(printty a)^")"
     | TyArrow (a,b) -> "makeTArrow("^(printty a)^","^(printty b)^")"
     | TyStar (a,b) -> "makeTStar("^(printty a)^","^(printty b)^")"
     | TySignature ls -> 
@@ -359,6 +365,9 @@ struct
     | Comment a -> "/* "^a^"*/"
     | Append (a,b) -> (printc a)^" "^(printc b) 
     | GetPos i ->"getPosIntlist(m->m.keys,"^(printc (CInt i))^")"
+    | ToAssign (a,b) -> "makeAssign("^(printc a)^","^(printc b)^")"
+    | ToDeref a -> "makeDeref("^(printc a)^")"
+    | ToLocation a -> "makeLocation("^(printc a)^")"
 
 
   (* print functions *)

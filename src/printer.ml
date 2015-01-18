@@ -58,6 +58,10 @@ struct
             s in print_string "'"; print_string name
     | LambdaType(TBool,_) -> print_string "Bool"
     | LambdaType(TInt,_) -> print_string "Int"
+    | LambdaType(TUnit,_) -> print_string "Unit"
+    | LambdaType(TRef,[t1]) -> print_string "(Ref ";
+      print_simple_type t1;
+      print_string ")"
     | LambdaType(TArrow,[t1;t2]) -> print_simple_type t1; 
       print_string " -> ";
       print_simple_type t2

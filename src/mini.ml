@@ -33,6 +33,9 @@ struct
     | Fst of term
     | Snd of term
     | Sequence of term * term
+    | Ref of term
+    | Deref of term
+    | Assign of term * term
     | Unit
 
 
@@ -47,7 +50,7 @@ struct
   and type_variable =
     { mutable repres: simple_type option; mutable level: int } (* what's level for ?*)
 
-  and lambda_type = TBool | TInt | TArrow | TPair | TIgnore | TUnit
+  and lambda_type = TBool | TInt | TArrow | TPair | TIgnore | TUnit | TRef
 
   type val_type =
     { quantif: type_variable list;     
@@ -63,6 +66,7 @@ struct
   let bool_type = LambdaType(TBool, [])
   let int_type = LambdaType(TInt, [])
   let unit_type = LambdaType(TUnit,[])
+  let ref_type t1 = LambdaType(TRef,[t1])
   let pair_type t1 t2 = LambdaType(TPair,[t1;t2])
   let ignore_type = LambdaType(TIgnore,[])
 

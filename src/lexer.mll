@@ -24,12 +24,12 @@ let keyword_table = (Hashtbl.create 17 : (string, token) Hashtbl.t)
 let _ = List.iter (fun (str,tok) -> Hashtbl.add keyword_table str tok)
  [
 
-(* base types *)
+(* types *)
 
   "bool", TBOOL;
   "int", TINT;
   "Unit", TUNIT;
-
+  "sig", SIG;
 
 (* terms *)
   "unit", UNIT;
@@ -45,7 +45,7 @@ let _ = List.iter (fun (str,tok) -> Hashtbl.add keyword_table str tok)
   "type", TYPE;
   "module", MODULE;
   "open", OPEN;
-  "sig", SIG;
+  "ref", REF;
   "in", IN;
   "if", IF;
   "fst", FST;
@@ -89,11 +89,13 @@ rule token = parse
   
   | "("     { LPAREN }
   | ")"     { RPAREN }
+  | "!"     { EXCLAMATION }
   | "."     { DOT }
   | ";"     { SEMICOLON }
   | ";;"    { SEMISEMI }
   | "->"    { ARROW }
   | "="     { EQUAL }
+  | ":="    { DOTEQUAL }
   | ","     { COMMA }
   | "'"     { QUOTE }
   | ":"     { COLON }

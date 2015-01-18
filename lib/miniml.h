@@ -25,6 +25,10 @@
 
 #define _SCM }; 
 
+#define SWITCH(dec,value,call) if(dec == 0){ \
+    dec = 1; \
+    value = call;\
+    }
 
 /*-----------------------------------------------------------------------------
  * Base Types 
@@ -39,7 +43,7 @@ enum{ MFALSE = 0, MTRUE = 1 };
 
 typedef enum T(Tag_e){
     T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), 
-    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE), T(UNIT)
+    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE), T(UNIT), T(REF)
 } T(TAG);
 
 struct T(Arrow){
@@ -50,6 +54,10 @@ struct T(Arrow){
 struct T(Star){
     struct Type_u * left;
     struct Type_u * right;
+};
+
+struct T(Ref){
+    struct Type_u * type;
 };
 
 struct T(Abstract){
@@ -88,6 +96,7 @@ typedef struct Type_u{
     union {
         struct T(Arrow) a;
         struct T(Star) s;
+        struct T(Ref) r;
         struct T(Module) m;
         struct T(Value) v;
         struct T(Declaration) d;
@@ -125,12 +134,17 @@ SCM_(Closure)
     union Value_u (*lam)(BINDING*,BINDING *,union Value_u); 
 _SCM
 
+SCM_(Location)
+    union Value_u * content;
+_SCM
+
 SCM_(Pair)
    union Value_u * left;
    union Value_u * right;
 _SCM
 
 typedef union Value_u {
+    struct V(Location) l;
     struct V(Empty) e;
     struct V(Boolean) b;
     struct V(Int) i;
@@ -247,6 +261,7 @@ typedef DATA (*callback)(DATA);
 BINDING * toplevel = NULL;
 BINDING * exchange = NULL;
 BINDING * closure_exchange = NULL;
+BINDING * location_exchange = NULL;
 BINDING * abstract_exchange = NULL;
 unsigned int LOADED = 0;
 
@@ -256,9 +271,10 @@ unsigned int LOADED = 0;
  *-----------------------------------------------------------------------------*/
 
 // data marshalling functions
+LOCAL int getAdress(void);
 LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
-LOCAL int getAdress(void);
+LOCAL int getAdressLoc(void);
 LOCAL int getObjId(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
@@ -328,6 +344,44 @@ LOCAL VALUE makeBoolean(unsigned int b)
 {
     if(b) return V(True);
     else return V(False);
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeLocation
+ *  Description:  create a location pointing to the value
+ * =====================================================================================
+ */
+LOCAL VALUE makeLocation(VALUE val)
+{
+    VALUE v;
+    v.l.t = LOCATION;
+    v.l.content = MALLOC(sizeof(VALUE));
+    *(v.l.content) = val;
+    return v;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeAssign
+ *  Description:  Assign to a location
+ * =====================================================================================
+ */
+LOCAL VALUE makeAssign(VALUE left,VALUE right)
+{
+    *(left.l.content) = right;
+    return V(Unit);
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeDeref
+ *  Description:  Dereference a location
+ * =====================================================================================
+ */
+LOCAL VALUE makeDeref(VALUE loc)
+{
+    return *(loc.l.content);
 }
 
 /* 
@@ -410,6 +464,21 @@ LOCAL TYPE makeTAbstract(char * name)
    t.aa.identifier = -1;
    t.aa.name = name;
    return t;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeTRef
+ *  Description:  create a reference type
+ * =====================================================================================
+ */
+LOCAL TYPE makeTRef(TYPE type)
+{
+    TYPE t;
+    t.t = T(REF);
+    t.r.type  = MALLOC(sizeof(TYPE));
+    *(t.r.type) = type;
+    return t;
 }
 
 /* 

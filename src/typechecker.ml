@@ -205,7 +205,8 @@ struct
         let type_result = unknown() in
         unify env type_funct (MiniML.arrow_type type_arg type_result);
         type_result
-      | Sequence (t1,t2) -> let t1_type = infer_type env t1 
+      | Sequence (t1,t2) -> 
+        let t1_type = infer_type env t1 
         and t2_type = infer_type env t2 in
         unify env t1_type MiniML.unit_type;
         t2_type
@@ -214,6 +215,19 @@ struct
         end_def();
         let _ = (Env.add_value ident (generalize type_arg) env) in
         let tt = infer_type (Env.add_value ident (generalize type_arg) env) body in tt
+      | Ref t1 -> let t1_type = infer_type env t1 in
+        (ref_type t1_type)
+      | Deref t1 -> let t1_type = infer_type env t1 in 
+        (match t1_type with
+          | LambdaType (TRef,[inty]) -> inty
+          | _ -> raise (Cannot_TypeCheck Unification))
+      | Assign (t1,t2) -> 
+        let t1_type = infer_type env t1 
+        and t2_type = infer_type env t2 in
+        (match t1_type with
+          | LambdaType (TRef,[inty]) -> (unify env inty t2_type); 
+            MiniML.unit_type
+          | _ -> raise (Cannot_TypeCheck Unification))
       | If (t1,t2,t3) -> let t1_type = infer_type env t1 
         and t2_type = infer_type env t2 
         and t3_type = infer_type env t3 in
