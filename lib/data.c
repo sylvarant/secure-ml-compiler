@@ -11,6 +11,25 @@
  * =====================================================================================
  */
 
+
+/*-----------------------------------------------------------------------------
+ * I hate the linker
+ *-----------------------------------------------------------------------------*/
+
+const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
+const struct Type_u T(Int) = {.t = T(INT), .a = 0};
+const struct Type_u T(Unit) = {.t = T(UNIT), .a = 0};
+const struct Type_u T(Boolean) = {.t = T(BOOLEAN), .a = 0};
+const VALUE V(Unit) = {.e = { .t = UNIT} };
+const VALUE V(True) = {.b = { .t = BOOLEAN, .value = 1}};
+const VALUE V(False) = {.b = { .t = BOOLEAN, .value = 0}};
+BINDING * toplevel = NULL;
+BINDING * exchange = NULL;
+BINDING * closure_exchange = NULL;
+BINDING * location_exchange = NULL;
+BINDING * abstract_exchange = NULL;
+unsigned int LOADED = 0;
+
 /* 
  * ===  FUNCTION ======================================================================
  *         Name: free_type

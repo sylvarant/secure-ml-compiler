@@ -73,12 +73,18 @@ struct
       | _ -> raise (Cannot_Norm_Compile "Only strct can deal with entry conversion")
     in
 
+    let global_strct = function
+      | Strct (_,n,pth,_,_,_,_) -> let name = (make_str (n::pth)) in
+        (printl ENTRYPOINT)^ " " ^(printd MODULE)^" "^name^";" 
+    in 
+
     (* replace entrypoints TODO this could be nicer *)
     let nstrcts = (List.map convert_entry strcts) in
 
     (* build the header *)
     let hedh = header  (List.map printc [(consth ENTRY); (consth MINI)]) in
-    let headerfile = (String.concat "\n" hedh) ^ "\n"  in
+    let dec_ls = (separate "Declarations" (mapfd (gettrs@fctrs))) @ (List.map global_strct nstrcts) in
+    let headerfile = (String.concat "\n" ("#ifndef LANREN\n#define LANREN"::(hedh @ dec_ls)@["#endif"])) ^ "\n"  in
 
     (* build the object file *)
     let dec_ls = (separate "Declarations" (mapfd (gettrs@fctrs)))

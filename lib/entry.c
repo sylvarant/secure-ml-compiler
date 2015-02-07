@@ -35,7 +35,7 @@ LOCAL int getAdressAbs(void)
     return ++addr;
 }
 
-LOCAL int getObjId(void)
+FUNCTIONALITY int getObjId(void)
 {
     static int addr = 0;
     return ++addr;

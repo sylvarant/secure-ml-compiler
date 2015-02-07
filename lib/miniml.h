@@ -12,8 +12,8 @@
  */
 
 
-#ifndef MINIML_INCLUDED
-#define MINIML_INCLUDED
+#ifndef MINIMLRAGE_INCLUDED
+#define MINIMLRAGE_INCLUDED
 
 #include "binding.h" // adds global.h !
 
@@ -42,8 +42,8 @@ enum{ MFALSE = 0, MTRUE = 1 };
  *-----------------------------------------------------------------------------*/
 
 typedef enum T(Tag_e){
-    T(IGNORE), T(INT), T(BOOLEAN), T(ARROW), T(STAR), T(MODULE), T(VALUE), 
-    T(DECLARATION), T(FUNCTOR), T(ABSTRACT), T(SIGNATURE), T(UNIT), T(REF)
+    TIGNORE, TINT, TBOOLEAN, TARROW, TSTAR, TMODULE, TVALUE, 
+    TDECLARATION, TFUNCTOR, TABSTRACT, TSIGNATURE, TUNIT, TREF
 } T(TAG);
 
 struct T(Arrow){
@@ -107,10 +107,10 @@ typedef struct Type_u{
 } TYPE;
 
 // global constant types
-const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
-const struct Type_u T(Int) = {.t = T(INT), .a = 0};
-const struct Type_u T(Unit) = {.t = T(UNIT), .a = 0};
-const struct Type_u T(Boolean) = {.t = T(BOOLEAN), .a = 0};
+extern const struct Type_u T(Ignore); 
+extern const struct Type_u T(Int); 
+extern const struct Type_u T(Unit);
+extern const struct Type_u T(Boolean); 
 
 
 /*-----------------------------------------------------------------------------
@@ -153,9 +153,9 @@ typedef union Value_u {
 } VALUE;
 
 // global constant values
-const VALUE V(Unit) = {.e = { .t = UNIT} };
-const VALUE V(True) = {.b = { .t = BOOLEAN, .value = 1}};
-const VALUE V(False) = {.b = { .t = BOOLEAN, .value = 0}};
+extern const VALUE V(Unit); 
+extern const VALUE V(True); 
+extern const VALUE V(False);
 
 /*-----------------------------------------------------------------------------
  * Modules
@@ -258,12 +258,12 @@ typedef DATA (*callback)(DATA);
  * Global variables for the secure component
  *-----------------------------------------------------------------------------*/
 
-BINDING * toplevel = NULL;
-BINDING * exchange = NULL;
-BINDING * closure_exchange = NULL;
-BINDING * location_exchange = NULL;
-BINDING * abstract_exchange = NULL;
-unsigned int LOADED = 0;
+extern BINDING * toplevel; 
+extern BINDING * exchange; 
+extern BINDING * closure_exchange; 
+extern BINDING * location_exchange;
+extern BINDING * abstract_exchange;
+unsigned int LOADED;
 
 
 /*-----------------------------------------------------------------------------
@@ -275,7 +275,7 @@ LOCAL int getAdress(void);
 LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdressLoc(void);
-LOCAL int getObjId(void);
+FUNCTIONALITY int getObjId(void);
 LOCAL DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);

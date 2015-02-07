@@ -28,7 +28,7 @@ module Ident : IDENT =
     let create s =
       currstamp := !currstamp + 1; {name = s; stamp = !currstamp}
     let name id = id.name
-    let equal id1 id2 = (id1.name = id2.name) (* ADRIAAN modified, how could this ever work ? *)
+    let equal id1 id2 = (id1.name = id2.name) 
     type 'a tbl = (t * 'a) list
     let emptytbl = []
     let add id data tbl = (id, data) :: tbl

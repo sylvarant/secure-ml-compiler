@@ -61,7 +61,7 @@ struct
              | Provide of MiniMLMod.mod_type * string * string * string list * string list * func
              | Constrain of MiniMLMod.mod_type * string * cpath * (string * accs * entry) list * func
 
-  type methods = EntryPoint of entry * type_u * computation * cpath 
+  type methods = EntryPoint of entry * type_u * computation * cpath * tempc
  
 
  (*-----------------------------------------------------------------------------
@@ -598,6 +598,7 @@ struct
       in
 
       let empty c = ([],[],c) in 
+      let cvartype = (CVar "_rType") in
 
       (* convert assocs into Gettrs *)
       let rec entrypts : assoc list -> methods list = function [] -> []
@@ -614,25 +615,25 @@ struct
             let comp = (match arg with
               | None -> empty (ToCall ((constc CONV),[ToCall((CVar ptr),[(constv MOD)]) ; tycomp ]))
               | Some (c,var,p) -> let fcall = convf (CVar "get_value_path") var p  in
-                ([],[c],(ToCall ((constc CONV),[fcall; tycomp]))) ) in
-            EntryPoint(eptr,(constd DATA),comp,needs) :: (entrypts xs)
+                ([],[c],(ToCall ((constc CONV),[fcall;cvartype ]))) ) in
+            EntryPoint(eptr,(constd DATA),comp,needs,tycomp) :: (entrypts xs)
 
           | Share(mty,name,opth,pth,(needs,arg))  -> 
             let eptr = (make_entrypoint (name::pth)) in
             let modcomp = CVar (printty (compile_mty_type None progtype opth mty)) in
             (match eptr with
             | None -> let special = CVar (make_str []) in
-              let compu =  empty (convm special modcomp) in
-              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
+              let compu =  empty (convm special cvartype) in
+              EntryPoint(eptr,(constd MODDATA),compu,needs,modcomp) :: (entrypts xs)
             | _ ->
               let compu = (match arg with 
                 | None -> (match needs with
-                  | [] -> empty (convm (CVar (make_str (name::pth))) modcomp)
-                  | _ -> empty (convm (upkeys (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)]))) modcomp))
+                  | [] -> empty (convm (CVar (make_str (name::pth))) cvartype)
+                  | _ -> empty (convm (upkeys (ToCall (CVar (make_ptr (name::pth)),[(constv MOD)]))) cvartype))
                 | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
-                  ([],[c],(convm (upkeys fcall) modcomp)))
+                  ([],[c],(convm (upkeys fcall) cvartype)))
               in
-              EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs))
+              EntryPoint(eptr,(constd MODDATA),compu,needs,modcomp) :: (entrypts xs))
 
           | Constrain (mty,name,path,ls,(needs,arg)) ->
             let names = List.map (function (x,_,_) -> x) ls in
@@ -653,19 +654,19 @@ struct
             let nls =  (printd CHAR)^" "^nv^"[] = {"^nchars^"}" in 
             let ptr = ToCall (CVar "updateEntry",
                [ target ; (constv MOD); CInt (List.length names); CVar nv ; CVar ev ]) in
-            let compu = ([],extra @ [CVar nls],(convm (upkeys ptr) modcomp)) in
-            EntryPoint(eptr,(constd MODDATA),compu,needs) :: (entrypts xs)
+            let compu = ([],extra @ [CVar nls],(convm (upkeys ptr) cvartype)) in
+            EntryPoint(eptr,(constd MODDATA),compu,needs,modcomp) :: (entrypts xs)
 
           | Provide(mty,name,id,opth,pth,(needs,arg)) -> 
             let eptr = (make_entrypoint (name::pth)) in
             let modcomp = CVar (printty (compile_mty_type None progtype opth mty)) in
             let upd = (fun x -> (match needs with [] -> x | _ -> upkeys x)) in
             let comp = (match arg with 
-             | None -> empty (convm (upd (CVar (make_str (name::pth)))) modcomp)   
+             | None -> empty (convm (upd (CVar (make_str (name::pth)))) cvartype)   
              | Some (c,var,p) -> let fcall = convf (CVar "get_module_path") var p in  
-                ([],[c],(convm (upd fcall) modcomp)))
+                ([],[c],(convm (upd fcall) cvartype)))
             in
-            EntryPoint(eptr,(constd MODDATA),comp,needs) :: (entrypts xs)
+            EntryPoint(eptr,(constd MODDATA),comp,needs,modcomp) :: (entrypts xs)
       in
 
       (* top level *)
@@ -701,13 +702,14 @@ struct
   let compile mty program headerf =
 
     (* print entrypoints *)
-    let rec entrypoint = function EntryPoint (name,typ,comp,mask) ->
+    let rec entrypoint = function EntryPoint (name,typ,comp,mask,cvty) ->
       let args = match mask with 
         | [] -> [] 
         | _ -> [ (MODDATA,STR) ]  
       in
       let nname = match name with | None -> "this" | Some n -> n in
       let definition = (ENTRYPOINT,typ,nname,args,false) in
+      let st = [CVar "static TYPE _rType"; CVar "static int _tdec = 0"; CVar ("SWITCH(_tdec,_rType,"^(printc cvty)^")")]  in
       let md = (printd BINDING)^" "^(printconst MOD)^" = NULL" in
       let (ign,poss,c) = comp in
       let check = match mask with 
@@ -723,14 +725,15 @@ struct
             and up = (Assign((constv MOD),(CVar "m->m.strls"))) in
             [com;sv;sc;gt;up] @ poss @ [cm] (*TODO remove poss*)
       in
-      let newc = (ign,check,c) in
-      let body = (format 1 ( md :: (MC.Low.computation false (printty typ) newc))) in
+      let newc = (ign,check@st,c) in
+      let optimize = match mask with [] -> true | _ -> false in
+      let body = (format 1 (  md :: (MC.Low.computation optimize (printty typ) newc))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
     in
 
     (* map entry point definitions *)
     let mapentrydef ls = (List.map printf 
-      (List.map (function EntryPoint(name,typ,comp,mask) ->
+      (List.map (function EntryPoint(name,typ,comp,mask,_) ->
         let args = match mask with [] -> []
           | _ -> [ (MODDATA,STR) ] in
         let nname = (match name with | None -> "this" | Some n -> n) in
@@ -743,7 +746,7 @@ struct
       (* is an entrypoint *)
       let isentry ptr = 
         let predicate = function
-          | EntryPoint (Some str1,_,_,_) when str1 = ptr -> true
+          | EntryPoint (Some str1,_,_,_,_) when str1 = ptr -> true
           | _ -> false
         in 
         (List.exists predicate enls) 

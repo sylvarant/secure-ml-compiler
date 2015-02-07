@@ -8,7 +8,7 @@
 #====================================================
 
 Binfold="./bin"
-Usage="compile.sh input"
+Usage="compile.sh type input"
 Compiler="src/main.native"
 Outfold="out/"
 
@@ -26,6 +26,9 @@ base="${filename%.*}"
 outputc="${Outfold}${base}.c"
 outputh="${Outfold}${base}.h"
 outputm="${Outfold}${base}.o"
+if [[ $comptype -ne 0 ]];then
+    outputm="${Outfold}${base}_${comptype}.o"
+fi
 
 $Compiler -t $comptype -o $outputc -h $outputh $input > /tmp/tmpfile
 res=$?
@@ -44,7 +47,7 @@ if [[ $res -ne 0 ]];then
 fi
 
 # Wno-unused-value is there for compiling sequence
-gcc  $outputc -I./lib/ -g -std=c99 -Werror -Wfatal-errors -Wno-unused-value -O -c -o $outputm 
+gcc  $outputc -I./lib/  -std=c99 -O2 -Werror -Wfatal-errors -Wno-unused-value -O -c -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"

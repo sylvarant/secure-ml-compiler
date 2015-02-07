@@ -8,4 +8,6 @@ struct
 
     val function4 = fun z : bool -> bool = (z true)
 
+    val value = true
+
 end

@@ -10,6 +10,7 @@
 Testfold="tests"
 Iterfold="interoperation"
 Failfold="fails"
+Timefold="timing"
 Logfold="log"
 Compiler=./compile
 Linker=./link
@@ -136,6 +137,73 @@ do
     res=$?
     printr $res $code  
      
+done
+
+
+#==== Timing Tests ====
+echo -e "\n>> Timing Tests <<"
+echo ">> Timing Tests <<" >> $logname
+for testf in ${Testfold}/${Timefold}/*.c
+do
+    testname=${testf##*/}
+    logtest $logname $testname
+    testbase=${testname%-*}
+    compbase="${Testfold}/${testbase}.ml"
+    cbase="${Outfold}/${testbase}.c"
+    outputb="${Outfold}/${base}.bin"
+    printf "%s\n" "Testing :: $testname"
+    
+    # Attempt to link - the secure test
+    printf "  %s" "Linking Secure :: "
+    $Compiler 0 $compbase > /dev/null 2>&1;
+    $Linker ${Outfold}/${testbase}.o ${testf} >> $logname 2>&1
+    res=$?
+    printr $res 0
+    if [[ $res -ne 0 ]];then
+        printf "    --> " 
+
+        if [[ $res -ne 2 ]];then
+            printf "%s\n" "Could not compile  $testname!"
+        fi
+        continue
+    fi
+
+    # The secure test
+    printf "    %s" "Secure Execution :: "
+    output=$(./${Outfold}/${testbase}.bin 2> /dev/null) 
+    echo $output >> $logname
+    echo $output
+
+    # compile an insecure link target
+    printf "  %s" "Insecure Compilation :: "
+    $Compiler 1 $compbase >> $logname 2>&1
+    res=$?
+    printr $res 0
+    if [[ $res -ne 0 ]];then
+        printf "%s\n" "Could not insec compile $compbase!"
+        continue
+    fi
+
+  # gcc $cbase ${testf} -I./lib/ -I./out -g -std=c99 -Werror -Wfatal-errors -Wno-unused-value -DINSECURE -o $outputb >> $logname 2>&1 
+
+    printf "  %s" "Linking InSecure :: "
+    $Linker ${Outfold}/${testbase}_1.o ${testf} -DINSECURE >> $logname 2>&1
+    res=$?
+    printr $res 0
+    if [[ $res -ne 0 ]];then
+        printf "    --> " 
+        if [[ $res -ne 2 ]];then
+            printf "%s\n" "Could not compile  $testname!"
+        fi
+        continue
+    fi
+
+    # The insecure test
+    printf "    %s" "InSecure Execution :: "
+    output=$(./${Outfold}/${testbase}_1.bin 2> /dev/null) 
+    echo $output >> $logname
+    echo $output
+    
 done
 
 

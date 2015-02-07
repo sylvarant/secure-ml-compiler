@@ -13,6 +13,7 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,28 @@
 #endif
 
 
+/*-----------------------------------------------------------------------------
+ *  Secure vs Insecure
+ *-----------------------------------------------------------------------------*/
+#ifdef INSECURE
+    #define BASIC VALUE
+    #define STRCT MODULE
+    #define APPLYCL(x,y)  x.c.lam(x.c.mod,x.c.env,y) 
+    #define CALL(x) _ ## x(NULL) 
+    #define CALLM(x) str_ ## x
+    #define NOTE "Ran: %d/%d Insecure Tests\n"
+#else
+
+    #define BASIC DATA
+    #define STRCT MODDATA
+    #define APPLYCL(x,y) closureEntry(x.identifier,y)
+    #define CALL(x) x()
+    #define CALLM(x) CALL(x)
+    #define NOTE "Ran: %d/%d Tests\n"
+
+#endif
+
+
 
 /*-----------------------------------------------------------------------------
  *  UNIT 
@@ -45,7 +68,7 @@
 #define INCLUDE_MAIN int main(void){\
     char *result = all_tests();\
     if (result != 0) printf("%s\n", result);\
-    printf("Ran: %d/%d Tests\n", tests_run,tests_set);\
+    printf(NOTE, tests_run,tests_set);\
     return result != 0;\
 }
 
@@ -69,6 +92,16 @@
     return "Outside did not CRASH"; \
     }
 
+// time tests
+#define START struct timeval  tv1, tv2;\
+    gettimeofday(&tv1, NULL);
+
+#define STOP(x) gettimeofday(&tv2, NULL);\
+    fprintf(x,"Total time = %f seconds\n", \
+         (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + \
+         (double) (tv2.tv_sec - tv1.tv_sec));
+
+// global variables
 extern int tests_run;
 extern int tests_set;
 
