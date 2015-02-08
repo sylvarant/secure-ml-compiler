@@ -4,7 +4,7 @@
 # file: link.sh
 #----------------------------------------------------
 # - link a secure module to an outside test / attack
-# By Ajhl
+# By 
 #====================================================
 
 Usage="link.sh module.o partner.c"

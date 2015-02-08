@@ -5,7 +5,7 @@
  *
  *    Description:  All conversion code goes here
  *
- *         Author:  Ajhl
+ *         Author:  
  *        Company:  SOMEWHERE
  *
  * =====================================================================================
