@@ -3,8 +3,8 @@
  *
  *       Filename:  functor_two-test.c
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */

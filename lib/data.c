@@ -6,7 +6,7 @@
  *    Description:  All conversion code goes here
  *
  *         Author:  Ajhl
- *        Company:  Uppsala
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */

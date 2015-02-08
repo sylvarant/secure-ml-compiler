@@ -3,8 +3,8 @@
  *
  *       Filename:  module_functor-test.c
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */

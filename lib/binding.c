@@ -5,8 +5,8 @@
  *
  *    Description:  Implementation of the binding system
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */

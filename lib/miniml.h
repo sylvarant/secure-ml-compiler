@@ -5,8 +5,8 @@
  *
  *    Description:  The definitions we need to compile into
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */

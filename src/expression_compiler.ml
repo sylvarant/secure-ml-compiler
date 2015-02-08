@@ -5,8 +5,8 @@
  *
  *  Description:  Compile the AST into C
  *
- *     Author:  Adriaan Larmuseau, ajhl
- *    Company:  Uppsala IT
+ *     Author:  MYSTERY MAN, 
+ *    Company:  SOMEWHERE IT
  *
  * =====================================================================================
  *)

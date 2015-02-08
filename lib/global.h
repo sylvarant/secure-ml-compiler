@@ -5,8 +5,8 @@
  *
  *    Description:  The global definitions for the code within the SPM
  *
- *         Author:  Adriaan Larmuseau
- *        Company:  Uppsala IT
+ *         Author:  MYSTERY MAN
+ *        Company:  SOMEWHERE IT
  *
  * =====================================================================================
  */

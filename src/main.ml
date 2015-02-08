@@ -5,8 +5,8 @@
  *
  *    Description:  Boot up the parser feed typechecker, scoper, compiler
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala IT
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE IT
  *
  * =====================================================================================
  *)

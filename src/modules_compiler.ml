@@ -5,8 +5,8 @@
  *
  *  Description: Compile the Modules into our own representation
  *
- *     Author:  Adriaan Larmuseau, ajhl
- *    Company:  Uppsala IT
+ *     Author:  MYSTERY MAN, 
+ *    Company:  SOMEWHERE IT
  *
  * =====================================================================================
  *)

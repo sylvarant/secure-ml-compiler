@@ -6,8 +6,8 @@
  *    Description:  global header file, defines the general entry points
  *                  for the attacker
  *
- *         Author:  Adriaan Larmuseau, ajhl
- *        Company:  Uppsala
+ *         Author:  MYSTERY MAN, 
+ *        Company:  SOMEWHERE
  *
  * =====================================================================================
  */
