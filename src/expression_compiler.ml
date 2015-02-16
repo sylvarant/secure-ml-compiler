@@ -119,6 +119,7 @@ struct
         | Snd a -> (ToRight (convert a))
         | Ref a -> (ToLocation (convert a))
         | Deref a -> (ToDeref (convert a))
+        | Exit a -> ToExit (convert a)
         | Assign (a,b) -> (ToAssign ((convert a),(convert b)))
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)

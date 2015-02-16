@@ -69,7 +69,7 @@ do
     name=${file##*/}
     base=${name%.ml}
     logtest $logname $base
-    printf "%s\n" "Testing :: $base"
+    echo -e "Testing :: \033[1;34m$base\033[0m"
 
     # test compilation and abort further tests if failed
     printf "  %s" "Compilation :: "
@@ -100,7 +100,7 @@ do
         testbase=${testname%-*}
         if [[ $base =~ .*$testbase.* ]];then
             uppname=$(echo $testname | tr '[:lower:]' '[:upper:]')
-            echo -e "  ==> \033[1;34m${uppname}\033[0m <== "  
+            echo -e "  ==> ${uppname} <== "  
 
             # Attempt to link - next if failure
             printf "    %s" "Linking :: "

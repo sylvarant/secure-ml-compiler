@@ -95,7 +95,7 @@ LOCAL void free_type(TYPE ty)
  *  Description: convert a miniml value into data for the attacker
  * =====================================================================================
  */
-LOCAL DATA convertV(VALUE input,TYPE ty)
+FUNCTIONALITY DATA convertV(VALUE input,TYPE ty)
 {
     DATA d;
 
@@ -197,7 +197,7 @@ LOCAL VALUE foreign_lambda(BINDING * fptr,BINDING * type,VALUE v)
  *  Description: convert a DATA struct of the attacker into a miniml value
  * =====================================================================================
  */
-LOCAL struct value_type convertD(DATA input,TYPE req)
+FUNCTIONALITY struct value_type convertD(DATA input,TYPE req)
 {
     struct value_type result;
     switch(input.t)
@@ -234,6 +234,17 @@ LOCAL struct value_type convertD(DATA input,TYPE req)
             VALUE temp = *((VALUE *) meta->value);
             result.val = temp;
             result.ty = meta->type;
+            break;
+        }
+
+        case BYTES:{
+            // check the value that the location points to
+            TYPE tt = *(req.r.type);
+            DATA out = *((DATA *) input.byte);
+            struct value_type vt = (convertD(out,tt));
+            unify_types(tt,vt.ty);
+            result.ty = req; 
+            result.val = makeForeignLoc((DATA *) input.byte,tt);
             break;
         }
 
@@ -739,7 +750,7 @@ LOCAL int type_check(TYPE req,TYPE given)
  *  Description: abort if type unification returns false
  * =====================================================================================
  */
-LOCAL void unify_types(TYPE req,TYPE given)
+FUNCTIONALITY void unify_types(TYPE req,TYPE given)
 {
     if(type_check(req,given) == MFALSE) mistakeFromOutside(); 
     return;

@@ -14,7 +14,7 @@
 #include "ref.h"
 
 int tests_run = 0;
-int tests_set = 3;
+int tests_set = 5;
 
 TEST(getLocation)
     DATA temp = counter();
@@ -40,10 +40,28 @@ TEST(getValue)
     CHECK("Did not fetch a value 2",temp.value == 2);
 DONE
 
+TEST(Interop)
+    DATA closure = crazy();
+    CHECK("Did not fetch a Closure",closure.t == CLOSURE);
+    DATA bln = { .t = BOOLEAN, .value = 1 }; 
+    DATA arg = { .t = BYTES, .byte = &bln};
+    DATA result = closureEntry(closure.identifier,arg); 
+    CHECK("Value is not 1",result.value == 0); 
+DONE
+
+CRASH(Interop2)
+    DATA closure = crazy();
+    DATA bln = { .t = INT, .value = 5 }; 
+    DATA arg = { .t = BYTES, .byte = &bln};
+    DATA result = closureEntry(closure.identifier,arg); 
+RECOVER
+
 LIST
     RUN(getLocation);
     RUN(breakCall);
     RUN(getValue);
+    RUN(Interop);
+    RUN(Interop2);
 DONE
 
 INCLUDE_MAIN

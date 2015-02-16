@@ -48,12 +48,20 @@ struct
    | Apply(t1, t2) -> Apply(scope_term sc t1, scope_term sc t2)
    | Let(id, t1, t2) -> let scoped_t2 = (scope_term (Scope.enter_value id sc) t2) in
        Let(id, scope_term sc t1,scoped_t2)
+   | Letrec(id,ty,t1,t2) -> let scoped_ty = (scope_simple_type sc ty)
+       and scoped_t1 = (scope_term (Scope.enter_value id sc) t1)
+       and scoped_t2 = (scope_term (Scope.enter_value id sc) t2) in
+       Letrec(id,scoped_ty,scoped_t1,scoped_t2) 
    | If (t1,t2,t3) -> If(scope_term sc t1,scope_term sc t2,scope_term sc t3)
    | Prim (c,ls) -> Prim(c,(List.map  (fun x -> (scope_term sc x)) ls))
    | Fst t1 ->  Fst (scope_term sc t1)
    | Snd t1 ->  Snd (scope_term sc t1)
    | Pair (t1,t2) -> Pair ((scope_term sc t1), (scope_term sc t2))
    | Sequence (t1,t2) -> Sequence ((scope_term sc t1),(scope_term sc t2))
+   | Ref t -> Ref (scope_term sc t)
+   | Deref t -> Deref (scope_term sc t)
+   | Exit t -> Exit (scope_term sc t)
+   | Assign(t1,t2) -> Assign ((scope_term sc t1),(scope_term sc t2))
    | _ as t -> t
 
 

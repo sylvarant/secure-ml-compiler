@@ -138,6 +138,11 @@ SCM_(Location)
     union Value_u * content;
 _SCM
 
+SCM_(ForeignLoc)
+    DATA * cell;
+    TYPE ty;
+_SCM
+
 SCM_(Pair)
    union Value_u * left;
    union Value_u * right;
@@ -145,6 +150,7 @@ _SCM
 
 typedef union Value_u {
     struct V(Location) l;
+    struct V(ForeignLoc) ll;
     struct V(Empty) e;
     struct V(Boolean) b;
     struct V(Int) i;
@@ -276,12 +282,12 @@ LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdressLoc(void);
 FUNCTIONALITY int getObjId(void);
-LOCAL DATA convertV(VALUE,TYPE);
+FUNCTIONALITY DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
 LOCAL MODULE updateKeys(MODULE,INTLIST*);
 LOCAL struct module_type convertMD(MODDATA,TYPE);
-LOCAL struct value_type convertD(DATA,TYPE);
+FUNCTIONALITY struct value_type convertD(DATA,TYPE);
 LOCAL void checkModule(MODULE,ENTRY *);
 LOCAL VALUE get_value(MODULE,char *);
 LOCAL MODULE get_module(MODULE m,char * str); 
@@ -296,7 +302,7 @@ LOCAL VALUE foreign_value(foreignval f,TYPE);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 
-LOCAL void unify_types(TYPE,TYPE);
+FUNCTIONALITY void unify_types(TYPE,TYPE);
 
 
 /*-----------------------------------------------------------------------------
@@ -317,7 +323,7 @@ LOCAL void str_cpy(char * dest,char * input,int size)
 
 
 /*-----------------------------------------------------------------------------
- *  statically inlined constructor methods
+ *  statically inlined term implementations
  *-----------------------------------------------------------------------------*/
 
 /* 
@@ -363,13 +369,33 @@ LOCAL VALUE makeLocation(VALUE val)
 
 /* 
  * ===  FUNCTION ======================================================================
+ *         Name:  makeForeignLoc
+ *  Description:  create a location pointing to an outside memory cell
+ * =====================================================================================
+ */
+LOCAL VALUE makeForeignLoc(DATA * cell, TYPE ty)
+{
+    VALUE v;
+    v.ll.t = BYTES;
+    v.ll.cell = cell;
+    v.ll.ty = ty;
+    return v;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
  *         Name:  makeAssign
  *  Description:  Assign to a location
  * =====================================================================================
  */
 LOCAL VALUE makeAssign(VALUE left,VALUE right)
 {
-    *(left.l.content) = right;
+    if(left.b.t == BYTES){
+        DATA d = convertV(right,left.ll.ty);
+        *(left.ll.cell) = d;
+    } else{
+        *(left.l.content) = right;
+    }
     return V(Unit);
 }
 
@@ -381,6 +407,11 @@ LOCAL VALUE makeAssign(VALUE left,VALUE right)
  */
 LOCAL VALUE makeDeref(VALUE loc)
 {
+    if(loc.b.t == BYTES){
+       struct value_type vt = convertD(*(loc.ll.cell),loc.ll.ty);
+       unify_types(loc.ll.ty,vt.ty);
+       return vt.val;
+    }
     return *(loc.l.content);
 }
 
@@ -416,6 +447,23 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
     *(v.p.right) = right;
     return v;
 }
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  doExit
+ *  Description:  terminate with the argument
+ * =====================================================================================
+ */
+LOCAL VALUE doExit(VALUE arg)
+{
+    exit(1); 
+    return arg;
+}
+
+
+/*-----------------------------------------------------------------------------
+ *  statically inlined type implementations
+ *-----------------------------------------------------------------------------*/
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -722,4 +770,6 @@ LOCAL MODULE updateKeys(MODULE m,INTLIST *keys)
     return ret;
 }
 
+
 #endif
+

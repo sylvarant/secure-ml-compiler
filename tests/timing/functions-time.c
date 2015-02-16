@@ -15,7 +15,7 @@
 
 int tests_run = 0;
 int tests_set = 1;
-enum { TESTCOUNT = 10000000};
+enum { TESTCOUNT = 1000000};
 
 
 TEST(applytof4)

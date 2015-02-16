@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  example4-test.c
+ *       Filename:  inner-test.c
  *
  *         Author:  MYSTERY MAN, 
  *        Company:  SOMEWHERE
