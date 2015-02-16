@@ -21,7 +21,7 @@
  *  Preprocessing
  *-----------------------------------------------------------------------------*/
 #define SCM_(TYPE) struct V(TYPE) { \
-                          TERMTAG t;
+                         unsigned int t;
 
 #define _SCM }; 
 
@@ -35,6 +35,7 @@
  *-----------------------------------------------------------------------------*/
 
 enum{ MFALSE = 0, MTRUE = 1 };
+enum{ CHUNK = TERMCOUNT };
 
 
 /*-----------------------------------------------------------------------------
@@ -134,6 +135,11 @@ SCM_(Closure)
     union Value_u (*lam)(BINDING*,BINDING *,union Value_u); 
 _SCM
 
+SCM_(Chunk)
+    union Value_u * val;
+    //union Value_u (*fix)(union Value_u);
+_SCM
+
 SCM_(Location)
     union Value_u * content;
 _SCM
@@ -155,6 +161,7 @@ typedef union Value_u {
     struct V(Boolean) b;
     struct V(Int) i;
     struct V(Closure) c;
+    struct V(Chunk) cc;
     struct V(Pair) p;
 } VALUE;
 
@@ -282,6 +289,7 @@ LOCAL int getAdressClo(void);
 LOCAL int getAdressAbs(void);
 LOCAL int getAdressLoc(void);
 FUNCTIONALITY int getObjId(void);
+FUNCTIONALITY VALUE doFix(VALUE*);
 FUNCTIONALITY DATA convertV(VALUE,TYPE);
 LOCAL DTYPE convertT(TYPE);
 LOCAL MODDATA convertM(MODULE,TYPE);
@@ -384,6 +392,20 @@ LOCAL VALUE makeForeignLoc(DATA * cell, TYPE ty)
 
 /* 
  * ===  FUNCTION ======================================================================
+ *         Name:  makeChunk
+ *  Description:  chunk a fix evaluation
+ * =====================================================================================
+ */
+LOCAL VALUE makeChunk(VALUE * ptr)
+{
+    VALUE v;
+    v.cc.t = CHUNK;
+    v.cc.val = ptr; 
+    return v;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
  *         Name:  makeAssign
  *  Description:  Assign to a location
  * =====================================================================================
@@ -429,6 +451,19 @@ LOCAL VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
     v.c.env = env;
     v.c.mod = mod;
     return v;
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  makeFix
+ *  Description:  create a fix
+ * =====================================================================================
+ */
+LOCAL VALUE makeFix(VALUE val)
+{
+   VALUE * ptr = MALLOC(sizeof(VALUE)); 
+   *ptr = val;
+   return doFix(ptr);
 }
 
 /* 
@@ -663,7 +698,11 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,TYPE ty)
  */
 LOCAL VALUE getValue(BINDING * binding,void * key) 
 {
-    return *((VALUE *)getBinding(binding,key,cmp_char));
+    VALUE v = *((VALUE *)getBinding(binding,key,cmp_char));
+    if (v.b.t == CHUNK){
+        return doFix(v.cc.val);
+    }
+    return v;
 }
 
 

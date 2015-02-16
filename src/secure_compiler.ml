@@ -96,7 +96,7 @@ struct
   (* sort compiler redices *)
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
-      | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
+      | (Gettr {path = p },Gettr {path = p2}) -> (String.compare (make_ptr p) (make_ptr p2))
       | (Strct (_,n,pth,_,_,_,_) , Strct (_,n2,pth2,_,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
@@ -676,7 +676,12 @@ struct
     (* update_compred *)
     let update_compred ls = 
       let update = function
-        | Gettr(str,dtstr,_,mask,comp) -> Gettr(str,dtstr,LOCAL,mask,comp)
+        | Gettr record -> Gettr{
+            path = record.path; 
+            retty = record.retty; 
+            locality = LOCAL;  
+            mask = record.mask;
+            comp = record.comp;}
         | Fctr(p,_,c) -> Fctr(p,LOCAL,c) 
         | _ -> raise (Cannot_Sec_Compile "updating the wrong redices")
       in
@@ -808,15 +813,15 @@ struct
     let dec_ls = (separate "Declarations" (mapfd (gettr_lst@fctr_list)))
     and pb_ls = (separate "Static Structures" (MC.Low.structure n_strlist))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
-    and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettr_lst)))
+    and pv_ls = (separate "Value Bindings" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
     and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctr_list)))
-   (* and pb_ls = (separate "Boot" (boot_up strct_list assocs mty)) *)
+    and ld_ls = (separate "Load" [(MC.Low.load (List.rev gettr_lst))]) 
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in
 
     (* the two files *)
-    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ footer)) ^ "\n")
+    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ ld_ls @ footer)) ^ "\n")
     in (objectfile,headerfile)
   
 end

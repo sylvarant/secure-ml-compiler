@@ -48,7 +48,7 @@ sig
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
     | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
-    | ToDeref of tempc | ToLocation of tempc | ToExit of tempc
+    | ToDeref of tempc | ToLocation of tempc | ToExit of tempc | ToFix of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
@@ -139,7 +139,7 @@ struct
     | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
     | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
-    | ToDeref of tempc | ToLocation of tempc | ToExit of tempc
+    | ToDeref of tempc | ToLocation of tempc | ToExit of tempc | ToFix of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
@@ -369,6 +369,7 @@ struct
     | ToDeref a -> "makeDeref("^(printc a)^")"
     | ToLocation a -> "makeLocation("^(printc a)^")"
     | ToExit a -> "doExit("^(printc a)^")"
+    | ToFix a -> "makeFix("^(printc a)^")"
 
 
   (* print functions *)

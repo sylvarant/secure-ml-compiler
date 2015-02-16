@@ -61,6 +61,7 @@ struct
    | Ref t -> Ref (scope_term sc t)
    | Deref t -> Deref (scope_term sc t)
    | Exit t -> Exit (scope_term sc t)
+   | Fix t -> Fix (scope_term sc t)
    | Assign(t1,t2) -> Assign ((scope_term sc t1),(scope_term sc t2))
    | _ as t -> t
 

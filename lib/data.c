@@ -30,6 +30,25 @@ BINDING * location_exchange = NULL;
 BINDING * abstract_exchange = NULL;
 unsigned int LOADED = 0;
 
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: doFix
+ *  Description: do the fix operation
+ * =====================================================================================
+ */
+FUNCTIONALITY VALUE doFix(VALUE * v)
+{
+    VALUE ret;
+    if(v->b.t == CLOSURE){
+        VALUE nv = makeChunk(v); 
+        return (v->c.lam(v->c.mod,v->c.env,nv)); 
+    }
+    mistakeFromOutside();
+    return ret;
+}
+
+
 /* 
  * ===  FUNCTION ======================================================================
  *         Name: free_type

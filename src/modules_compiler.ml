@@ -69,7 +69,10 @@ struct
   
   type entry = string option
 
-  type compred = Gettr of string * Intermediary.type_u * Intermediary.locality * mask option * computation 
+  type grec = { path : cpath; retty : Intermediary.datastr; locality : Intermediary.locality; 
+                mask : mask option; comp : computation}
+
+  type compred = Gettr of grec
                | Strct of strcttype * string * cpath * string list * Intermediary.accs list * string list * entry list 
                | Fctr of  string * Intermediary.locality * computation 
                | Compttr of string * computation * Intermediary.tempc list
@@ -95,6 +98,9 @@ struct
 
   (* convert a list into a standard ptr *)
   let make_ptr lst = "_" ^ (make_baseptr lst)
+
+  (* convert a list into a standard ptr *)
+  let make_vptr lst = "v_" ^ (make_baseptr lst)
 
   (* convert a list into a structure ptr *)
   let make_str lst = "str" ^ (make_ptr lst)
@@ -192,7 +198,7 @@ struct
   *)
   let sort_compred cls =
     let cmp_red a b = match (a,b) with
-      | (Gettr(str,_,_,_,_),Gettr(str2,_,_,_,_)) -> (String.compare str str2)
+      | (Gettr {path = p},Gettr {path = p2}) -> (String.compare (make_ptr p) (make_ptr p2))
       | (Strct (_,n,pth,_,_,_,_) , Strct (_,n2,pth2,_,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
       | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
@@ -368,9 +374,15 @@ struct
       let rec extract = function [] -> ([],[]) 
         | str::ls -> (match str with
           | BArg _ -> raise (Cannot_compile_module "Cannot extract BArg")
-          | BVal (name,path, comp) -> let ptr = make_ptr (name::path) 
-            and (a,b) = (extract ls) in
-            ((Gettr (ptr,(Interm.constd Interm.VALUE),Interm.ENTRYPOINT,None,comp)) :: a, b)
+          | BVal (name,path,body) -> let (a,b) = (extract ls) 
+            and record = { 
+                path = (name::path); 
+                retty = Interm.VALUE;   
+                locality = Interm.ENTRYPOINT;
+                mask = None;
+                comp = body;
+            } in
+            ((Gettr record) :: a, b)
           | BMod (name,path, modt) -> (match modt with
             | AR _ -> raise (Cannot_compile_module "Cannot extract AR")
             | SB (_,nbinding,(_,true)) ->  let (aa,bb) = (extract nbinding)  
@@ -471,18 +483,28 @@ struct
         and parse_str path = function [] -> []
           | x :: xs -> match x with
             | BArg _ -> raise (Cannot_compile_module "This shouldn't be here")
-            | BVal (name,path, comp) -> let value = (Interm.constd Interm.VALUE) in
-              let nn = (make_ptr (name::path)) 
+            | BVal (name,path,body) -> let nn = (make_ptr (name::path)) 
               and en = (make_entrypoint (name::path)) in
-              let get = Gettr (nn,value,Interm.ENTRYPOINT,(Some fctr),comp) in
-              gettrls := get::!gettrls;
+              let record = {
+                path = (name::path); 
+                retty = Interm.VALUE;
+                locality = Interm.ENTRYPOINT;
+                mask = (Some fctr);
+                comp = body;
+              } in
+              gettrls := (Gettr record)::!gettrls;
               ((name,Interm.BDVAL),(nn,en)) :: (parse_str path xs)
           | BMod (name,path,modt) ->  let modu = parse modt 
-              and ret = (Interm.constd Interm.MODULE)
               and nn = (make_ptr (name::path)) 
               and en = (make_entrypoint (name::path)) in
-              let get = Gettr (nn,ret,Interm.ENTRYPOINT,(Some fctr),modu) in
-              gettrls := get :: !gettrls;
+              let record = {
+                path = (name::path);
+                retty = Interm.MODULE;
+                locality = Interm.ENTRYPOINT;
+                mask = Some fctr;
+                comp = modu;
+              } in
+              gettrls := (Gettr record) :: !gettrls;
               ((name,Interm.BDMOD),(nn,en)) :: (parse_str path xs)
         in
 
@@ -532,7 +554,7 @@ struct
 
     (* build funcdefi *) 
     let funcdef b = function
-      | Gettr (ptr,dtstr,loc,_,_) -> (loc,dtstr,ptr,[(BINDING,MOD)],b)
+      | Gettr record -> (record.locality,(Interm.constd record.retty),(make_ptr record.path),[(BINDING,MOD)],b)
       | Fctr (ptr,loc,_) -> (loc,(constd MODULE),ptr,[(BINDING,MOD);(MODULE,STR)],b)
       | _ -> raise (Cannot_convert_intermediary "funcdef failed")
 
@@ -575,16 +597,34 @@ struct
     * =====================================================================================
     *)
     let rec getter = function [] -> []
-      | Gettr  (ptr,dtstr,loc,maskc,comp) :: xs -> 
+      | Gettr record :: xs -> 
         let args = [ (BINDING,MOD) ] in
-        let definition = (loc,dtstr,ptr,args,false) in
+        let definition = (record.locality,(Interm.constd record.retty),(make_ptr record.path),args,false) in
         let env = (printd BINDING)^" "^(printconst ENV)^" = NULL" 
         (*and md = (printd BINDING)^" "^(printconst MOD)^" = "^(printconst MOD)*) in
         let setup = env :: [] in
-        let static = (match maskc with Some _ -> false | _ -> true) in
-        let body = (format 1 (setup @ (computation static (printty dtstr) comp))) in
+        let static = (match record.mask with Some _ -> false | _ -> true) in
+        let body = (format 1 (setup @ (computation static (Interm.printd record.retty) record.comp))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) :: (getter xs) 
       | _ -> raise (Cannot_convert_intermediary "print_getters - only compiles Gettr")
+
+
+   (* 
+    * ===  FUNCTION  ======================================================================
+    *     Name:  load
+    *  Description: print the load function
+    * =====================================================================================
+    *)
+    let rec load lst = 
+      let definition = (Interm.ENTRYPOINT,(Interm.constd Interm.VOID),"load",[],false) in
+      let calls = let rec convert = function [] -> []
+        | Gettr {path = p; retty = Interm.VALUE; mask = None} :: xs -> 
+          let y = ToCall((CVar (make_ptr p)),[CVar "NULL"]) in 
+          (y :: (convert xs))
+        | _ :: xs -> (convert xs) in 
+        (convert lst) in
+      let body = (format 1 (List.map printc calls)) in
+      (String.concat "\n" (((printf definition) :: body) @ func_end))
 
    (* 
     * ===  FUNCTION  ======================================================================

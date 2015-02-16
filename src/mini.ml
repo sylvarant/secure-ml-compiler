@@ -38,6 +38,7 @@ struct
     | Assign of term * term
     | Letrec of Ident.t * simple_type * term * term
     | Exit of term
+    | Fix of term
     | Unit
 
 

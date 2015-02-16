@@ -41,7 +41,7 @@ pbase="${pfilen%.*}"
 pobj=${Outfold}/${pbase}.o
 tempp=/tmp/${pbase}.tmp
 
-gcc $partner -I./lib/ -I./out/ -Werror -Wfatal-errors  $insecure -O -c -o $pobj  > $tempp 2>&1
+gcc $partner -I./lib/ -I./out/ -Werror -Wfatal-errors  $insecure -O2 -c -o $pobj  > $tempp 2>&1
 if [[ $? -ne 0 ]];then
     format "Compiling $partner !" $tempp
     exit 3

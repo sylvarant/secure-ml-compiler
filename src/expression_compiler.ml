@@ -77,6 +77,7 @@ struct
       | Ref a -> Ref (desugar a)
       | Deref a -> Deref (desugar a)
       | Assign (a,b) -> Assign ((desugar a),(desugar b))
+      | Letrec (id,ty,a,b) -> desugar (Let(id,Fix(Function(id,ty,a)),b))
       | _ as t -> t
     in
      
@@ -120,6 +121,7 @@ struct
         | Ref a -> (ToLocation (convert a))
         | Deref a -> (ToDeref (convert a))
         | Exit a -> ToExit (convert a)
+        | Fix a -> ToFix (convert a)
         | Assign (a,b) -> (ToAssign ((convert a),(convert b)))
         | _ -> raise (Cannot_compile "Failed to wipe out the lets") in
       (convert program)
