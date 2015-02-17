@@ -66,6 +66,7 @@
                                 if (message) return message; } while (0)
 
 #define INCLUDE_MAIN int main(void){\
+    load();\
     char *result = all_tests();\
     if (result != 0) printf("%s\n", result);\
     printf(NOTE, tests_run,tests_set);\

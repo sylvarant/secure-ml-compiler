@@ -323,10 +323,22 @@ FUNCTIONALITY void unify_types(TYPE,TYPE);
  *  Description:  inplace string copy
  * =====================================================================================
  */
-LOCAL void str_cpy(char * dest,char * input,int size)
+LOCAL inline void str_cpy(char * dest,char * input,int size)
 {
     for(int i = 0; i < size; i++) dest[i] = input[i];
     dest[size] = '\0';
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  is_loaded
+ *  Description:  check that the module has been loaded - for use in entry point
+ * =====================================================================================
+ */
+LOCAL inline void is_loaded()
+{
+    if(!LOADED) mistakeFromOutside();
 }
 
 
@@ -340,7 +352,7 @@ LOCAL void str_cpy(char * dest,char * input,int size)
  *  Description:  create a numeric value
  * =====================================================================================
  */
-LOCAL VALUE makeInt(int n)
+LOCAL inline VALUE makeInt(int n)
 {
     VALUE v;
     v.i.t = INT;
@@ -354,7 +366,7 @@ LOCAL VALUE makeInt(int n)
  *  Description:  create a boolean
  * =====================================================================================
  */
-LOCAL VALUE makeBoolean(unsigned int b)
+LOCAL inline VALUE makeBoolean(unsigned int b)
 {
     if(b) return V(True);
     else return V(False);
@@ -366,7 +378,7 @@ LOCAL VALUE makeBoolean(unsigned int b)
  *  Description:  create a location pointing to the value
  * =====================================================================================
  */
-LOCAL VALUE makeLocation(VALUE val)
+LOCAL inline VALUE makeLocation(VALUE val)
 {
     VALUE v;
     v.l.t = LOCATION;
@@ -381,7 +393,7 @@ LOCAL VALUE makeLocation(VALUE val)
  *  Description:  create a location pointing to an outside memory cell
  * =====================================================================================
  */
-LOCAL VALUE makeForeignLoc(DATA * cell, TYPE ty)
+LOCAL inline VALUE makeForeignLoc(DATA * cell, TYPE ty)
 {
     VALUE v;
     v.ll.t = BYTES;
@@ -396,7 +408,7 @@ LOCAL VALUE makeForeignLoc(DATA * cell, TYPE ty)
  *  Description:  chunk a fix evaluation
  * =====================================================================================
  */
-LOCAL VALUE makeChunk(VALUE * ptr)
+LOCAL inline VALUE makeChunk(VALUE * ptr)
 {
     VALUE v;
     v.cc.t = CHUNK;
@@ -410,7 +422,7 @@ LOCAL VALUE makeChunk(VALUE * ptr)
  *  Description:  Assign to a location
  * =====================================================================================
  */
-LOCAL VALUE makeAssign(VALUE left,VALUE right)
+LOCAL inline VALUE makeAssign(VALUE left,VALUE right)
 {
     if(left.b.t == BYTES){
         DATA d = convertV(right,left.ll.ty);
@@ -427,7 +439,7 @@ LOCAL VALUE makeAssign(VALUE left,VALUE right)
  *  Description:  Dereference a location
  * =====================================================================================
  */
-LOCAL VALUE makeDeref(VALUE loc)
+LOCAL inline VALUE makeDeref(VALUE loc)
 {
     if(loc.b.t == BYTES){
        struct value_type vt = convertD(*(loc.ll.cell),loc.ll.ty);
@@ -443,7 +455,7 @@ LOCAL VALUE makeDeref(VALUE loc)
  *  Description:  create a closure
  * =====================================================================================
  */
-LOCAL VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
+LOCAL inline VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
 {
     VALUE v;
     v.c.t = CLOSURE;
@@ -459,7 +471,7 @@ LOCAL VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
  *  Description:  create a fix
  * =====================================================================================
  */
-LOCAL VALUE makeFix(VALUE val)
+LOCAL inline VALUE makeFix(VALUE val)
 {
    VALUE * ptr = MALLOC(sizeof(VALUE)); 
    *ptr = val;
@@ -472,7 +484,7 @@ LOCAL VALUE makeFix(VALUE val)
  *  Description:  create a Pair
  * =====================================================================================
  */
-LOCAL VALUE makePair(VALUE left, VALUE right)
+LOCAL inline VALUE makePair(VALUE left, VALUE right)
 {
     VALUE v;
     v.p.t = PAIR;
@@ -489,7 +501,7 @@ LOCAL VALUE makePair(VALUE left, VALUE right)
  *  Description:  terminate with the argument
  * =====================================================================================
  */
-LOCAL VALUE doExit(VALUE arg)
+LOCAL inline VALUE doExit(VALUE arg)
 {
     exit(1); 
     return arg;
@@ -506,7 +518,7 @@ LOCAL VALUE doExit(VALUE arg)
  *  Description:  create an Arrow type - mallocs !
  * =====================================================================================
  */
-LOCAL TYPE makeTArrow(TYPE left, TYPE right)
+LOCAL inline TYPE makeTArrow(TYPE left, TYPE right)
 {
     TYPE t;
     t.t = T(ARROW);
@@ -523,7 +535,7 @@ LOCAL TYPE makeTArrow(TYPE left, TYPE right)
  *  Description:  create a Star/Pair type - mallocs !
  * =====================================================================================
  */
-LOCAL TYPE makeTStar(TYPE left, TYPE right)
+LOCAL inline TYPE makeTStar(TYPE left, TYPE right)
 {
     TYPE t;
     t.t = T(STAR);
@@ -540,7 +552,7 @@ LOCAL TYPE makeTStar(TYPE left, TYPE right)
  *  Description:  create an abstract type
  * =====================================================================================
  */
-LOCAL TYPE makeTAbstract(char * name)
+LOCAL inline TYPE makeTAbstract(char * name)
 {
    TYPE t;
    t.t = T(ABSTRACT);
@@ -555,7 +567,7 @@ LOCAL TYPE makeTAbstract(char * name)
  *  Description:  create a reference type
  * =====================================================================================
  */
-LOCAL TYPE makeTRef(TYPE type)
+LOCAL inline TYPE makeTRef(TYPE type)
 {
     TYPE t;
     t.t = T(REF);
@@ -570,7 +582,7 @@ LOCAL TYPE makeTRef(TYPE type)
  *  Description:  create an abstract type with a dynamic identifier
  * =====================================================================================
  */
-LOCAL TYPE makeIdTAbstract(char * name,int id)
+LOCAL inline TYPE makeIdTAbstract(char * name,int id)
 {
    TYPE t;
    t.t = T(ABSTRACT);
@@ -585,7 +597,7 @@ LOCAL TYPE makeIdTAbstract(char * name,int id)
  *  Description:  create a value type binding for a signature  
  * =====================================================================================
  */
-LOCAL TYPE makeTValue(char * name, TYPE type)
+LOCAL inline TYPE makeTValue(char * name, TYPE type)
 {
     TYPE t; 
     t.t = T(VALUE);
@@ -601,7 +613,7 @@ LOCAL TYPE makeTValue(char * name, TYPE type)
  *  Description:  create a type declaration for a signature 
  * =====================================================================================
  */
-LOCAL TYPE makeTDeclaration(char * name, TYPE type)
+LOCAL inline TYPE makeTDeclaration(char * name, TYPE type)
 {
     TYPE t;
     t.t = T(DECLARATION);
@@ -617,7 +629,7 @@ LOCAL TYPE makeTDeclaration(char * name, TYPE type)
  *  Description:  create a type declaration for a signature 
  * =====================================================================================
  */
-LOCAL TYPE makeTModule(char * name, TYPE contents)
+LOCAL inline TYPE makeTModule(char * name, TYPE contents)
 {
     TYPE t;
     t.t = T(MODULE);
@@ -633,7 +645,7 @@ LOCAL TYPE makeTModule(char * name, TYPE contents)
  *  Description:  create a functor type
  * =====================================================================================
  */
-LOCAL TYPE makeTFunctor(char * name, TYPE left, TYPE right)
+LOCAL inline TYPE makeTFunctor(char * name, TYPE left, TYPE right)
 {
     TYPE t;
     t.t = T(FUNCTOR);
@@ -651,7 +663,7 @@ LOCAL TYPE makeTFunctor(char * name, TYPE left, TYPE right)
  *  Description:  create a standalone signature object
  * =====================================================================================
  */
-LOCAL TYPE makeTSignature(TYPE sign)
+LOCAL inline TYPE makeTSignature(TYPE sign)
 {
     TYPE t;
     t.t = T(SIGNATURE);
@@ -667,7 +679,7 @@ LOCAL TYPE makeTSignature(TYPE sign)
  *  Description:  add a type to an existing chain
  * =====================================================================================
  */
-LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
+LOCAL inline TYPE chainTSignature(TYPE chain,TYPE sign)
 {
     if (chain.t != T(SIGNATURE)) mistakeFromOutside();
     TYPE capsule = makeTSignature(sign);
@@ -682,7 +694,7 @@ LOCAL TYPE chainTSignature(TYPE chain,TYPE sign)
  *  Description:  helper function for inserting bindings
  * =====================================================================================
  */
-LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,TYPE ty)
+LOCAL inline void insertBigBinding(BINDING ** binding, void * key, void * val,TYPE ty)
 {
     META * m = MALLOC(sizeof(META));
     m->type = ty;
@@ -696,7 +708,7 @@ LOCAL void insertBigBinding(BINDING ** binding, void * key, void * val,TYPE ty)
  *  Description:  helper function for grabbing values
  * =====================================================================================
  */
-LOCAL VALUE getValue(BINDING * binding,void * key) 
+LOCAL inline VALUE getValue(BINDING * binding,void * key) 
 {
     VALUE v = *((VALUE *)getBinding(binding,key,cmp_char));
     if (v.b.t == CHUNK){
@@ -712,7 +724,7 @@ LOCAL VALUE getValue(BINDING * binding,void * key)
  *  Description:  helper function for grabbing values
  * =====================================================================================
  */
-LOCAL MODULE getModule(BINDING * binding,void * key)
+LOCAL inline MODULE getModule(BINDING * binding,void * key)
 {
     return *((MODULE *)getBinding(binding,key,cmp_char));
 }
@@ -723,7 +735,7 @@ LOCAL MODULE getModule(BINDING * binding,void * key)
  *  Description:  return a Module Content for a functor
  * =====================================================================================
  */
-LOCAL CONTENT makeContentF(Functor f)
+LOCAL inline CONTENT makeContentF(Functor f)
 {
     CONTENT ret;
     ret.f.Functor = f;
@@ -739,7 +751,7 @@ LOCAL CONTENT makeContentF(Functor f)
  *  Description:  return a Module Content for a structure
  * =====================================================================================
  */
-LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * ies,ENTRY * es)
+LOCAL inline CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * ies,ENTRY * es)
 {
     CONTENT ret;
     ret.s.count = c;
@@ -761,7 +773,7 @@ LOCAL CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * ies,ENTR
  *  Description:  return a Module
  * =====================================================================================
  */
-LOCAL MODULE makeModule(MODTAG t, BINDING * ls,CONTENT c)
+LOCAL inline MODULE makeModule(MODTAG t, BINDING * ls,CONTENT c)
 {
     MODULE ret;
     ret.type = t;
@@ -777,7 +789,7 @@ LOCAL MODULE makeModule(MODTAG t, BINDING * ls,CONTENT c)
  *  Description:  check that the stamp of a module is in accord with the functor
  * =====================================================================================
  */
-LOCAL void checkModule(MODULE m,ENTRY * ptr)
+LOCAL inline void checkModule(MODULE m,ENTRY * ptr)
 {
     if(m.type != STRUCTURE) mistakeFromOutside();
     if(m.c.s.entries != ptr) mistakeFromOutside();
@@ -789,7 +801,7 @@ LOCAL void checkModule(MODULE m,ENTRY * ptr)
  *  Description: update the objects binding
  * =====================================================================================
  */
-LOCAL MODULE updateBinding(MODULE m,BINDING *ls)
+LOCAL inline MODULE updateBinding(MODULE m,BINDING *ls)
 {
     MODULE ret = m;
     ret.strls = ls;
@@ -802,7 +814,7 @@ LOCAL MODULE updateBinding(MODULE m,BINDING *ls)
  *  Description: update the keys of a dyn module
  * =====================================================================================
  */
-LOCAL MODULE updateKeys(MODULE m,INTLIST *keys)
+LOCAL inline MODULE updateKeys(MODULE m,INTLIST *keys)
 {
     MODULE ret = m;
     ret.keys = pushIntlist(keys,getObjId());

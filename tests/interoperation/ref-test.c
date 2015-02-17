@@ -31,7 +31,7 @@ TEST(breakCall)
     CHECK("Did not obtain a boolean from call",result.t == BOOLEAN);
     DATA temp = counter();
     DATA ivalue = locationEntry(temp.identifier);
-    CHECK("Value is not 1",ivalue.value == 1); 
+    CHECK("Value is not 1",ivalue.value == 3); 
 DONE
 
 TEST(getValue)

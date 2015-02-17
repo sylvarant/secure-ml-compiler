@@ -617,13 +617,14 @@ struct
     *)
     let rec load lst = 
       let definition = (Interm.ENTRYPOINT,(Interm.constd Interm.VOID),"load",[],false) in
+      let ass = [Assign(CVar "LOADED",CInt 1)] in
       let calls = let rec convert = function [] -> []
         | Gettr {path = p; retty = Interm.VALUE; mask = None} :: xs -> 
           let y = ToCall((CVar (make_ptr p)),[CVar "NULL"]) in 
           (y :: (convert xs))
         | _ :: xs -> (convert xs) in 
         (convert lst) in
-      let body = (format 1 (List.map printc calls)) in
+      let body = (format 1 ((List.map printc (calls @ ass)))) in
       (String.concat "\n" (((printf definition) :: body) @ func_end))
 
    (* 

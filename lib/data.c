@@ -28,7 +28,6 @@ BINDING * exchange = NULL;
 BINDING * closure_exchange = NULL;
 BINDING * location_exchange = NULL;
 BINDING * abstract_exchange = NULL;
-unsigned int LOADED = 0;
 
 
 /* 

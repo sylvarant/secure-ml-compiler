@@ -13,12 +13,12 @@
 #include "diverge.h"
 
 int tests_run = 0;
-int tests_set = 3;
+int tests_set = 2;
 
 // test the exit statement
-CRASH(terminate)
+/*CRASH(terminate)
     DATA temp = Inner_terminate();
-RECOVER
+RECOVER*/
 
 TEST(recursion)
     DATA closure = Inner_recurse();  
@@ -36,7 +36,7 @@ TEST(recursion2)
 DONE
 
 LIST
-    RUN(terminate);
+//    RUN(terminate);
     RUN(recursion);
     RUN(recursion2);
 DONE

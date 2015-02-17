@@ -717,6 +717,7 @@ struct
       let st = [CVar "static TYPE _rType"; CVar "static int _tdec = 0"; CVar ("SWITCH(_tdec,_rType,"^(printc cvty)^")")]  in
       let md = (printd BINDING)^" "^(printconst MOD)^" = NULL" in
       let (ign,poss,c) = comp in
+      let isld = ToCall(constc LOADED,[]) in
       let check = match mask with 
         | [] -> [] 
         | cpath -> 
@@ -730,7 +731,7 @@ struct
             and up = (Assign((constv MOD),(CVar "m->m.strls"))) in
             [com;sv;sc;gt;up] @ poss @ [cm] (*TODO remove poss*)
       in
-      let newc = (ign,check@st,c) in
+      let newc = (ign,isld::(check@st),c) in
       let optimize = match mask with [] -> true | _ -> false in
       let body = (format 1 (  md :: (MC.Low.computation optimize (printty typ) newc))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
@@ -792,6 +793,8 @@ struct
       (List.map (fun x -> (MC.Low.funcdef true x)) ls))
     in
 
+    let global_var = [Assign(CVar "unsigned int LOADED",CInt 0)] in
+
     (* Top Level *)
     let (lambda_list,omega) = (MC.High.compile program) in
     let (crazy,gentry,gettr_lst,strct_list,fctr_list,assocs) = type_weave mty omega in 
@@ -810,7 +813,8 @@ struct
     in
 
     (* build the object file *)
-    let dec_ls = (separate "Declarations" (mapfd (gettr_lst@fctr_list)))
+    let glb_ls = (separate "Globals" (List.map (fun x -> x^";") (List.map printc global_var)))
+    and dec_ls = (separate "Declarations" (mapfd (gettr_lst@fctr_list)))
     and pb_ls = (separate "Static Structures" (MC.Low.structure n_strlist))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Value Bindings" (MC.Low.getter (List.rev gettr_lst)))
@@ -821,7 +825,7 @@ struct
     in
 
     (* the two files *)
-    let objectfile = ((String.concat "\n"  (objh @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ ld_ls @ footer)) ^ "\n")
+    let objectfile = ((String.concat "\n"  (objh @ glb_ls @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ en_ls @ ld_ls @ footer)) ^ "\n")
     in (objectfile,headerfile)
   
 end

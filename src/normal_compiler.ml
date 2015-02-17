@@ -78,6 +78,8 @@ struct
         (printl ENTRYPOINT)^ " " ^(printd MODULE)^" "^name^";" 
     in 
 
+    let global_var = [Assign(CVar "unsigned int LOADED",CInt 0)] in
+
     (* replace entrypoints TODO this could be nicer *)
     let nstrcts = (List.map convert_entry strcts) in
 
@@ -87,13 +89,15 @@ struct
     let headerfile = (String.concat "\n" ("#ifndef LANREN\n#define LANREN"::(hedh @ dec_ls)@["#endif"])) ^ "\n"  in
 
     (* build the object file *)
-    let dec_ls = (separate "Declarations" (mapfd (gettrs@fctrs)))
+    let glb_ls = (separate "Globals" (List.map (fun x -> x^";") (List.map printc global_var)))
+    and dec_ls = (separate "Declarations" (mapfd (gettrs@fctrs)))
     and pb_ls = (separate "Static Structures" (MC.Low.structure nstrcts))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambdas)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettrs)))
     and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctrs)))
+    and ld_ls = (separate "Load" [(MC.Low.load (List.rev gettrs))]) 
     and objh =  header (List.map printc [(Include headerf)]) in
-    let bigls = (objh @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ footer) in
+    let bigls = (objh @ glb_ls @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ ld_ls @ footer) in
     let objectfile = ((String.concat "\n" bigls) ^ "\n")
     in
 

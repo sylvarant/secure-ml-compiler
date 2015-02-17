@@ -53,7 +53,7 @@ sig
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
-  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT | LOADED
   and headers = MINI | ENTRY 
   and accs = BVAL | BDVAL | BMOD | BDMOD
   type args = (datastr * consts) list
@@ -148,7 +148,7 @@ struct
 
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
 
-  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT
+  and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT | LOADED
 
   and headers = MINI | ENTRY
 
@@ -224,6 +224,7 @@ struct
     | CONT -> "convertT"
     | PATH -> "path_module"
     | PATHV -> "path_value"
+    | LOADED -> "is_loaded"
     | CMP_INT -> "cmp_int"
 
   (* build cvar from const *)
