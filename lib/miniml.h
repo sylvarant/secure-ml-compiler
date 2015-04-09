@@ -184,7 +184,7 @@ struct foreign_s{
     };
 };
 
-typedef enum acc_e { BVAL , BMOD, BDVAL, BDMOD } ACC;
+typedef enum acc_e { BVAL, BMOD, BDVAL, BDMOD } ACC;
 typedef enum isentry_e { YES, NO} ISENTRY;
 
 typedef struct module_s{

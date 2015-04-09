@@ -13,7 +13,7 @@
 
 
 /*-----------------------------------------------------------------------------
- * I hate the linker
+ * C-Linking dumbness
  *-----------------------------------------------------------------------------*/
 
 const struct Type_u T(Ignore) = {.t = T(IGNORE), .a = 0};
@@ -525,13 +525,20 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
     for(int i = 0; i < d.count; i++){
         char * insiden = insidestring(d.names[i]);
         sc.names[i] = insiden;
-        sc.accs[i] = toacc(d.accs[i]);
+        sc.accs[i] = BMOD;
         sc.ie[i] = YES;
-        struct foreign_s * ptr = MALLOC(sizeof(struct foreign_s));
-        ptr->req = getstype(req.ss,insiden);
-        if(d.accs[i] == MOD) ptr->me = d.fcalls[i];
-        else ptr->fe = d.fcalls[i];
-        sc.fields[i].foreign = ptr;             
+        if(d.accs[i] == MOD){
+            struct module_s * ptr = MALLOC(sizeof(struct module_s));
+            *ptr = (convertMD(((foreignmod) d.fcalls[i])(),getstype(req.ss,insiden))).m;       
+            sc.fields[i].module = ptr;
+        }
+        else{
+            sc.accs[i] = BDVAL;
+            struct foreign_s * ptr = MALLOC(sizeof(struct foreign_s));
+            ptr->req = getstype(req.ss,insiden);
+            ptr->fe = d.fcalls[i];
+            sc.fields[i].foreign = ptr;
+        }
     }
     m.c.s = sc;
     struct module_type mt;
