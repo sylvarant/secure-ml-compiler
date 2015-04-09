@@ -520,8 +520,7 @@ struct
       (* toplevel *)
       let (gls,stls) = (extract ls) in 
       let (names,assocs,ptrs,entries) = (quick ls None) in
-      let this = Strct(Normal,"this",[],names,assocs,ptrs,entries) in
-        (gls,(stls @ [this]),!fctr_list)
+      (gls,stls,!fctr_list)
 
   end
 

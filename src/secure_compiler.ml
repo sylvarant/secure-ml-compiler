@@ -563,7 +563,7 @@ struct
       in
 
       (* top level *)
-      (Share (progtype,"this",[],[],([],None))) :: (convert_assoc [] (clear_input sign binding)) 
+      (convert_assoc [] (clear_input sign binding)) 
     in
 
 

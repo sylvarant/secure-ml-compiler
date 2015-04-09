@@ -112,7 +112,7 @@ DTYPE ignored;
 char * innames [] =  {"test"};
 CALLTAG inacc[] = {VAL};
 void * ptrs[] = {gooddata};
-MODDATA inner = {.t = STRUCTURE, .type = 0, .identifier = -1,.count = 1,.names = innames,.accs=inacc,.fcalls=ptrs};
+MODDATA inner = {.t = STRUCTURE, .identifier = -1,.count = 1,.names = innames,.accs=inacc,.fcalls=ptrs};
 
 MODDATA inner_mod(void)
 {

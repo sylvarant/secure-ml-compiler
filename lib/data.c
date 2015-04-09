@@ -379,7 +379,7 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
 {
     MODDATA ret;
     ret.t = m.type; 
-    ret.type = convertT(ty);
+    //ret.type = convertT(ty);
     struct structure s = m.c.s;
     if(m.type == STRUCTURE){
         int count = 0;

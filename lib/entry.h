@@ -118,7 +118,7 @@ typedef enum Calltag_e { VAL , MOD } CALLTAG;
 
 typedef struct Moduledata_s{
     MODTAG t;
-    DTYPE type;
+//    DTYPE type;
     int identifier;
     struct {
         int count;
