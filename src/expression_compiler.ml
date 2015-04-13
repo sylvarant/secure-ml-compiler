@@ -135,7 +135,7 @@ struct
         let assarg = Assign((Ptr ptrarg),(constv ARG)) in
         let asstr = ToStatic((constd CHAR),Assign(ptrstr,(CString id))) in
         let insert = (Insert((constv ENV),ptrstr,ptrarg)) in
-        let compttr = Compttr (name,(!vlist,[],compiled),[asstr; malla ; assarg; insert]) in
+        let compttr = Compttr {name = name; comp = (!vlist,[],compiled); setup = [asstr; malla ; assarg; insert]} in
         funclist := compttr :: !funclist in
 
     (* toplevel *)

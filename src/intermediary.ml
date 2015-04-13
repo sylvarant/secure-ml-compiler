@@ -1,5 +1,4 @@
-(*
- * =====================================================================================
+ (* =====================================================================================
  *
  *     Filename:  intermediary.ml
  *
@@ -55,7 +54,7 @@ sig
   and consts = ENV | ARG | MOD | STR | TOP | FVAR
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT | LOADED
   and headers = MINI | ENTRY 
-  and accs = BVAL | BDVAL | BMOD | BDMOD
+  and accs = BVAL | BDVAL | BMOD | BDMOD | BUVAL
   type args = (datastr * consts) list
   type funcdef = locality * type_u * string * args * bool
 
@@ -152,7 +151,7 @@ struct
 
   and headers = MINI | ENTRY
 
-  and accs = BVAL | BDVAL | BMOD | BDMOD
+  and accs = BVAL | BDVAL | BMOD | BDMOD | BUVAL
 
   and args = (datastr * consts) list
 
@@ -212,7 +211,8 @@ struct
   (* print accessors *)
   let printa = function
     | BVAL -> "BVAL"
-    | BDVAL -> "BVAL"
+    | BUVAL -> "BUVAL"
+    | BDVAL -> "BDVAL"
     | BMOD -> "BMOD"
     | BDMOD -> "BMOD"
 

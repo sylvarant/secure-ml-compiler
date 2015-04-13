@@ -99,7 +99,7 @@ struct
       | (Gettr {path = p },Gettr {path = p2}) -> (String.compare (make_ptr p) (make_ptr p2))
       | (Strct (_,n,pth,_,_,_,_) , Strct (_,n2,pth2,_,_,_,_)) -> (String.compare (make_ptr (n::pth)) (make_ptr (n2::pth2)))
       | (Fctr (str,_,_),Fctr (str2,_,_)) -> (String.compare str str2)
-      | (Compttr (str,_,_),Compttr (str2,_,_)) -> (String.compare str str2)
+      | (Compttr {name = str},Compttr {name = str2}) -> (String.compare str str2)
       | (Gettr _, _)     -> 1
       | (_, Gettr _)     -> -1
       | (Compttr _, _)   -> -1
@@ -700,19 +700,15 @@ struct
 
  (* 
   * ===  FUNCTION  ======================================================================
-  *     Name:  compile
-  *  Description:  converts the toplevel into a tuple of 2 strings for object & header
+  *     Name:  printentry
+  *  Description:  print an entry point
   * =====================================================================================
   *)
-  let compile mty program headerf =
-
-    (* print entrypoints *)
-    let rec entrypoint = function EntryPoint (name,typ,comp,mask,cvty) ->
-      let args = match mask with 
+  let rec printentry = function EntryPoint (name,typ,comp,mask,cvty) ->
+    let args = match mask with 
         | [] -> [] 
-        | _ -> [ (MODDATA,STR) ]  
-      in
-      let nname = match name with | None -> "this" | Some n -> n in
+        | _ -> [ (MODDATA,STR) ]  in
+    let nname = match name with | None -> "this" | Some n -> n in
       let definition = (ENTRYPOINT,typ,nname,args,false) in
       let st = [CVar "static TYPE _rType"; CVar "static int _tdec = 0"; CVar ("SWITCH(_tdec,_rType,"^(printc cvty)^")")]  in
       let md = (printd BINDING)^" "^(printconst MOD)^" = NULL" in
@@ -735,7 +731,15 @@ struct
       let optimize = match mask with [] -> true | _ -> false in
       let body = (format 1 (  md :: (MC.Low.computation optimize (printty typ) newc))) in
         (String.concat "\n" ( ((printf definition)::body) @ func_end ) ) 
-    in
+
+
+ (* 
+  * ===  FUNCTION  ======================================================================
+  *     Name:  compile
+  *  Description:  converts the toplevel into a tuple of 2 strings for object & header
+  * =====================================================================================
+  *)
+  let compile mty program headerf =
 
     (* map entry point definitions *)
     let mapentrydef ls = (List.map printf 
@@ -818,9 +822,9 @@ struct
     and pb_ls = (separate "Static Structures" (MC.Low.structure n_strlist))
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambda_list)))
     and pv_ls = (separate "Value Bindings" (MC.Low.getter (List.rev gettr_lst)))
-    and en_ls = (separate "Entry Points" (List.map entrypoint gentry))
+    and en_ls = (separate "Entry Points" (List.map printentry gentry))
     and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctr_list)))
-    and ld_ls = (separate "Load" [(MC.Low.load (List.rev gettr_lst))]) 
+    and ld_ls = (separate "Load" [(MC.Low.load (List.rev n_strlist))]) 
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in
 

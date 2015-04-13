@@ -347,6 +347,7 @@ LOCAL CALLTAG tocalltag(ACC a)
     switch(a)
     {
         case BVAL:
+        case BUVAL:
         case BDVAL: return VAL;
 
         case BMOD:
@@ -393,7 +394,6 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
         for(int i = 0; i < count; i++){
             ret.names[i] = outsidestring(s.names[i]); 
             ret.accs[i] = tocalltag(s.accs[i]);
-            //DEBUG_PRINT("name == %s of %s",ret.names[i],s.names[i]);
             ret.fcalls[i] = s.entries[i].byte;
         }
     }
@@ -447,35 +447,6 @@ LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int count,char ** names,ENTRY 
 
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: foreign_value
- *  Description: call a foreign value gettr
- * =====================================================================================
- */
-LOCAL VALUE foreign_value(foreignval f,TYPE req)
-{
-    DATA result = f();
-    struct value_type v = convertD(result,req);
-    unify_types(req,v.ty);
-    return v.val;
-}
-
-
-/* 
- * ===  FUNCTION ======================================================================
- *         Name: foreign_module
- *  Description: call a foreign module gettr
- * =====================================================================================
- */
-LOCAL MODULE foreign_module(foreignmod f,TYPE req)
-{
-    MODDATA result = f();
-    struct module_type  v = convertMD(result,req);
-    return v.m;
-}
-
-
-/* 
- * ===  FUNCTION ======================================================================
  *         Name: getstype
  *  Description: return a type from the signature
  * =====================================================================================
@@ -485,7 +456,6 @@ LOCAL TYPE getstype(struct T(Signature) s,char * target)
     struct T(Signature) * next = &s;
     do{
         if(next->type == NULL) mistakeFromOutside();
-        //if(next->type->t != T(VALUE) || next->type->t !=  T(MODULE)) mistakeFromOutside();
         if(cmp_char(next->type->v.name,target) == 0)
             return *(next->type->v.type);
         next = next->next;
@@ -527,17 +497,17 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
         sc.names[i] = insiden;
         sc.accs[i] = BMOD;
         sc.ie[i] = YES;
-        if(d.accs[i] == MOD){
+        if(d.accs[i] == MOD) {
             struct module_s * ptr = MALLOC(sizeof(struct module_s));
             *ptr = (convertMD(((foreignmod) d.fcalls[i])(),getstype(req.ss,insiden))).m;       
             sc.fields[i].module = ptr;
-        }
-        else{
-            sc.accs[i] = BDVAL;
-            struct foreign_s * ptr = MALLOC(sizeof(struct foreign_s));
-            ptr->req = getstype(req.ss,insiden);
-            ptr->fe = d.fcalls[i];
-            sc.fields[i].foreign = ptr;
+        }else {
+            sc.accs[i] = BVAL;
+            TYPE reqt = getstype(req.ss,insiden);
+            DATA result = ((foreignval)  d.fcalls[i])();
+            struct value_type v = convertD(result,reqt);
+            unify_types(reqt,v.ty);
+            sc.fields[i].value = v.val;
         }
     }
     m.c.s = sc;
@@ -781,4 +751,28 @@ FUNCTIONALITY void unify_types(TYPE req,TYPE given)
     return;
 }
 
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: load_struct
+ *  Description: Load all values of a structure
+ * =====================================================================================
+ */
+FUNCTIONALITY MODULE load_struct(MODULE m)
+{
+    if(m.type == STRUCTURE){
+        struct structure stru = m.c.s;
+        for(int i = 0; i < stru.count; i++){
+            if(stru.accs[i] == BUVAL){
+                stru.fields[i].value = (stru.fields[i].gettr)(NULL);
+                stru.accs[i] = BVAL;
+            }
+            else if(stru.accs[i] == BDVAL){
+                stru.fields[i].value = (stru.fields[i].gettr)(m.strls);
+                stru.accs[i] = BVAL;
+            }
+        }
+    }
+    return m;
+}
 

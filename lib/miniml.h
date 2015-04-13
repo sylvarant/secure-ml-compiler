@@ -184,7 +184,7 @@ struct foreign_s{
     };
 };
 
-typedef enum acc_e { BVAL, BMOD, BDVAL, BDMOD } ACC;
+typedef enum acc_e { BVAL, BMOD, BDVAL, BDMOD, BUVAL } ACC;
 typedef enum isentry_e { YES, NO} ISENTRY;
 
 typedef struct module_s{
@@ -200,7 +200,8 @@ typedef struct module_s{
             union field_t {
                 struct module_s * module;
                 struct module_s (*mgettr)(BINDING *);
-                VALUE (*gettr)(BINDING *);
+                VALUE (*gettr) (BINDING *);
+                VALUE value;
                 struct foreign_s * foreign;
             } * fields;
             union entry_t {
@@ -307,10 +308,12 @@ LOCAL MODULE updateEntry(MODULE,BINDING*,int,char **,ENTRY * ls);
 LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
 LOCAL MODULE foreign_module(foreignmod f,TYPE);
 LOCAL VALUE foreign_value(foreignval f,TYPE);
+FUNCTIONALITY MODULE load_struct(MODULE);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 
 FUNCTIONALITY void unify_types(TYPE,TYPE);
+
 
 
 /*-----------------------------------------------------------------------------

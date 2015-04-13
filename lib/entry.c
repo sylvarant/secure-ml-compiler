@@ -93,8 +93,9 @@ MODULE get_module(MODULE m,char * str)
                 }
 
                 case BDMOD :{
-                    struct foreign_s fs = *((m.c.s.fields[i]).foreign);
-                    return foreign_module(fs.me,fs.req);
+                   // struct foreign_s fs = *((m.c.s.fields[i]).foreign);
+                   // return foreign_module(fs.me,fs.req);
+                   DEBUG_PRINT("DEPRECATED");
                 }
 
                 default : mistakeFromOutside();
@@ -124,12 +125,7 @@ VALUE get_value(MODULE m,char * str)
             switch(m.c.s.accs[i])
             {
                 case BVAL :{ 
-                    return ((m.c.s.fields[i]).gettr(m.strls));
-                }
-
-                case BDVAL :{
-                    struct foreign_s fs = *((m.c.s.fields[i]).foreign);
-                    return foreign_value(fs.fe,fs.req);
+                    return (m.c.s.fields[i]).value;
                 }
 
                 default : mistakeFromOutside();
