@@ -30,6 +30,211 @@ BINDING * location_exchange = NULL;
 BINDING * abstract_exchange = NULL;
 
 
+/*-----------------------------------------------------------------------------
+ * Adress generators
+ *-----------------------------------------------------------------------------*/
+
+LOCAL int getAdress(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
+LOCAL int getAdressClo(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
+LOCAL int getAdressAbs(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
+FUNCTIONALITY int getObjId(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
+LOCAL int getAdressLoc(void)
+{
+    static int addr = 0;
+    return ++addr;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: nextId
+ *  Description: get the next identifier from a path
+ * =====================================================================================
+ */
+LOCAL char * nextId(char ** str)
+{
+    char * start = *str;  
+    char * end = start;
+    while(*end != '\0' && *end != '.') end++;
+
+
+    int res_size = end - start;
+    char * result = MALLOC((res_size)+1);
+    for(int i = 0; i < res_size; i++) result[i] = start[i];
+    result[res_size] = '\0';  
+    
+    if(*end == '.') end++;
+    *str = end;
+
+    return result; 
+}
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  get_module
+ *  Description:  return a module member 
+ * =====================================================================================
+ */
+MODULE get_module(MODULE m,char * str)
+{
+    if(m.type != STRUCT) mistakeFromOutside();  
+
+    for(int i = 0; i < m.c.s.count; i++)
+    {
+        if(cmp_char(m.c.s.names[i],str) == 0)
+        {
+            switch(m.c.s.accs[i])
+            {
+                case BMOD :{ 
+                    return *((m.c.s.fields[i]).module);
+                }
+
+                case BDMOD :{
+                   // struct foreign_s fs = *((m.c.s.fields[i]).foreign);
+                   // return foreign_module(fs.me,fs.req);
+                   DEBUG_PRINT("DEPRECATED");
+                }
+
+                default : mistakeFromOutside();
+            }
+        }
+    }
+    MODULE empty;
+    mistakeFromOutside();
+    return empty; // for gcc warning purposes
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  get_value
+ *  Description:  return a value member 
+ * =====================================================================================
+ */
+VALUE get_value(MODULE m,char * str)
+{
+    if(m.type != STRUCT) mistakeFromOutside();  
+
+    for(int i = 0; i < m.c.s.count; i++)
+    {
+        if(cmp_char(m.c.s.names[i],str) == 0)
+        {
+            switch(m.c.s.accs[i])
+            {
+                case BVAL :{ 
+                    return (m.c.s.fields[i]).value;
+                }
+
+                default : mistakeFromOutside();
+            }
+        }
+    }
+    mistakeFromOutside();
+    return makeBoolean(0); // for gcc warning purposes
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  get_module_path
+ *  Description:  return a module member pointed to by a path
+ * =====================================================================================
+ */
+LOCAL MODULE get_module_path(MODULE m,char * path)
+{
+    char * remainder = path;
+    MODULE mod = m;
+    while(*remainder != '\0')
+    {
+        char * it = nextId(&remainder);
+        mod = get_module(mod,it); 
+        FREE(it);
+    }
+    return mod;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  get_value_path
+ *  Description:  return a value member pointed to by a path
+ * =====================================================================================
+ */
+LOCAL VALUE get_value_path(MODULE m,char * path)
+{
+    char * remainder = path;
+    MODULE mod = m;
+    if(*remainder == '\0') mistakeFromOutside();
+    do
+    {
+        char * it = nextId(&remainder);
+        if(*remainder == '\0')
+        {
+            VALUE v = get_value(mod,it); 
+            FREE(it);
+            return v; 
+        }
+        mod = get_module(mod,it); 
+        FREE(it);
+    }while(1);
+
+    return makeBoolean(0); // gcc is whiny
+}
+
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  path_module
+ *  Description:  call up a module
+ * =====================================================================================
+ */
+LOCAL MODULE path_module(BINDING * binding,char * path)
+{
+    char * remainder = path;
+    char * it = nextId(&remainder);
+    MODULE * m = getBinding(binding,it,cmp_char); 
+    FREE(it);
+    return get_module_path(*m,remainder); 
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name:  path_value
+ *  Description:  call up a value
+ * =====================================================================================
+ */
+LOCAL VALUE path_value(BINDING * binding,char * path)
+{
+    char * remainder = path;
+    char * it = nextId(&remainder);
+    MODULE * m = getBinding(binding,it,cmp_char); 
+    FREE(it);
+    return get_value_path(*m,remainder);
+}
+
+
 /* 
  * ===  FUNCTION ======================================================================
  *         Name: doFix
@@ -319,6 +524,7 @@ LOCAL char * outsidestring(char * s)
     return ret;
 }
 
+
 /* 
  * ===  FUNCTION ======================================================================
  *         Name: insidestring
@@ -336,13 +542,14 @@ LOCAL char * insidestring(char * s)
     return ret;
 }
 
+
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: tocalltag
+ *         Name: to_calltag
  *  Description: convert ACC to CALLTAG
  * =====================================================================================
  */
-LOCAL CALLTAG tocalltag(ACC a)
+LOCAL CALLTAG to_calltag(ACC a)
 {
     switch(a)
     {
@@ -355,20 +562,24 @@ LOCAL CALLTAG tocalltag(ACC a)
     }
 }
 
+
 /* 
  * ===  FUNCTION ======================================================================
- *         Name: toacc
- *  Description: convert CALLTAG to ACC
+ *         Name: tomodtag
+ *  Description: convert an inside Module into a MODDATA for the outside 
  * =====================================================================================
  */
-LOCAL ACC toacc(CALLTAG a)
+LOCAL MODTAG to_modtag(MODTYPE t)
 {
-    switch(a)
+    switch(t)
     {
-        case VAL: return BDVAL;
-        case MOD: return BDMOD;
+        case STRUCT : return STRUCTURE;
+        
+        case SECFUNCTOR:
+        case FORFUNCTOR: return FUNCTOR;
     }
 }
+
 
 /* 
  * ===  FUNCTION ======================================================================
@@ -379,10 +590,9 @@ LOCAL ACC toacc(CALLTAG a)
 LOCAL MODDATA convertM(MODULE m,TYPE ty)
 {
     MODDATA ret;
-    ret.t = m.type; 
-    //ret.type = convertT(ty);
+    ret.t = to_modtag(m.type); 
     struct structure s = m.c.s;
-    if(m.type == STRUCTURE){
+    if(m.type == STRUCT){
         int count = 0;
         for(int i = 0; i < s.count; i++){
             if( s.ie[i] == YES) count++;
@@ -393,7 +603,7 @@ LOCAL MODDATA convertM(MODULE m,TYPE ty)
         ret.fcalls = OUTERM(sizeof(void*)*count);
         for(int i = 0; i < count; i++){
             ret.names[i] = outsidestring(s.names[i]); 
-            ret.accs[i] = tocalltag(s.accs[i]);
+            ret.accs[i] = to_calltag(s.accs[i]);
             ret.fcalls[i] = s.entries[i].byte;
         }
     }
@@ -421,7 +631,7 @@ LOCAL MODULE updateEntry(MODULE m,BINDING * strls,int count,char ** names,ENTRY 
 
     if(count < 0) return m; // nothing needs to be 
 
-    if(m.type == STRUCTURE)
+    if(m.type == STRUCT)
     {
         ret.c.s.entries = ls; // preserve that reference
         for(int i = 0; i < ret.c.s.count ; i++) ret.c.s.ie[i] = NO;
@@ -480,41 +690,55 @@ LOCAL struct module_type convertMD(MODDATA d,TYPE req)
         return (*m);
     }
 
-    if(req.t != T(SIGNATURE)) mistakeFromOutside();
-    MODULE m;
-    m.type = STRUCTURE;
-    m.strls = NULL; 
-    m.keys = NULL;
-    struct structure sc;
-    sc.count = d.count;
-    sc.names = MALLOC(sizeof(char*)*sc.count);
-    sc.accs = MALLOC(sizeof(ACC)*sc.count);
-    sc.fields = MALLOC(sizeof(FIELD)*sc.count);
-    sc.ie = MALLOC(sizeof(ISENTRY) * sc.count);
-    sc.entries = NULL; // entries will be assigned when passing throught the functor
-    for(int i = 0; i < d.count; i++){
-        char * insiden = insidestring(d.names[i]);
-        sc.names[i] = insiden;
-        sc.accs[i] = BMOD;
-        sc.ie[i] = YES;
-        if(d.accs[i] == MOD) {
-            struct module_s * ptr = MALLOC(sizeof(struct module_s));
-            *ptr = (convertMD(((foreignmod) d.fcalls[i])(),getstype(req.ss,insiden))).m;       
-            sc.fields[i].module = ptr;
-        }else {
-            sc.accs[i] = BVAL;
-            TYPE reqt = getstype(req.ss,insiden);
-            DATA result = ((foreignval)  d.fcalls[i])();
-            struct value_type v = convertD(result,reqt);
-            unify_types(reqt,v.ty);
-            sc.fields[i].value = v.val;
-        }
+	MODULE m;
+	m.strls = NULL; 
+	m.keys = NULL;
+    if(req.t == T(SIGNATURE) && d.t == STRUCTURE)
+    {
+	    m.type = STRUCT;
+	    struct structure sc;
+	    sc.count = d.count;
+	    sc.names = MALLOC(sizeof(char*)*sc.count);
+	    sc.accs = MALLOC(sizeof(ACC)*sc.count);
+	    sc.fields = MALLOC(sizeof(FIELD)*sc.count);
+	    sc.ie = MALLOC(sizeof(ISENTRY) * sc.count);
+	    sc.entries = NULL; // entries will be assigned when passing throught the functor
+	    for(int i = 0; i < d.count; i++){
+	        char * insiden = insidestring(d.names[i]);
+	        sc.names[i] = insiden;
+	        sc.accs[i] = BMOD;
+	        sc.ie[i] = YES;
+	        if(d.accs[i] == MOD) {
+	            struct module_s * ptr = MALLOC(sizeof(struct module_s));
+	            *ptr = (convertMD(((foreignmod) d.fcalls[i])(),getstype(req.ss,insiden))).m;       
+	            sc.fields[i].module = ptr;
+	        }else {
+	            sc.accs[i] = BVAL;
+	            TYPE reqt = getstype(req.ss,insiden);
+	            DATA result = ((foreignval)  d.fcalls[i])();
+	            struct value_type v = convertD(result,reqt);
+	            unify_types(reqt,v.ty);
+	            sc.fields[i].value = v.val;
+	        }
+	    }
+	    m.c.s = sc;
+	    struct module_type mt;
+    } else if (req.t == T(FUNCTOR) && d.t == FUNCTOR) {
+        m.type = FORFUNCTOR;
+        m.strls = NULL;
+        m.keys = NULL;
+        struct foreignfunctor ff;
+        ff.Functor = d.fctr;
+        ff.in = req.f.left;      
+        ff.out = req.f.right;
+        m.c.o = ff;
     }
-    m.c.s = sc;
-    struct module_type mt;
-    mt.m = m;
+    else mistakeFromOutside();
+
+    struct module_type mt; 
+	mt.m = m;
     mt.ty = req;
-    return mt;
+	return mt;
 }
 
 
@@ -760,7 +984,7 @@ FUNCTIONALITY void unify_types(TYPE req,TYPE given)
  */
 FUNCTIONALITY MODULE load_struct(MODULE m)
 {
-    if(m.type == STRUCTURE){
+    if(m.type == STRUCT){
         struct structure stru = m.c.s;
         for(int i = 0; i < stru.count; i++){
             if(stru.accs[i] == BUVAL){
@@ -774,5 +998,25 @@ FUNCTIONALITY MODULE load_struct(MODULE m)
         }
     }
     return m;
+}
+
+
+/* 
+ * ===  FUNCTION ======================================================================
+ *         Name: apply_module
+ *  Description: Handles the invocation of functors - needed to resolve foreign fctrs
+ * =====================================================================================
+ */
+FUNCTIONALITY MODULE apply_module(MODULE m, BINDING * ls, MODULE arg)
+{
+    if(m.type == SECFUNCTOR) return m.c.f.Functor(ls,arg);  
+    else if (m.type == FORFUNCTOR){
+        MODDATA input = convertM(arg,*(m.c.o.in));
+        MODDATA result = m.c.o.Functor(input);
+        struct module_type mt = convertMD(result,*(m.c.o.out));
+        return mt.m;
+    } 
+    else mistakeFromOutside();
+    return m; // gcc is retarded
 }
 

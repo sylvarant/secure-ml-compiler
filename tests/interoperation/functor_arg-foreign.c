@@ -52,9 +52,9 @@ TEST(getSetup)
     myarg.identifier = -1;
 DONE
 
-TEST(applyFunctor)
+TEST(applyf)
     MODDATA functor = IdF();
-    MODDATA new = functorEntry(functor.identifier,myarg);
+    MODDATA new = applyFunctor(functor.identifier,myarg);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain func",(strcmp(new.names[0],"func") == 0));
@@ -64,33 +64,33 @@ DONE
 
 TEST(dynGettr)
     MODDATA functor = IdF();
-    MODDATA new = functorEntry(functor.identifier,myarg);
+    MODDATA new = applyFunctor(functor.identifier,myarg);
     func_entry func = IdF_Functor_func; 
     DATA closure = func(new);
     DATA input = {.t = INT , .value = 10};
-    DATA result = closureEntry(closure.identifier,input);
+    DATA result = applyClosure(closure.identifier,input);
     CHECK("Did not return 11",result.value == 11);
 DONE
 
 TEST(attFun)
     myarg.fcalls[0] = gooddata;
     MODDATA functor = IdF();
-    MODDATA new = functorEntry(functor.identifier,myarg);
+    MODDATA new = applyFunctor(functor.identifier,myarg);
     func_entry func = IdF_Functor_func; 
     DATA closure = func(new);
     DATA input = {.t = INT , .value = 10};
-    DATA result = closureEntry(closure.identifier,input);
+    DATA result = applyClosure(closure.identifier,input);
     CHECK("Did not return 11",result.value == 110);
 DONE
 
 CRASH(evilFun)
     myarg.fcalls[0] = baddata;
     MODDATA functor = IdF();
-    MODDATA new = functorEntry(functor.identifier,myarg);
+    MODDATA new = applyFunctor(functor.identifier,myarg);
     func_entry func = IdF_Functor_func; 
     DATA closure = func(new);
     DATA input = {.t = INT , .value = 10};
-    DATA result = closureEntry(closure.identifier,input);
+    DATA result = applyClosure(closure.identifier,input);
 RECOVER
 
 MODDATA module(void)
@@ -103,7 +103,7 @@ CRASH(modinjection)
     myarg.accs[0] = MOD; 
     myarg.fcalls[0] = module;
     MODDATA functor = IdF();
-    MODDATA new = functorEntry(functor.identifier,myarg);
+    MODDATA new = applyFunctor(functor.identifier,myarg);
     func_entry func = IdF_Functor_func; 
     DATA closure = func(new);
 RECOVER
@@ -125,7 +125,7 @@ TEST(deepModule)
     mod.accs[0] = MOD;
     mod.names[0] = "Inner";
     MODDATA functor = IdFDeep(); 
-    MODDATA new = functorEntry(functor.identifier,mod);
+    MODDATA new = applyFunctor(functor.identifier,mod);
     MODDATA obj = IdFDeep_Functor_Inner(new);
     CHECK("Resulting object does not have correct entry point",obj.fcalls[0] == IdFDeep_Functor_Inner_test);
     DATA closure = IdFDeep_Functor_Inner_test(obj); 
@@ -135,7 +135,7 @@ DONE
 
 LIST
     RUN(getSetup);
-    RUN(applyFunctor);
+    RUN(applyf);
     RUN(dynGettr);
     RUN(attFun);
     RUN(evilFun);

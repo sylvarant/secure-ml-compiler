@@ -44,14 +44,14 @@ sig
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string 
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc 
-    | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
+    | ToFunctorCall of tempc * tempc * tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
     | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
     | ToDeref of tempc | ToLocation of tempc | ToExit of tempc | ToFix of tempc
 
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC |FIELD | ENTRY | ISENTRY
-  and consts = ENV | ARG | MOD | STR | TOP | FVAR
+  and consts = ENV | ARG | MOD | STR | TOP | FVAR | STRUCT | FUNCTOR
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT | LOADED
   and headers = MINI | ENTRY 
   and accs = BVAL | BDVAL | BMOD | BDMOD | BUVAL
@@ -135,7 +135,7 @@ struct
     | CLocal of locality | Include of string | Comment of string
     | ToStructure of string * tempc list | Member of type_u * string  
     | CallMember of type_u * string * type_u list | SetMember of string * string * tempc
-    | ToFunctor of tempc | GetStr of tempc * tempc | ToIdent of tempc
+    | ToFunctorCall of tempc * tempc * tempc | GetStr of tempc * tempc | ToIdent of tempc
     | ToVar of tempc | UpdateB of tempc * int * tempc | Append of tempc * tempc
     | GetPos of int | ToUnit | ToBoolean of tempc | ToAssign of tempc * tempc
     | ToDeref of tempc | ToLocation of tempc | ToExit of tempc | ToFix of tempc
@@ -143,9 +143,9 @@ struct
   and locality = LOCAL | SECRET | FUNCTIONALITY | ENTRYPOINT
 
   and datastr = VALUE | BINDING | STRUCTURE | VOID | DATA | DTYPE | CHAR | MODULE | MODDATA | ACC 
-    |FIELD | ENTRY | ISENTRY
+    |FIELD | ENTRY | ISENTRY 
 
-  and consts = ENV | ARG | MOD | STR | TOP | FVAR
+  and consts = ENV | ARG | MOD | STR | TOP | FVAR | STRUCT | FUNCTOR
 
   and calls = BOOT | CONV | CONT | STRCPY | PATH | PATHV | CMP_INT | LOADED
 
@@ -202,6 +202,8 @@ struct
     | FVAR -> "my_fvar"
     | STR -> "my_str"
     | TOP -> "toplevel"
+    | STRUCT -> "STRUCT"
+    | FUNCTOR -> "SECFUNCTOR"
 
   (* print headers *)
   let printh = function
@@ -351,7 +353,7 @@ struct
     | ToDef (a,b,ls) -> "LOCAL "^(printc a)^" "^(printc b)^"("^(match ls with [] -> "void"
       | _ -> (String.concat ";" (List.map printc ls)))^"){\n"
     | ToStructure (s,ls) -> "struct "^s^" {"^ (String.concat " "  (List.map printc ls))^"}"
-    | ToFunctor a -> "("^(printc a)^").c.f.Functor"
+    | ToFunctorCall (a,b,c) -> "(apply_module("^(printc a)^","^(printc b)^","^(printc c)^"))"
     | Member (ty,str) -> (printty ty)^" "^str^";"
     | CallMember (ret,n,arg) -> (printty ret)^" (*"^n^")("^(match arg with [] -> "void" 
       | ls -> (String.concat "," (List.map printty arg)))^");"

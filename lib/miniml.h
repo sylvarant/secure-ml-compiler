@@ -170,25 +170,19 @@ extern const VALUE V(Unit);
 extern const VALUE V(True); 
 extern const VALUE V(False);
 
+
 /*-----------------------------------------------------------------------------
  * Modules
  *-----------------------------------------------------------------------------*/
+
 typedef DATA (*foreignval) (void);
 typedef MODDATA (*foreignmod) (void);
-
-struct foreign_s{
-    TYPE req;
-    union {
-        foreignval fe;
-        foreignmod me;
-    };
-};
-
 typedef enum acc_e { BVAL, BMOD, BDVAL, BDMOD, BUVAL } ACC;
-typedef enum isentry_e { YES, NO} ISENTRY;
+typedef enum isentry_e { YES, NO } ISENTRY;
+typedef enum modtype_e { STRUCT, SECFUNCTOR, FORFUNCTOR } MODTYPE;
 
 typedef struct module_s{
-    MODTAG type;
+    MODTYPE type;
     BINDING * strls;
     INTLIST * keys;
     union content {
@@ -218,6 +212,11 @@ typedef struct module_s{
             char ** names;
             union entry_t * entries;
         }f;
+        struct foreignfunctor {
+            TYPE * in;
+            TYPE * out;
+            MODDATA (*Functor) (MODDATA);  
+        }o;
     }c;
 }MODULE;
 
@@ -306,14 +305,12 @@ LOCAL VALUE get_value_path(MODULE,char*);
 LOCAL MODULE get_module_path(MODULE,char*);
 LOCAL MODULE updateEntry(MODULE,BINDING*,int,char **,ENTRY * ls);
 LOCAL VALUE foreign_lambda(BINDING *,BINDING *,VALUE);
-LOCAL MODULE foreign_module(foreignmod f,TYPE);
-LOCAL VALUE foreign_value(foreignval f,TYPE);
 FUNCTIONALITY MODULE load_struct(MODULE);
+FUNCTIONALITY MODULE apply_module(MODULE,BINDING*,MODULE);
 
 // type checking
 LOCAL int type_check(TYPE,TYPE); 
 FUNCTIONALITY void unify_types(TYPE,TYPE);
-
 
 
 /*-----------------------------------------------------------------------------
@@ -393,7 +390,7 @@ LOCAL inline VALUE makeLocation(VALUE val)
 /* 
  * ===  FUNCTION ======================================================================
  *         Name:  makeForeignLoc
- *  Description:  create a location pointing to an outside memory cell
+ *  Description:  create a location pointing to an outside memory cell -- DEPRECATED
  * =====================================================================================
  */
 LOCAL inline VALUE makeForeignLoc(DATA * cell, TYPE ty)
@@ -430,7 +427,7 @@ LOCAL inline VALUE makeAssign(VALUE left,VALUE right)
     if(left.b.t == BYTES){
         DATA d = convertV(right,left.ll.ty);
         *(left.ll.cell) = d;
-    } else{
+    } else{ 
         *(left.l.content) = right;
     }
     return V(Unit);
@@ -776,7 +773,7 @@ LOCAL inline CONTENT makeContentS(int c,char ** n,ACC * a,FIELD * fs,ISENTRY * i
  *  Description:  return a Module
  * =====================================================================================
  */
-LOCAL inline MODULE makeModule(MODTAG t, BINDING * ls,CONTENT c)
+LOCAL inline MODULE makeModule(MODTYPE t, BINDING * ls,CONTENT c)
 {
     MODULE ret;
     ret.type = t;

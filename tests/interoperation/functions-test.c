@@ -39,14 +39,14 @@ DONE
 TEST(applytof4)
     DATA clo = function4();
     DATA arg = function3();
-    DATA res = closureEntry(clo.identifier,arg);
+    DATA res = applyClosure(clo.identifier,arg);
     CHECK("Did not recieve a Boolean",res.t == BOOLEAN);
 DONE
 
 CRASH(crashf4)
     DATA clo = function4();
     DATA arg = function2();
-    DATA res = closureEntry(clo.identifier,arg);
+    DATA res = applyClosure(clo.identifier,arg);
 RECOVER
 
 LIST

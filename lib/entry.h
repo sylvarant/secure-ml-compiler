@@ -111,7 +111,7 @@ typedef struct Type_s {
  *-----------------------------------------------------------------------------*/
 
 typedef enum Modtag_e{
-    STRUCTURE, FUNCTOR 
+    STRUCTURE, FUNCTOR, 
 } MODTAG;
 
 typedef enum Calltag_e { VAL , MOD } CALLTAG;
@@ -120,11 +120,14 @@ typedef struct Moduledata_s{
     MODTAG t;
 //    DTYPE type;
     int identifier;
-    struct {
-        int count;
-        char ** names; 
-        CALLTAG * accs;
-        void ** fcalls;
+    union{
+        struct {
+            int count;
+            char ** names; 
+            CALLTAG * accs;
+            void ** fcalls;
+        };
+        struct Moduledata_s (*fctr) (struct Moduledata_s);
     };
 } MODDATA;
 
@@ -137,9 +140,10 @@ typedef MODDATA (*mod_entry) (MODDATA);
  *  General Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT DATA closureEntry(int,DATA);
-ENTRYPOINT MODDATA functorEntry(int,MODDATA);
-ENTRYPOINT DATA locationEntry(int);
+ENTRYPOINT DATA applyClosure(int,DATA);
+ENTRYPOINT MODDATA applyFunctor(int,MODDATA);
+ENTRYPOINT DATA readLocation(int);
+ENTRYPOINT void setLocation(int,DATA);
 ENTRYPOINT void load(void);
 
 #endif

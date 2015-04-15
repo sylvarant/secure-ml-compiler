@@ -444,7 +444,7 @@ struct
                 (ToCall ((CVar "path_module"),[(constv MOD) ; (CString pp) ]))
             | AR (n,ls,Some mb,i) ->  let ar = (parse (AR(n,ls,None,i))) 
               and arg = (parse mb) in
-                (ToCall(ToFunctor(ar),[(constv MOD);arg]))
+                ToFunctorCall(ar,(constv MOD),arg)
             | FB (pth,var,_,_,mb,id,(dyn,_)) -> if not dyn then (CVar (make_str pth)) 
                 else ToCall(CVar (make_ptr pth),[(constv MOD)])
             | SB (pth,nbinding,(dyn,_)) -> if not dyn then (CVar (make_str pth))
