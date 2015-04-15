@@ -16,7 +16,7 @@
 #include "unit.h"
 
 int tests_run = 0;
-int tests_set = 7;
+int tests_set = 9;
 
 DATA goodclosure(DATA val)
 {
@@ -108,6 +108,9 @@ CRASH(modinjection)
     DATA closure = func(new);
 RECOVER
 
+/*----------------------------
+ * inner module
+ *---------------------------*/
 DTYPE ignored;
 char * innames [] =  {"test"};
 CALLTAG inacc[] = {VAL};
@@ -132,7 +135,40 @@ TEST(deepModule)
     CHECK("Value does not produce closure",closure.t == CLOSURE);
 DONE
 
+/*----------------------------
+ * foreign identity functor
+ *---------------------------*/
+MODDATA att_functor(MODDATA m)
+{
+   return m; 
+}
 
+TEST(foreignFunc)
+    MODDATA farg = {.t = FUNCTOR, .identifier = -1, .fctr = att_functor};
+    MODDATA funct = SimpleAppF();
+    MODDATA str = applyFunctor(funct.identifier,farg);
+    CHECK("Result does not contain the right entry points",str.fcalls[0] == SimpleAppF_Functor_func);
+    func_entry call = SimpleAppF_Functor_func; 
+    DATA closure = call(str); 
+    CHECK("Did not recieve a closure",closure.t == CLOSURE);
+DONE
+
+
+/*----------------------------
+ * foreign alternate functor
+ *---------------------------*/
+MODDATA alt_functor(MODDATA m)
+{
+   return inner; 
+}
+
+CRASH(functorinjection)
+    MODDATA farg = {.t = FUNCTOR, .identifier = -1, .fctr = alt_functor};
+    MODDATA funct = SimpleAppF();
+    MODDATA str = applyFunctor(funct.identifier,farg);
+RECOVER
+
+// the tests
 LIST
     RUN(getSetup);
     RUN(applyf);
@@ -141,6 +177,8 @@ LIST
     RUN(evilFun);
     RUN(modinjection);
     RUN(deepModule);
+    RUN(foreignFunc);
+    RUN(functorinjection);
 DONE
 
 INCLUDE_MAIN
