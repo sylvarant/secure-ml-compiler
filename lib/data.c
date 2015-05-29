@@ -6,7 +6,7 @@
  *    Description:  All conversion code goes here
  *
  *         Author:  
- *        Company:  SOMEWHERE
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -77,7 +77,6 @@ LOCAL char * nextId(char ** str)
     char * end = start;
     while(*end != '\0' && *end != '.') end++;
 
-
     int res_size = end - start;
     char * result = MALLOC((res_size)+1);
     for(int i = 0; i < res_size; i++) result[i] = start[i];
@@ -110,8 +109,6 @@ MODULE get_module(MODULE m,char * str)
                 }
 
                 case BDMOD :{
-                   // struct foreign_s fs = *((m.c.s.fields[i]).foreign);
-                   // return foreign_module(fs.me,fs.req);
                    DEBUG_PRINT("DEPRECATED");
                 }
 

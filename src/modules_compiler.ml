@@ -5,8 +5,8 @@
  *
  *  Description: Compile the Modules into our own representation
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)

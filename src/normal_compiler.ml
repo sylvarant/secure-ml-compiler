@@ -5,8 +5,8 @@
  *
  *  Description:  Compile the AST into C in a non secure way
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)

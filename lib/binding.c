@@ -5,8 +5,8 @@
  *
  *    Description:  Implementation of the binding system
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

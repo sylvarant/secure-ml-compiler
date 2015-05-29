@@ -3,8 +3,8 @@
  *
  *       Filename:  simple-timing.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

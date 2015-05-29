@@ -3,8 +3,8 @@
  *
  *       Filename:  example9-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

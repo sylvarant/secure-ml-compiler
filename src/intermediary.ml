@@ -4,8 +4,8 @@
  *
  *  Description:  Print intermediary to C 
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)

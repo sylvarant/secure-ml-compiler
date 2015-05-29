@@ -5,8 +5,8 @@
  *
  *  Description:  Typechecker for MiniML ML
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)

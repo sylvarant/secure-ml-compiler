@@ -5,8 +5,8 @@
  *
  *    Description:  The definitions we need to compile into
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

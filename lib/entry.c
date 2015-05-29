@@ -7,7 +7,7 @@
  *                  To be included at the end of the generated code
  *
  *         Author:  
- *        Company:  SOMEWHERE
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

@@ -3,8 +3,8 @@
  *
  *       Filename:  functions-calls.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

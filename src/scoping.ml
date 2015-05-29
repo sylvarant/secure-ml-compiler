@@ -6,8 +6,8 @@
  *   Description:  MiniML term and type scoping 
  *  Extension of:  Xavier Leroy's modular Modules implementation
  *
- *        Author:  MYSTERY MAN, 
- *       Company:  SOMEWHERE IT
+ *        Author:  Adriaan, 
+ *       Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)

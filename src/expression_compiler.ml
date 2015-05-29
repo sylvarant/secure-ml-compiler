@@ -5,8 +5,8 @@
  *
  *  Description:  Compile the AST into C
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)
