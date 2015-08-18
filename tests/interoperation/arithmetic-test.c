@@ -3,8 +3,8 @@
  *
  *       Filename:  example6-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -21,11 +21,11 @@ TEST(getaddClosure)
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
 DONE
 
-TEST(applyClosure)
+TEST(applyc)
     DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = INT, .value = 5 };
-    DATA res = closureEntry(temp.identifier,input);
+    DATA res = applyClosure(temp.identifier,input);
     CHECK("Did not get a correct result",res.value == 6);
 DONE
 
@@ -38,12 +38,12 @@ CRASH(crashCloApply)
     DATA temp = add();
     CHECK("Did not fetch a Closure from add",temp.t == CLOSURE);
     DATA input = { .t = BOOLEAN, .value = 5 };
-    DATA res = closureEntry(temp.identifier,input);
+    DATA res = applyClosure(temp.identifier,input);
 RECOVER
 
 LIST
     RUN(getaddClosure);
-    RUN(applyClosure);
+    RUN(applyc);
     RUN(getcompClosure);
     RUN(crashCloApply);
 DONE

@@ -48,7 +48,7 @@
 
     #define BASIC DATA
     #define STRCT MODDATA
-    #define APPLYCL(x,y) closureEntry(x.identifier,y)
+    #define APPLYCL(x,y) applyClosure(x.identifier,y)
     #define CALL(x) x()
     #define CALLM(x) CALL(x)
     #define NOTE "Ran: %d/%d Tests\n"

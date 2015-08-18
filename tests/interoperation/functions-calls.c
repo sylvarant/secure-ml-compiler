@@ -3,8 +3,8 @@
  *
  *       Filename:  functions-calls.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -47,14 +47,14 @@ DONE
 TEST(applytof4)
     DATA clo = function4();
     DATA arg = {.t = CALLBACK, .call = goodfunction};
-    DATA res = closureEntry(clo.identifier,arg);
+    DATA res = applyClosure(clo.identifier,arg);
     CHECK("Did not recieve a Boolean",res.t == BOOLEAN);
 DONE
 
 CRASH(crashf4)
     DATA clo = function4();
     DATA arg = {.t = CALLBACK, .call = badfunction};
-    DATA res = closureEntry(clo.identifier,arg);
+    DATA res = applyClosure(clo.identifier,arg);
 RECOVER
 
 LIST

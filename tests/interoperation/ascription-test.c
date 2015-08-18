@@ -3,8 +3,8 @@
  *
  *       Filename:  example9-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -20,7 +20,7 @@ TEST(testpublic)
     DATA temp = Main_public();
     CHECK("Did not fetch a Closure from public",temp.t == CLOSURE);
     DATA arg = { .t = INT, .value = 3};
-    DATA res = closureEntry(temp.identifier,arg);
+    DATA res = applyClosure(temp.identifier,arg);
     CHECK("Did not recieve back 80",res.value == 80);
 DONE
 

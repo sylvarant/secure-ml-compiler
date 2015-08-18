@@ -5,8 +5,8 @@
  *
  *  Description: Pretty print the types for debugging purposes
  *
- *       Author: MYSTERY MAN, 
- *      Company: SOMEWHERE IT
+ *       Author: Adriaan, 
+ *      Company: Uppsala IT IT
  *
  * =====================================================================================
  *)

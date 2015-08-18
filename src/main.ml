@@ -5,8 +5,8 @@
  *
  *    Description:  Boot up the parser feed typechecker, scoper, compiler
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE IT
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)
@@ -141,6 +141,8 @@ let main() =
   try 
     (* Step 1 : Parse *)
     let prog = Parser.implementation Lexer.token lexbuf in
+
+    let x = 1 in
 
     (* Step 2 : PreProcess *)
     let processed = preprocess prog (Filename.dirname file) in

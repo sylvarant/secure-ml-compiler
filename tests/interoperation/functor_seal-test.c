@@ -3,8 +3,8 @@
  *
  *       Filename:  functor_seal-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -28,10 +28,10 @@ TEST(getFunctor)
     CHECK("Did not fetch the functor module",functor.t == FUNCTOR);
 DONE
 
-TEST(applyFunctor)
+TEST(applyf)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 2);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -41,7 +41,7 @@ DONE
 TEST(dynamicEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     func_entry call2 = new.fcalls[1];
     DATA result = call(new);
@@ -53,46 +53,46 @@ DONE
 TEST(dynamicResult)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     func_entry call2 = new.fcalls[1];
     DATA closure = call(new);
     DATA closure2 = call2(new);
     DATA arg = { .t = INT, .value = 2 };
-    DATA result = closureEntry(closure.identifier,arg); 
+    DATA result = applyClosure(closure.identifier,arg); 
     CHECK("Result is Abstract",result.t == ABSTRACT);  
-    DATA result2 = closureEntry(closure2.identifier,result); 
+    DATA result2 = applyClosure(closure2.identifier,result); 
     CHECK("Result is false",result2.value == 0);  
 DONE
 
 CRASH(dynamicResultTypeFail)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     func_entry call = new.fcalls[1];
     DATA closure = call(new);
     DATA left = { .t = INT, .value = 2 };
-    DATA result = closureEntry(closure.identifier,left); 
+    DATA result = applyClosure(closure.identifier,left); 
 RECOVER
 
 CRASH(dynamicResultTypeFail2)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
-    MODDATA second = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
+    MODDATA second = applyFunctor(functor.identifier,temp);
     func_entry scall = second.fcalls[0];
     DATA left = { .t = INT, .value = 2 };
     DATA sclosure = scall(second);
-    DATA type2 = closureEntry(sclosure.identifier,left); 
+    DATA type2 = applyClosure(sclosure.identifier,left); 
     func_entry call = new.fcalls[1];
     DATA closure = call(new);
-    DATA result = closureEntry(closure.identifier,type2); 
+    DATA result = applyClosure(closure.identifier,type2); 
 RECOVER
 
 LIST
     RUN(getModule);
     RUN(getFunctor);
-    RUN(applyFunctor);
+    RUN(applyf);
     RUN(dynamicEntry);
     RUN(dynamicResult);
     RUN(dynamicResultTypeFail);

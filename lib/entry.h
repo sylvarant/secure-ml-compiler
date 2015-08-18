@@ -6,17 +6,15 @@
  *    Description:  global header file, defines the general entry points
  *                  for the attacker
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
 
-
 #ifndef ENTRY_INCLUDED
 #define ENTRY_INCLUDED
 
-#include <stdlib.h>
 
 /*-----------------------------------------------------------------------------
  * SANCUS SPM structure
@@ -28,17 +26,34 @@
     #define __MSP430_INTRINSICS_H_
     #include <msp430.h>
 
-    #define SPM_Name: "secure_vm" // TODO perl insert ?
+    #define SPM_Name "secure_module" // TODO perl insert ?
 
     extern struct SancusModule secure_vm;
 
     // Entry point is sacred
     #define ENTRYPOINT SM_ENTRY(SPM_NAME) extern
 
+    #include <stdlib.h>
+
+#else
+
+#ifdef FIDES_PMA
+
+  #include <PCBAC/spm_annotations.h>
+  #define PCBAC_SPM_NAME "secure_module"
+  #define ENTRYPOINT ENTRY_POINT
+
+  #include <SPM_Core/stdlib.h>
+  #include <fides_libc/types.h>
+  #include <SecureKernel/spm_id.h>
+
 #else
     
     #define ENTRYPOINT extern
 
+    #include <stdlib.h>
+
+#endif
 #endif
 
 /*-----------------------------------------------------------------------------
@@ -111,20 +126,23 @@ typedef struct Type_s {
  *-----------------------------------------------------------------------------*/
 
 typedef enum Modtag_e{
-    STRUCTURE, FUNCTOR 
+    STRUCTURE, FUNCTOR, 
 } MODTAG;
 
 typedef enum Calltag_e { VAL , MOD } CALLTAG;
 
 typedef struct Moduledata_s{
     MODTAG t;
-    DTYPE type;
+//    DTYPE type;
     int identifier;
-    struct {
-        int count;
-        char ** names; 
-        CALLTAG * accs;
-        void ** fcalls;
+    union{
+        struct {
+            int count;
+            char ** names; 
+            CALLTAG * accs;
+            void ** fcalls;
+        };
+        struct Moduledata_s (*fctr) (struct Moduledata_s);
     };
 } MODDATA;
 
@@ -137,9 +155,10 @@ typedef MODDATA (*mod_entry) (MODDATA);
  *  General Entrypoints 
  *-----------------------------------------------------------------------------*/
 
-ENTRYPOINT DATA closureEntry(int,DATA);
-ENTRYPOINT MODDATA functorEntry(int,MODDATA);
-ENTRYPOINT DATA locationEntry(int);
+ENTRYPOINT DATA applyClosure(int,DATA);
+ENTRYPOINT MODDATA applyFunctor(int,MODDATA);
+ENTRYPOINT DATA readLocation(int);
+ENTRYPOINT void setLocation(int,DATA);
 ENTRYPOINT void load(void);
 
 #endif

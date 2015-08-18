@@ -3,8 +3,8 @@
  *
  *       Filename:  basic_functor-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -21,7 +21,7 @@ TEST(dynamicEntry)
     STRCT temp = CALLM(IsZero);
     #ifndef INSECURE
     STRCT functor = PairTest();
-    STRCT new = functorEntry(functor.identifier,temp);
+    STRCT new = applyFunctor(functor.identifier,temp);
     #else 
     STRCT new = _PairTest_Fctr1(NULL,temp);
     #endif

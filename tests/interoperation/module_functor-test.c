@@ -3,8 +3,8 @@
  *
  *       Filename:  module_functor-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -27,10 +27,10 @@ TEST(getFunctor)
     CHECK("Did not fetch the functor module",functor.t == FUNCTOR);
 DONE
 
-TEST(applyFunctor)
+TEST(applyf)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 5);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -41,7 +41,7 @@ DONE
 TEST(dynamicModule)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     mod_entry call = new.fcalls[1];
     MODDATA result = call(new);
     CHECK("Result is a Structure",result.t == STRUCTURE);
@@ -51,7 +51,7 @@ DONE
 TEST(dynamicModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     mod_entry call = new.fcalls[1];
     MODDATA inner = call(new);
     func_entry call2 = inner.fcalls[0];
@@ -62,7 +62,7 @@ DONE
 CRASH(crashdynamicModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     mod_entry call = new.fcalls[1];
     MODDATA inner = call(new);
     func_entry call2 = inner.fcalls[0];
@@ -72,7 +72,7 @@ RECOVER
 TEST(assignedModule)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     mod_entry call = new.fcalls[2];
     MODDATA inner = call(new);
     CHECK("Result is a Structure",inner.t == STRUCTURE);
@@ -82,13 +82,13 @@ DONE
 TEST(assignedModuleEntry)
     MODDATA temp = IsZero();
     MODDATA functor = Test();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     mod_entry call = Test_Functor_Origin; 
     MODDATA origin = call(new);
     func_entry test = Test_Functor_Origin_test;
     DATA arg = {.t = INT, .value = 10};
     DATA closure = test(origin); 
- /*   DATA result = closureEntry(closure.identifier,arg);    
+ /*   DATA result = applyClosure(closure.identifier,arg);    
     CHECK("Result is not a boolean",result.t == BOOLEAN);
     CHECK("Result is not false",result.value == 0);  */
 DONE 
@@ -96,7 +96,7 @@ DONE
 LIST
     RUN(getModule);
     RUN(getFunctor);
-    RUN(applyFunctor);
+    RUN(applyf);
     RUN(dynamicModule);
     RUN(dynamicModuleEntry);
     RUN(assignedModule);

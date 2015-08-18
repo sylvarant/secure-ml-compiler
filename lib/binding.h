@@ -5,8 +5,8 @@
  *
  *    Description:  Implementation of the bindings used in the run-time
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */

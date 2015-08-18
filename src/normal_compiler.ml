@@ -5,8 +5,8 @@
  *
  *  Description:  Compile the AST into C in a non secure way
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)
@@ -95,7 +95,7 @@ struct
     and pl_ls = (separate "Closures" (MC.Low.lambda (List.rev lambdas)))
     and pv_ls = (separate "Values" (MC.Low.getter (List.rev gettrs)))
     and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctrs)))
-    and ld_ls = (separate "Load" [(MC.Low.load (List.rev gettrs))]) 
+    and ld_ls = (separate "Load" [(MC.Low.load nstrcts)]) 
     and objh =  header (List.map printc [(Include headerf)]) in
     let bigls = (objh @ glb_ls @ dec_ls @ pb_ls @ pl_ls @ pv_ls @ fc_ls @ ld_ls @ footer) in
     let objectfile = ((String.concat "\n" bigls) ^ "\n")

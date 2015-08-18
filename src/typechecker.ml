@@ -5,8 +5,8 @@
  *
  *  Description:  Typechecker for MiniML ML
  *
- *     Author:  MYSTERY MAN, 
- *    Company:  SOMEWHERE IT
+ *     Author:  Adriaan, 
+ *    Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)
@@ -72,7 +72,6 @@ struct
   let compare_lty t1 t2 =  if (is_ignore t1 t2) then true
     else t1 = t2
 
-  (* TODO what does this do *)
   let instance vty = match vty.quantif with [] -> vty.body
     | vars -> subst_vars (List.map (fun v -> (v, unknown())) vars) vty.body
 

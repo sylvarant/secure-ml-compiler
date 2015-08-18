@@ -3,8 +3,8 @@
  *
  *       Filename:  functor_two-test.c
  *
- *         Author:  MYSTERY MAN, 
- *        Company:  SOMEWHERE
+ *         Author:  Adriaan, 
+ *        Company:  Uppsala IT
  *
  * =====================================================================================
  */
@@ -34,19 +34,19 @@ TEST(getTest2)
     CHECK("Did not fetch the test 2 functor",functor.t == FUNCTOR);
 DONE
 
-TEST(applyFunctor1)
+TEST(applyf1)
     MODDATA temp = Input();
     MODDATA functor = Test1();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
 DONE
 
-TEST(applyFunctor2)
+TEST(applyf2)
     MODDATA temp = Input();
     MODDATA functor = Test2();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     CHECK("Did not produce a new module",new.t == STRUCTURE);
     CHECK("New module does not have enough names",new.count == 1);
     CHECK("New module does not contain testfst",(strcmp(new.names[0],"testfst") == 0));
@@ -55,7 +55,7 @@ DONE
 TEST(dynamicEntry1)
     MODDATA temp = Input();
     MODDATA functor = Test1();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     DATA result = call(new);
     CHECK("Result is a closure",result.t == CLOSURE);
@@ -64,7 +64,7 @@ DONE
 TEST(dynamicEntry2)
     MODDATA temp = Input();
     MODDATA functor = Test2();
-    MODDATA new = functorEntry(functor.identifier,temp);
+    MODDATA new = applyFunctor(functor.identifier,temp);
     func_entry call = new.fcalls[0];
     DATA result = call(new);
     CHECK("Result is a closure",result.t == CLOSURE);
@@ -73,9 +73,9 @@ DONE
 CRASH(crashDynamicEntry)
     MODDATA temp = Input();
     MODDATA functor1 = Test1();
-    MODDATA new1 = functorEntry(functor1.identifier,temp);
+    MODDATA new1 = applyFunctor(functor1.identifier,temp);
     MODDATA functor2 = Test2();
-    MODDATA new2 = functorEntry(functor2.identifier,temp);
+    MODDATA new2 = applyFunctor(functor2.identifier,temp);
     func_entry call = new1.fcalls[0];
     DATA result = call(new2);
 RECOVER
@@ -85,8 +85,8 @@ LIST
     RUN(getModule);
     RUN(getTest1);
     RUN(getTest2);
-    RUN(applyFunctor1);
-    RUN(applyFunctor2);
+    RUN(applyf1);
+    RUN(applyf2);
     RUN(dynamicEntry1);
     RUN(dynamicEntry2);
     RUN(crashDynamicEntry);

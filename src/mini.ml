@@ -6,8 +6,8 @@
  *   Description:  MiniML term and type specification (Modules not included)
  *  Extension of:  Xavier Leroy's modular Modules implementation
  *
- *        Author:  MYSTERY MAN, 
- *       Company:  SOMEWHERE IT
+ *        Author:  Adriaan, 
+ *       Company:  Uppsala IT IT
  *
  * =====================================================================================
  *)
