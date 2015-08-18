@@ -2,8 +2,8 @@
 
 ### What is this repository for? ###
 
-Ocaml implementation of a secure compiler for ModuleML.
-
+This repository contains the implementation of the
+secure compiler for ModuleML described in an APLAS 2015 paper.
 
 ### Setup ###
 $ make setup
