@@ -1,4 +1,4 @@
-# README #
+[![Build Status](https://travis-ci.org/sylvarant/secure-ml-compiler.svg?branch=Lite)](https://travis-ci.org/sylvarant/secure-ml-compiler)
 
 ### What is this repository for? ###
 
