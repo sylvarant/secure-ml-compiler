@@ -47,7 +47,7 @@ if [[ $res -ne 0 ]];then
 fi
 
 # Wno-unused-value is there for compiling sequence
-gcc  $outputc -I./lib/  -std=c99 -g -Werror -Wfatal-errors -Wno-unused-value -O -c -o $outputm 
+gcc  $outputc -I./lib/  -std=c99 -g -Werror -Wno-unused-value -O -c -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"
