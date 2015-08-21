@@ -14,6 +14,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#if defined(__linux__)
+  #include <sys/wait.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
