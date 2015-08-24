@@ -208,17 +208,16 @@ done
 
 
 #==== Final Result ====
+echo -e " of \033[1;33m[$TestCounter]\033[0m Tests in $(expr `date +%s` - $StartTime)(s)"
 echo -e "\n== FINAL RESULT =="
 
 printf "%s" "  "
 if [[ $SuccesCounter -ne $TestCounter ]];then
     echo -ne "\033[1;31m[$SuccesCounter]\033[0m"
+    exit 1
 else 
     echo -ne "\033[1;33m[$SuccesCounter]\033[0m"
+    exit 0
 fi
 
-echo -e " of \033[1;33m[$TestCounter]\033[0m Tests in $(expr `date +%s` - $StartTime)(s)"
 
-cat $logname
-
-exit 0
