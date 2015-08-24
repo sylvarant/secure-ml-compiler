@@ -13,12 +13,8 @@
 #include "diverge.h"
 
 int tests_run = 0;
-int tests_set = 2;
+int tests_set = 3;
 
-// test the exit statement
-/*CRASH(terminate)
-    DATA temp = Inner_terminate();
-RECOVER*/
 
 TEST(recursion)
     DATA closure = Inner_recurse();  
@@ -35,10 +31,17 @@ TEST(recursion2)
     CHECK("Result is not true",result.value == 1); 
 DONE
 
+// test the exit statement
+CRASH(terminate)
+    DATA closure = Inner_terminate();  
+    DATA bln = { .t = BOOLEAN, .value = 1 }; 
+    DATA temp = applyClosure(closure.identifier,bln);
+RECOVER
+
 LIST
-//    RUN(terminate);
     RUN(recursion);
     RUN(recursion2);
+    RUN(terminate);
 DONE
 
 INCLUDE_MAIN
