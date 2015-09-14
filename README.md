@@ -1,14 +1,26 @@
+Secure ML Modules Compiler
+==========================================
+
 [![Build Status](https://travis-ci.org/sylvarant/secure-ml-compiler.svg?branch=Lite)](https://travis-ci.org/sylvarant/secure-ml-compiler)
 
 ### What is this repository for? ###
 
 This repository contains the implementation of the
-secure compiler for ModuleML described in an APLAS 2015 paper.
+secure compiler for ModuleML described in the APLAS 2015 paper:`A Secure Compiler for ML Modules`.
 
 ### Setup ###
-$ make setup
-$ make now
-$ make test
+Set up the environment:
+```bash
+make setup
+```
+Compile the compiler:
+```bash
+make now
+```
+Compile and run the tests:
+```bash
+make test
+```
 
 ### Repository Structure ###
 * src/ : compiler source code
@@ -21,13 +33,17 @@ $ make test
 
 ### Scripts ###
 
-$ compile : a wrapper around the compiler
-    - compile 0 <file> : compile securely
-    - compile 1 <file> : comile naively
+- `compile` : a bash wrapper around the compiler
+```bash
+compile 0 <file> # compile securely
+compile 1 <file> # comile naively
+```
 
-$ link : a wrapper around the gcc linker to help combining modules and contexts
-    - link <object> <file> [-DINSECURE]
+- `link` : a wrapper around the gcc linker to help combining modules and contexts
+```bash
+link <object> <file> [-DINSECURE]
+```
 
-$ test : custom built testing mechanism
+- `test` : custom built testing mechanism
 
 
