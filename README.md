@@ -1,7 +1,7 @@
 Secure ML Modules Compiler
 ==========================================
 
-[![Build Status](https://travis-ci.org/sylvarant/secure-ml-compiler.svg?branch=Lite)](https://travis-ci.org/sylvarant/secure-ml-compiler)
+[![Build Status](https://travis-ci.org/sylvarant/secure-ml-compiler.svg?branch=Lite)](https://travis-ci.org/sylvarant/secure-ml-compiler) [![Coverage Status](https://coveralls.io/repos/sylvarant/secure-ml-compiler/badge.svg?branch=master&service=github)](https://coveralls.io/github/sylvarant/secure-ml-compiler?branch=master) 
 
 ### What is this repository for? ###
 
