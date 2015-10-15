@@ -23,13 +23,17 @@ now: compiler
 setup:
 	-mkdir out
 	-mkdir log
+	-mkdir coverage
 
 test:
 	@./test
+
+report:
+	ocveralls --prefix src/_build coverage/run*.out --send 
 
 clean:
 	$(MAKE) clean -C $(COMPILER_DIR)
 	rm -fr out/*
 	
 
-.PHONY: test setup compiler clean now
+.PHONY: test setup compiler clean now report

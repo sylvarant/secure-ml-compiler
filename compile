@@ -30,7 +30,7 @@ if [[ $comptype -ne 0 ]];then
     outputm="${Outfold}${base}_${comptype}.o"
 fi
 
-$Compiler -t $comptype -o $outputc -h $outputh $input > /tmp/tmpfile
+BISECT_FILE=coverage/run $Compiler -t $comptype -o $outputc -h $outputh $input > /tmp/tmpfile
 res=$?
 if [[ $res -ne 0 ]];then
     if [[ $res -eq 5 ]]; then

@@ -9,6 +9,7 @@
 #============================================
 
 OCAMLBUILD=ocamlbuild -cflags -w,-a
+COVERAGE = -use-ocamlfind -package bisect_ppx 
 
 
 #============================================
@@ -30,7 +31,7 @@ SOURCES =$(wildcard *.ml*)
 #============================================
 
 native:
-	$(OCAMLBUILD) $(TARGET).native
+	$(OCAMLBUILD) $(COVERAGE) $(TARGET).native
 
 
 #============================================

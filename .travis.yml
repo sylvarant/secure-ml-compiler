@@ -8,7 +8,9 @@ before_install:
   - opam init
   - opam install ocamlfind
   - opam install bisect
+  - opam install bisect_ppx
+  - opam install ocveralls
   - eval `opam config env`
 
-script: make setup && make now && make test
+script: make setup && make now && make test && make report
 
