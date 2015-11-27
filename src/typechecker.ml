@@ -14,6 +14,7 @@
 (* Requires the MiniML specification and Leroy Modular Modules *)
 open Mini
 open Modules
+open Printer
 
 
 (* Exceptions *) 
@@ -187,7 +188,11 @@ struct
       | (LambdaType (lty1,ls1), LambdaType (lty2,ls2)) when (compare_lty lty1 lty2) ->
          if (is_ignore lty1 lty2) then ()
          else (List.iter2 (unify env) ls1 ls2)
-      | (_, _) -> raise (Cannot_TypeCheck Unification)
+      | (a,b) -> (Format.set_formatter_out_channel Pervasives.stderr); 
+        Pretty.print_simple_type a; Format.print_string " vs "; 
+        Pretty.print_simple_type b;  
+        Format.print_newline();
+          raise (Cannot_TypeCheck Unification)
     in
 
     (* infer the Lambda calc type *)

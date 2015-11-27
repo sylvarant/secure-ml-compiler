@@ -21,8 +21,6 @@
  *  DEBUGGING
  *-----------------------------------------------------------------------------*/
 
-#define DEBUG
-
 #ifdef DEBUG
     #include <stdio.h>
     #define DEBUG_PRINT(...) \

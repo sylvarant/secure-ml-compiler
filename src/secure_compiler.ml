@@ -824,7 +824,7 @@ struct
     and pv_ls = (separate "Value Bindings" (MC.Low.getter (List.rev gettr_lst)))
     and en_ls = (separate "Entry Points" (List.map printentry gentry))
     and fc_ls = (separate "Functors" (MC.Low.lambdaf (List.rev fctr_list)))
-    and ld_ls = (separate "Load" [(MC.Low.load (List.rev n_strlist))]) 
+    and ld_ls = (separate "Load" [(MC.Low.load n_strlist)]) 
     and objh =  header (List.map printc [(Include headerf) ; (consth MINI)])
     in
 

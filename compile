@@ -8,27 +8,54 @@
 #====================================================
 
 Binfold="./bin"
-Usage="compile.sh type input"
+options="dsnr:"
+Usage="Usage: `basename $0` [-$options] sourcefile"
 Compiler="src/main.native"
 Outfold="out/"
 
-
-if [[ $# -lt 2 ]];then
+# check parameter count
+if [[ $# -lt 1 ]];then
     echo $Usage
     exit 2
 fi
 
-comptype=$1
-input=$2
-filename=$(basename "$2" 2> /dev/null) 
+# target file setup 
+input=${!#}
+comptype=0
+filename=$(basename "$input" 2> /dev/null) 
 extension="${filename##*.}"
 base="${filename%.*}"
 outputc="${Outfold}${base}.c"
 outputh="${Outfold}${base}.h"
 outputm="${Outfold}${base}.o"
-if [[ $comptype -ne 0 ]];then
-    outputm="${Outfold}${base}_${comptype}.o"
-fi
+objectify=-c
+
+
+# get options 
+while getopts "$options" OPTION
+do
+	case $OPTION in
+
+    # compile naively
+    n)  comptype=1
+        outputm="${Outfold}${base}_${comptype}.o"
+        ;;
+
+    # compile securely
+    s)  comptype=0
+        ;;
+
+    d) debug="-D DEBUG" 
+        ;;
+
+    # has main function
+    r)  execute=$OPTARG 
+        outputm="${Outfold}${base}.exec"
+        objectify=''
+        break;; 
+  esac
+done
+
 
 $Compiler -t $comptype -o $outputc -h $outputh $input > /tmp/tmpfile
 res=$?
@@ -46,8 +73,13 @@ if [[ $res -ne 0 ]];then
     fi
 fi
 
+# make executable
+if [[ -n "$execute" ]]; then
+  echo "int main(void){ load(); }" >> $outputc
+fi
+
 # Wno-unused-value is there for compiling sequence
-gcc  $outputc -I./lib/  -std=c99 -g -Werror -Wfatal-errors -Wno-unused-value -O -c -o $outputm 
+gcc  $outputc $debug  -I./lib/  -std=c99 -g -Werror -Wfatal-errors -Wno-unused-value $objectify -o $outputm 
 
 if [[ $? -ne 0 ]];then
     echo "------------------------------------------------------"

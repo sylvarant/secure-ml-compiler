@@ -408,7 +408,7 @@ LOCAL inline VALUE makeForeignLoc(DATA * cell, TYPE ty)
  *  Description:  chunk a fix evaluation
  * =====================================================================================
  */
-LOCAL inline VALUE makeChunk(VALUE * ptr)
+LOCAL VALUE makeChunk(VALUE * ptr)
 {
     VALUE v;
     v.cc.t = CHUNK;
@@ -471,10 +471,12 @@ LOCAL inline VALUE makeClosure(BINDING * mod,BINDING * env, Lambda lambda)
  *  Description:  create a fix
  * =====================================================================================
  */
-LOCAL inline VALUE makeFix(VALUE val)
+LOCAL VALUE makeFix(VALUE val)
 {
-   VALUE * ptr = MALLOC(sizeof(VALUE)); 
-   *ptr = val;
+   static VALUE v;
+   v = val;
+   VALUE * ptr = &v; //MALLOC(sizeof(VALUE)); 
+   //*ptr = val;
    return doFix(ptr);
 }
 

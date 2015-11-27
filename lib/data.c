@@ -240,6 +240,7 @@ LOCAL VALUE path_value(BINDING * binding,char * path)
  */
 FUNCTIONALITY VALUE doFix(VALUE * v)
 {
+    DEBUG_PRINT("Recurse Fixpoint");
     VALUE ret;
     if(v->b.t == CLOSURE){
         VALUE nv = makeChunk(v); 
