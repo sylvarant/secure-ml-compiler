@@ -12,5 +12,5 @@ before_install:
   - opam install ocveralls
   - eval `opam config env`
 
-script: make setup && make now && make test && make report
+script: make setup && make now && make test
 
