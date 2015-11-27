@@ -176,7 +176,7 @@ do
 
     # compile an insecure link target
     printf "  %s" "Insecure Compilation :: "
-    $Compiler 1 $compbase >> $logname 2>&1
+    $Compiler -n $compbase >> $logname 2>&1
     res=$?
     printr $res 0
     if [[ $res -ne 0 ]];then

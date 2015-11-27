@@ -35,8 +35,8 @@ make test
 
 - `compile` : a bash wrapper around the compiler
 ```bash
-compile 0 <file> # compile securely
-compile 1 <file> # comile naively
+compile -s <file> # compile securely
+compile -n <file> # comile naively
 ```
 
 - `link` : a wrapper around the gcc linker to help combining modules and contexts
